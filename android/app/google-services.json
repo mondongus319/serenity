@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "215690310787",
+    "project_id": "serenity-bfead",
+    "storage_bucket": "serenity-bfead.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:215690310787:android:31025736a40f8afa1e97b6",
+        "android_client_info": {
+          "package_name": "com.example.serenity_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "215690310787-k3p79knheahq5g7kslitk157ebujepq7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.serenity_app",
+            "certificate_hash": "cd5929b01a9ed11e06e0b5461ef5582684639ba5"
+          }
+        },
+        {
+          "client_id": "215690310787-oi923rhb4ota33haqnpcn22e9u1i245l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMBEMHKI6ko2M7t6-zQqo8365rL7BGH7M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "215690310787-oi923rhb4ota33haqnpcn22e9u1i245l.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "215690310787-2ijtqsho8aqs0880vrv81eoi173lid1v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.serenityApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

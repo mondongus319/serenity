@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Serenity</string>
+    <string name="accessibility_service_description">
+        Serenity usa este servicio para mantener a los niños dentro de la aplicación en modo supervisado.
+    </string>
+</resources>

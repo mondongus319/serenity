@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';                        // ← agregar
-import 'package:permission_handler/permission_handler.dart';        // ← agregar
+import 'package:geolocator/geolocator.dart'; // ← agregar
+import 'package:permission_handler/permission_handler.dart'; // ← agregar
 import 'package:provider/provider.dart';
 import 'child_registration_screen.dart';
 import 'child_home_screen.dart';
@@ -11,7 +11,6 @@ import '../../providers/child_provider.dart';
 import '../../../../widgets/auth/password_dialog.dart';
 import '../../../../widgets/child/children_list_body.dart';
 import '../auth/role_selection_screen.dart';
-
 
 class ChildrenListScreen extends StatefulWidget {
   final String padreId;
@@ -29,8 +28,67 @@ class ChildrenListScreen extends StatefulWidget {
   State<ChildrenListScreen> createState() => _ChildrenListScreenState();
 }
 
-
 class _ChildrenListScreenState extends State<ChildrenListScreen> {
+  Future<void> _mostrarDialogoError({
+    required String titulo,
+    required String mensaje,
+  }) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A3E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(
+          Icons.error_outline_rounded,
+          color: Colors.redAccent,
+          size: 56,
+        ),
+        title: Text(
+          titulo,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        content: Text(
+          mensaje,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: const Text(
+              'Entendido',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -45,7 +103,7 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
     //    Solo verificamos silenciosamente que el permiso sigue activo.
     //    Si no lo está, mostramos un mensaje claro sin trabarse.
     final tienePermiso = await LocationService.tienePermisos();
-    final gpsActivo    = await LocationService.gpsActivo();
+    final gpsActivo = await LocationService.gpsActivo();
 
     if (!tienePermiso || !gpsActivo) {
       if (!mounted) return;
@@ -53,7 +111,7 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
       await _mostrarAvisoUbicacion(tienePermiso: tienePermiso);
       // Volvemos a verificar tras el aviso — si el usuario activó, continuamos
       final tienePermisoAhora = await LocationService.tienePermisos();
-      final gpsActivoAhora    = await LocationService.gpsActivo();
+      final gpsActivoAhora = await LocationService.gpsActivo();
       if (!tienePermisoAhora || !gpsActivoAhora) return;
     }
 
@@ -90,8 +148,11 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
                 shape: BoxShape.circle,
                 color: Colors.orange.withOpacity(0.12),
               ),
-              child: const Icon(Icons.location_on_outlined,
-                  color: Colors.orange, size: 26),
+              child: const Icon(
+                Icons.location_on_outlined,
+                color: Colors.orange,
+                size: 26,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -135,17 +196,20 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
                 child: Text(
                   tienePermiso ? 'Abrir ajustes de GPS' : 'Ir a Configuración',
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600),
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 10),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Ahora no',
-                  style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                'Ahora no',
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
           ],
         ),
@@ -155,7 +219,7 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
 
   Future<void> seleccionarNino(Map<String, dynamic> nino) async {
     // ✅ FIX: 'id' en minúscula — listarNinosPadre retorna {'id': d.id, ...}
-    final ninoId     = (nino['id'] ?? nino['ID'] ?? '').toString();
+    final ninoId = (nino['id'] ?? nino['ID'] ?? '').toString();
     final nombreNino = (nino['nombre'] ?? nino['Nombre'] ?? '').toString();
 
     final password = await PasswordDialog.show(
@@ -172,7 +236,9 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
       barrierDismissible: false,
       builder: (_) => const Center(
         child: CircularProgressIndicator(
-            color: Color(0xFF06B6D4), strokeWidth: 2.5),
+          color: Color(0xFF06B6D4),
+          strokeWidth: 2.5,
+        ),
       ),
     );
 
@@ -183,9 +249,9 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
 
     if (valido) {
       await ChildStateService.saveNinoRegistrado(
-        idNino:      ninoId,
-        nombreNino:  nombreNino,
-        idPadre:     widget.padreId,
+        idNino: ninoId,
+        nombreNino: nombreNino,
+        idPadre: widget.padreId,
         nombrePadre: widget.nombrePadre,
       );
       if (!mounted) return;
@@ -193,20 +259,19 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => ChildHomeScreen(
-            ninoId:      ninoId,
-            nombreNino:  nombreNino,
-            padreId:     widget.padreId,
+            ninoId: ninoId,
+            nombreNino: nombreNino,
+            padreId: widget.padreId,
             nombrePadre: widget.nombrePadre,
             parentEmail: widget.parentEmail,
           ),
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Contraseña incorrecta'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 3),
-      ));
+      await _mostrarDialogoError(
+        titulo: 'Contraseña incorrecta',
+        mensaje: 'La contraseña ingresada no es válida para $nombreNino.',
+      );
     }
   }
 
@@ -217,9 +282,9 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => RoleSelectionScreen(
-          email:    widget.parentEmail,
+          email: widget.parentEmail,
           userName: widget.nombrePadre,
-          userId:   widget.padreId,
+          userId: widget.padreId,
         ),
       ),
       (route) => false,
@@ -231,12 +296,12 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
     return Consumer<ChildProvider>(
       builder: (context, child, _) {
         return ChildrenListBody(
-          nombrePadre:       widget.nombrePadre,
-          ninos:             child.ninos,
-          isLoading:         child.isLoadingNinos,
-          onBack:            () => Navigator.pop(context),
-          onCambiarRol:      cambiarRol,
-          onAgregarNino:     agregarNuevoNino,
+          nombrePadre: widget.nombrePadre,
+          ninos: child.ninos,
+          isLoading: child.isLoadingNinos,
+          onBack: () => Navigator.pop(context),
+          onCambiarRol: cambiarRol,
+          onAgregarNino: agregarNuevoNino,
           onSeleccionarNino: seleccionarNino,
         );
       },

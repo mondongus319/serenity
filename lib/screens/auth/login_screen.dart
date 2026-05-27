@@ -21,12 +21,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool obscurePassword = true;
 
   // paleta
-  static const _bg     = Color(0xFF0F172A);
+  static const _bg = Color(0xFF0F172A);
   static const _bgCard = Color(0xFF1E293B);
-  static const _cyan   = Color(0xFF06B6D4);
+  static const _cyan = Color(0xFF06B6D4);
   static const _violet = Color(0xFF8B5CF6);
-  static const _pearl  = Color(0xFFF1F5F9);
-  static const _muted  = Color(0xFF94A3B8);
+  static const _pearl = Color(0xFFF1F5F9);
+  static const _muted = Color(0xFF94A3B8);
 
   @override
   void initState() {
@@ -40,23 +40,85 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!hasAsked && mounted) mostrarDialogoNotificaciones();
   }
 
+  Future<void> _mostrarDialogoMensaje({
+    required IconData icono,
+    required Color colorIcono,
+    required String titulo,
+    required String mensaje,
+    String textoBoton = 'Entendido',
+  }) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A3E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Icon(icono, color: colorIcono, size: 56),
+        title: Text(
+          titulo,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        content: Text(
+          mensaje,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorIcono,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: Text(
+              textoBoton,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void mostrarDialogoNotificaciones() {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A3E),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon: const Icon(Icons.notifications_active_outlined,
-            color: Color(0xFF6C63FF), size: 60),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(
+          Icons.notifications_active_outlined,
+          color: Color(0xFF6C63FF),
+          size: 60,
+        ),
         title: const Text(
           'Mantente informado!',
           textAlign: TextAlign.center,
           style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 20),
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         content: const Text(
           'Serenity te enviará notificaciones importantes como cuando un niño '
@@ -80,27 +142,37 @@ class _LoginScreenState extends State<LoginScreen> {
               Navigator.pop(dialogContext);
               await NotificationService.markPermissionAsked();
               final granted = await NotificationService.requestPermission();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(granted
-                      ? 'Notificaciones activadas!'
-                      : 'Notificaciones desactivadas. Puedes cambiarlas en ajustes.'),
-                  backgroundColor:
-                      granted ? const Color(0xFF6C63FF) : Colors.grey,
-                  duration: const Duration(seconds: 3),
-                ));
-              }
+              if (!mounted) return;
+
+              await _mostrarDialogoMensaje(
+                icono: granted
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_off_rounded,
+                colorIcono:
+                    granted ? const Color(0xFF6C63FF) : Colors.blueGrey,
+                titulo: granted
+                    ? 'Notificaciones activadas'
+                    : 'Notificaciones desactivadas',
+                mensaje: granted
+                    ? 'Recibirás avisos importantes de Serenity.'
+                    : 'Puedes activarlas más adelante desde los ajustes del dispositivo.',
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6C63FF),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
             ),
-            child: const Text('Activar',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Activar',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -113,17 +185,20 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A3E),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon: const Icon(Icons.block_outlined,
-            color: Colors.redAccent, size: 60),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(
+          Icons.block_outlined,
+          color: Colors.redAccent,
+          size: 60,
+        ),
         title: const Text(
           'Cuenta desactivada',
           textAlign: TextAlign.center,
           style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 20),
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         content: const Text(
           'Esta cuenta ha sido desactivada. Si deseas volver a usar Serenity, '
@@ -139,12 +214,17 @@ class _LoginScreenState extends State<LoginScreen> {
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
             ),
-            child: const Text('Entendido',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Entendido',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -181,25 +261,32 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: BoxShape.circle,
                       color: _cyan.withOpacity(0.12),
                       border: Border.all(
-                          color: _cyan.withOpacity(0.35), width: 1.5),
+                        color: _cyan.withOpacity(0.35),
+                        width: 1.5,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                            color: _cyan.withOpacity(0.2),
-                            blurRadius: 20,
-                            spreadRadius: 2),
+                          color: _cyan.withOpacity(0.2),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
                       ],
                     ),
-                    child:
-                        const Icon(Icons.cake_outlined, color: _cyan, size: 28),
+                    child: const Icon(
+                      Icons.cake_outlined,
+                      color: _cyan,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     '¡Un paso más, $primerNombre!',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: _pearl),
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: _pearl,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -207,7 +294,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     'tu fecha de nacimiento.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                        fontSize: 12, color: _muted, height: 1.5),
+                      fontSize: 12,
+                      color: _muted,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 20),
 
@@ -230,19 +320,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             textButtonTheme: TextButtonThemeData(
                               style: TextButton.styleFrom(
-                                  foregroundColor: _cyan),
+                                foregroundColor: _cyan,
+                              ),
                             ),
                             dialogBackgroundColor: _bg,
                           ),
                           child: child!,
                         ),
                       );
-                      if (picked != null) setDlg(() => fechaSeleccionada = picked);
+                      if (picked != null) {
+                        setDlg(() => fechaSeleccionada = picked);
+                      }
                     },
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: _bg,
                         borderRadius: BorderRadius.circular(12),
@@ -257,9 +352,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Icon(
                             Icons.calendar_today_rounded,
-                            color: fechaSeleccionada != null
-                                ? _cyan
-                                : _muted,
+                            color: fechaSeleccionada != null ? _cyan : _muted,
                             size: 18,
                           ),
                           const SizedBox(width: 10),
@@ -314,9 +407,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         boxShadow: fechaSeleccionada != null
                             ? [
                                 BoxShadow(
-                                    color: _violet.withOpacity(0.35),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 6))
+                                  color: _violet.withOpacity(0.35),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
                               ]
                             : null,
                       ),
@@ -348,10 +442,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final contrasena = passwordController.text.trim();
 
     if (gmail.isEmpty || contrasena.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Por favor ingresa email y contraseña'),
-        backgroundColor: Colors.red,
-      ));
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.orangeAccent,
+        titulo: 'Campos incompletos',
+        mensaje: 'Por favor ingresa email y contraseña',
+      );
       return;
     }
 
@@ -364,11 +460,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (resultado['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Bienvenido ${resultado['primerNombre']}!'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         Navigator.pushReplacement(
@@ -387,8 +478,9 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                VerifyEmailScreen(email: resultado['email'] ?? gmail),
+            builder: (_) => VerifyEmailScreen(
+              email: resultado['email'] ?? gmail,
+            ),
           ),
         );
         return;
@@ -397,11 +489,12 @@ class _LoginScreenState extends State<LoginScreen> {
         mostrarDialogoDesactivada();
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(resultado['message'] ?? 'Error al iniciar sesión'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-      ));
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'No se pudo iniciar sesión',
+        mensaje: resultado['message'] ?? 'Error al iniciar sesión',
+      );
     }
   }
 
@@ -413,29 +506,24 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (resultado['success'] == true) {
-      final String userId      = resultado['userId'];
+      final String userId = resultado['userId'];
       final String primerNombre = resultado['primerNombre'];
-      final String email        = resultado['gmail'];
+      final String email = resultado['gmail'];
       final bool needsBirthDate = resultado['needsBirthDate'] == true;
 
-      // ← NUEVO: pedir fecha si no tiene
       if (needsBirthDate) {
-        final fechaDB =
-            await _mostrarDialogoFechaNacimiento(primerNombre);
+        final fechaDB = await _mostrarDialogoFechaNacimiento(primerNombre);
         if (!mounted) return;
 
         if (fechaDB != null) {
           await auth.guardarFechaNacimiento(
-              userId: userId, fechaNacimiento: fechaDB);
+            userId: userId,
+            fechaNacimiento: fechaDB,
+          );
         }
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Bienvenido $primerNombre!'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         Navigator.pushReplacement(
@@ -456,12 +544,12 @@ class _LoginScreenState extends State<LoginScreen> {
         mostrarDialogoDesactivada();
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content:
-            Text(mensaje.isNotEmpty ? mensaje : 'Error con Google Sign-In'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-      ));
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'Error con Google',
+        mensaje: mensaje.isNotEmpty ? mensaje : 'Error con Google Sign-In',
+      );
     }
   }
 

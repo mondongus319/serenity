@@ -27,6 +27,68 @@ class _ParentVerificationScreenState
 
   bool _isLoading = false;
 
+  Future<void> _mostrarDialogoMensaje({
+    required IconData icono,
+    required Color colorIcono,
+    required String titulo,
+    required String mensaje,
+    String textoBoton = 'Entendido',
+    bool barrierDismissible = true,
+  }) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A3E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        icon: Icon(icono, color: colorIcono, size: 56),
+        title: Text(
+          titulo,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        content: Text(
+          mensaje,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorIcono,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: Text(
+              textoBoton,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ParentVerificationBody(
@@ -76,17 +138,21 @@ class _ParentVerificationScreenState
                       color: const Color(0xFF06B6D4).withOpacity(0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.qr_code_scanner_rounded,
-                        color: Color(0xFF06B6D4), size: 20),
+                    child: const Icon(
+                      Icons.qr_code_scanner_rounded,
+                      color: Color(0xFF06B6D4),
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
                       'Escanear Código QR',
                       style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFF1F5F9)),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFF1F5F9),
+                      ),
                     ),
                   ),
                   Container(
@@ -101,8 +167,11 @@ class _ParentVerificationScreenState
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.close_rounded,
-                          color: Color(0xFF06B6D4), size: 18),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Color(0xFF06B6D4),
+                        size: 18,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
@@ -125,7 +194,8 @@ class _ParentVerificationScreenState
                             if (code != null && code.isNotEmpty) {
                               Navigator.pop(context);
                               setState(
-                                  () => _codigoController.text = code);
+                                () => _codigoController.text = code,
+                              );
                               _verificarCodigo();
                             }
                           }
@@ -137,8 +207,8 @@ class _ParentVerificationScreenState
                           height: 200,
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: const Color(0xFF06B6D4)
-                                  .withOpacity(0.8),
+                              color:
+                                  const Color(0xFF06B6D4).withOpacity(0.8),
                               width: 2,
                             ),
                             borderRadius: BorderRadius.circular(16),
@@ -159,11 +229,11 @@ class _ParentVerificationScreenState
   void _verificarCodigo() async {
     final codigo = _codigoController.text.trim();
     if (codigo.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor ingresa un código'),
-          backgroundColor: Colors.red,
-        ),
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'Código requerido',
+        mensaje: 'Por favor ingresa un código',
       );
       return;
     }
@@ -176,31 +246,34 @@ class _ParentVerificationScreenState
         codigoVinculacion: codigo,
       );
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
       if (resultado['success'] == true) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Niño vinculado exitosamente!'),
-            backgroundColor: Colors.green,
-          ),
+        await _mostrarDialogoMensaje(
+          icono: Icons.check_circle_outline_rounded,
+          colorIcono: Colors.green,
+          titulo: 'Vinculación exitosa',
+          mensaje: '¡Niño vinculado exitosamente!',
         );
-        await Future.delayed(const Duration(seconds: 1));
         if (!mounted) return;
         Navigator.pop(context);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(resultado['message'] ?? 'Código inválido'),
-            backgroundColor: Colors.red,
-          ),
+        await _mostrarDialogoMensaje(
+          icono: Icons.error_outline_rounded,
+          colorIcono: Colors.redAccent,
+          titulo: 'No se pudo vincular',
+          mensaje: resultado['message'] ?? 'Código inválido',
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'Error inesperado',
+        mensaje: 'Error: $e',
       );
     }
   }

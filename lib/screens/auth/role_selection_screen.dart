@@ -10,7 +10,6 @@ import 'package:geolocator/geolocator.dart';
 import '/screens/parent/parent_main_screen.dart';
 import '../../widgets/auth/role_selection_body.dart';
 
-
 class RoleSelectionScreen extends StatefulWidget {
   final String email;
   final String userName;
@@ -27,7 +26,6 @@ class RoleSelectionScreen extends StatefulWidget {
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
 }
 
-
 class _RoleSelectionScreenState extends State<RoleSelectionScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -37,6 +35,67 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
   List<String> _animalAssets = [];
   String? _animalActual;
   bool _intentandoPrecarga = false;
+
+  Future<void> _mostrarDialogoMensaje({
+    required IconData icono,
+    required Color colorIcono,
+    required String titulo,
+    required String mensaje,
+    String textoBoton = 'Entendido',
+  }) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A3E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        icon: Icon(icono, color: colorIcono, size: 56),
+        title: Text(
+          titulo,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        content: Text(
+          mensaje,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorIcono,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: Text(
+              textoBoton,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -127,9 +186,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
       // Guardar sesión con deviceToken
       try {
         await FirestoreService.guardarSesion(
-          idUsuario:   widget.userId,
+          idUsuario: widget.userId,
           tipoUsuario: 'padre',
-          deviceId:    deviceId,
+          deviceId: deviceId,
           deviceToken: fcmToken,
         );
       } catch (e) {
@@ -145,12 +204,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
       if (position == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No puedes continuar sin conceder permisos de ubicación'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
-          ),
+        await _mostrarDialogoMensaje(
+          icono: Icons.location_off_outlined,
+          colorIcono: Colors.redAccent,
+          titulo: 'Ubicación requerida',
+          mensaje:
+              'No puedes continuar sin conceder permisos de ubicación',
         );
         return;
       }
@@ -173,20 +232,18 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
         MaterialPageRoute(
           builder: (_) => ParentMainScreen(
             parentEmail: widget.email,
-            userName:    widget.userName,
-            userId:      widget.userId,
+            userName: widget.userName,
+            userId: widget.userId,
           ),
         ),
       );
     } catch (e) {
-      // Error inesperado general — informamos al usuario
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ocurrió un error al continuar. Intenta de nuevo.'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'No se pudo continuar',
+        mensaje: 'Ocurrió un error al continuar. Intenta de nuevo.',
       );
       debugPrint('_onTapPadres error inesperado: $e');
     }
@@ -197,7 +254,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
       context,
       MaterialPageRoute(
         builder: (_) => ChildrenListScreen(
-          padreId:     widget.userId,
+          padreId: widget.userId,
           nombrePadre: widget.userName,
           parentEmail: widget.email,
         ),

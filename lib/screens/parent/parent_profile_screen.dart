@@ -8,14 +8,12 @@ import '../../providers/parent_provider.dart';
 import 'cambiar_correo_screen.dart';
 import '../../../../widgets/parent/parent_profile_body.dart';
 
-
-const bgPrimary    = Color(0xFF0F172A);
-const bgCard       = Color(0xFF1E293B);
-const accentCyan   = Color(0xFF06B6D4);
+const bgPrimary = Color(0xFF0F172A);
+const bgCard = Color(0xFF1E293B);
+const accentCyan = Color(0xFF06B6D4);
 const accentViolet = Color(0xFF8B5CF6);
-const textPearl    = Color(0xFFF1F5F9);
-const textMuted    = Color(0xFF94A3B8);
-
+const textPearl = Color(0xFFF1F5F9);
+const textMuted = Color(0xFF94A3B8);
 
 class ParentProfileScreen extends StatefulWidget {
   final String parentEmail;
@@ -35,7 +33,6 @@ class ParentProfileScreen extends StatefulWidget {
   State<ParentProfileScreen> createState() => _ParentProfileScreenState();
 }
 
-
 class _ParentProfileScreenState extends State<ParentProfileScreen>
     with AutomaticKeepAliveClientMixin {
   @override
@@ -49,10 +46,82 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ParentProvider>().cargarDatos(
             widget.userId,
-            emailFallback:  widget.parentEmail,
+            emailFallback: widget.parentEmail,
             nombreFallback: '',
           );
     });
+  }
+
+  Future<void> _mostrarDialogoMensaje({
+    required String titulo,
+    required String mensaje,
+    IconData icono = Icons.info_outline_rounded,
+    Color colorIcono = accentCyan,
+    String textoBoton = 'Entendido',
+  }) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: bgCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colorIcono.withOpacity(0.25), width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorIcono.withOpacity(0.12),
+                  border: Border.all(
+                    color: colorIcono.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(icono, color: colorIcono, size: 28),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                titulo,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: textPearl,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                mensaje,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: textMuted,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: DialogButton(
+                  label: textoBoton,
+                  onTap: () => Navigator.pop(ctx),
+                  isPrimary: colorIcono == accentCyan || colorIcono == Colors.green,
+                  isDestructive: colorIcono == Colors.redAccent || colorIcono == Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ── CERRAR SESIÓN ─────────────────────────────────────────────────────────
@@ -75,9 +144,9 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
       context,
       MaterialPageRoute(
         builder: (_) => RoleSelectionScreen(
-          email:    parent.correoActual,
+          email: parent.correoActual,
           userName: parent.nombre,
-          userId:   widget.userId,
+          userId: widget.userId,
         ),
       ),
     );
@@ -110,18 +179,21 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
           ],
         ),
         onCancel: () => Navigator.pop(ctx),
-        onAccept: () {
+        onAccept: () async {
           if (c1.text.trim().isEmpty || c3.text.trim().isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Primer nombre y apellido son obligatorios'),
-              backgroundColor: Colors.red,
-            ));
+            await _mostrarDialogoMensaje(
+              titulo: 'Campos obligatorios',
+              mensaje: 'Primer nombre y apellido son obligatorios',
+              icono: Icons.error_outline_rounded,
+              colorIcono: Colors.redAccent,
+            );
             return;
           }
+          if (!ctx.mounted) return;
           Navigator.pop(ctx, {
-            'primernombre':    c1.text.trim(),
-            'segundonombre':   c2.text.trim(),
-            'primerapellido':  c3.text.trim(),
+            'primernombre': c1.text.trim(),
+            'segundonombre': c2.text.trim(),
+            'primerapellido': c3.text.trim(),
             'segundoapellido': c4.text.trim(),
           });
         },
@@ -130,19 +202,24 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
 
     if (result == null || !mounted) return;
     final res = await parent.guardarEnBD(
-      userId:             widget.userId,
-      primerNombre:       result['primernombre']!,
-      segundoNombreVal:   result['segundonombre'],
-      primerApellidoVal:  result['primerapellido'],
+      userId: widget.userId,
+      primerNombre: result['primernombre']!,
+      segundoNombreVal: result['segundonombre'],
+      primerApellidoVal: result['primerapellido'],
       segundoApellidoVal: result['segundoapellido'],
       fechaNacimientoVal:
           parent.fechaNacimiento.isEmpty ? null : parent.fechaNacimiento,
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(res['message'] ?? 'Actualizado'),
-      backgroundColor: res['success'] == true ? Colors.green : Colors.red,
-    ));
+
+    await _mostrarDialogoMensaje(
+      titulo: res['success'] == true ? 'Datos actualizados' : 'No se pudo actualizar',
+      mensaje: res['message'] ?? 'Actualizado',
+      icono: res['success'] == true
+          ? Icons.check_circle_outline_rounded
+          : Icons.error_outline_rounded,
+      colorIcono: res['success'] == true ? Colors.green : Colors.redAccent,
+    );
   }
 
   // ── EDITAR FECHA ──────────────────────────────────────────────────────────
@@ -150,7 +227,9 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     final parent = context.read<ParentProvider>();
     DateTime inicial = DateTime.now().subtract(const Duration(days: 365 * 18));
     if (parent.fechaNacimiento.isNotEmpty) {
-      try { inicial = DateTime.parse(parent.fechaNacimiento); } catch (_) {}
+      try {
+        inicial = DateTime.parse(parent.fechaNacimiento);
+      } catch (_) {}
     }
 
     final picked = await showDatePicker(
@@ -178,18 +257,23 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     if (nuevaFecha == parent.fechaNacimiento) return;
 
     final res = await parent.guardarEnBD(
-      userId:             widget.userId,
-      primerNombre:       parent.nombre,
-      segundoNombreVal:   parent.segundoNombre,
-      primerApellidoVal:  parent.primerApellido,
+      userId: widget.userId,
+      primerNombre: parent.nombre,
+      segundoNombreVal: parent.segundoNombre,
+      primerApellidoVal: parent.primerApellido,
       segundoApellidoVal: parent.segundoApellido,
       fechaNacimientoVal: nuevaFecha,
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(res['message'] ?? 'Actualizado'),
-      backgroundColor: res['success'] == true ? Colors.green : Colors.red,
-    ));
+
+    await _mostrarDialogoMensaje(
+      titulo: res['success'] == true ? 'Fecha actualizada' : 'No se pudo actualizar',
+      mensaje: res['message'] ?? 'Actualizado',
+      icono: res['success'] == true
+          ? Icons.check_circle_outline_rounded
+          : Icons.error_outline_rounded,
+      colorIcono: res['success'] == true ? Colors.green : Colors.redAccent,
+    );
   }
 
   // ── EDITAR CONTRASEÑA ─────────────────────────────────────────────────────
@@ -211,28 +295,35 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
             const SizedBox(height: 12),
             DarkField(controller: c2, label: 'Confirmar contraseña', obscure: true),
             const SizedBox(height: 6),
-            Text('Mínimo 4 caracteres.',
-                style: GoogleFonts.poppins(fontSize: 11, color: textMuted)),
+            Text(
+              'Mínimo 4 caracteres.',
+              style: GoogleFonts.poppins(fontSize: 11, color: textMuted),
+            ),
           ],
         ),
         onCancel: () => Navigator.pop(ctx, false),
-        onAccept: () {
+        onAccept: () async {
           final p1 = c1.text.trim();
           final p2 = c2.text.trim();
           if (p1.length < 4) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Contraseña muy corta (mínimo 4)'),
-              backgroundColor: Colors.red,
-            ));
+            await _mostrarDialogoMensaje(
+              titulo: 'Contraseña inválida',
+              mensaje: 'Contraseña muy corta (mínimo 4)',
+              icono: Icons.error_outline_rounded,
+              colorIcono: Colors.redAccent,
+            );
             return;
           }
           if (p1 != p2) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Las contraseñas no coinciden'),
-              backgroundColor: Colors.red,
-            ));
+            await _mostrarDialogoMensaje(
+              titulo: 'Contraseñas distintas',
+              mensaje: 'Las contraseñas no coinciden',
+              icono: Icons.error_outline_rounded,
+              colorIcono: Colors.redAccent,
+            );
             return;
           }
+          if (!ctx.mounted) return;
           Navigator.pop(ctx, true);
         },
       ),
@@ -240,20 +331,25 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
 
     if (accepted != true || !mounted) return;
     final res = await parent.guardarEnBD(
-      userId:             widget.userId,
-      primerNombre:       parent.nombre,
-      segundoNombreVal:   parent.segundoNombre,
-      primerApellidoVal:  parent.primerApellido,
+      userId: widget.userId,
+      primerNombre: parent.nombre,
+      segundoNombreVal: parent.segundoNombre,
+      primerApellidoVal: parent.primerApellido,
       segundoApellidoVal: parent.segundoApellido,
       fechaNacimientoVal:
           parent.fechaNacimiento.isEmpty ? null : parent.fechaNacimiento,
       nuevaContrasena: c1.text.trim(),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(res['message'] ?? 'Actualizado'),
-      backgroundColor: res['success'] == true ? Colors.green : Colors.red,
-    ));
+
+    await _mostrarDialogoMensaje(
+      titulo: res['success'] == true ? 'Contraseña actualizada' : 'No se pudo actualizar',
+      mensaje: res['message'] ?? 'Actualizado',
+      icono: res['success'] == true
+          ? Icons.check_circle_outline_rounded
+          : Icons.error_outline_rounded,
+      colorIcono: res['success'] == true ? Colors.green : Colors.redAccent,
+    );
   }
 
   // ── EDITAR CORREO ─────────────────────────────────────────────────────────
@@ -263,7 +359,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
       context,
       MaterialPageRoute(
         builder: (_) => CambiarCorreoScreen(
-          userId:       widget.userId,
+          userId: widget.userId,
           correoActual: parent.correoActual,
         ),
       ),
@@ -297,27 +393,53 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                   color: Colors.red.withOpacity(0.12),
                   border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
                 ),
-                child: const Icon(Icons.warning_amber_rounded,
-                    color: Colors.redAccent, size: 28),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.redAccent,
+                  size: 28,
+                ),
               ),
               const SizedBox(height: 16),
-              Text('Eliminar cuenta',
-                  style: GoogleFonts.poppins(
-                      fontSize: 17, fontWeight: FontWeight.bold, color: textPearl)),
+              Text(
+                'Eliminar cuenta',
+                style: GoogleFonts.poppins(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: textPearl,
+                ),
+              ),
               const SizedBox(height: 10),
               Text(
                 'Esta acción desactivará tu cuenta y la de todos tus niños vinculados. '
                 'No podrás iniciar sesión con esta cuenta nuevamente. '
                 'Esta acción no se puede deshacer.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontSize: 12, color: textMuted, height: 1.6),
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: textMuted,
+                  height: 1.6,
+                ),
               ),
               const SizedBox(height: 24),
-              Row(children: [
-                Expanded(child: DialogButton(label: 'Cancelar', onTap: () => Navigator.pop(ctx, false), isDestructive: false)),
-                const SizedBox(width: 12),
-                Expanded(child: DialogButton(label: 'Continuar', onTap: () => Navigator.pop(ctx, true), isDestructive: true)),
-              ]),
+              Row(
+                children: [
+                  Expanded(
+                    child: DialogButton(
+                      label: 'Cancelar',
+                      onTap: () => Navigator.pop(ctx, false),
+                      isDestructive: false,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DialogButton(
+                      label: 'Continuar',
+                      onTap: () => Navigator.pop(ctx, true),
+                      isDestructive: true,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -342,13 +464,23 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Confirmación final',
-                    style: GoogleFonts.poppins(
-                        fontSize: 17, fontWeight: FontWeight.bold, color: textPearl)),
+                Text(
+                  'Confirmación final',
+                  style: GoogleFonts.poppins(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: textPearl,
+                  ),
+                ),
                 const SizedBox(height: 10),
-                Text('Para confirmar, escribe ELIMINAR en el campo de abajo',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(fontSize: 12, color: textMuted)),
+                Text(
+                  'Para confirmar, escribe ELIMINAR en el campo de abajo',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: textMuted,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Container(
                   decoration: BoxDecoration(
@@ -361,29 +493,45 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                     onChanged: (_) => setStateDialog(() {}),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                        color: Colors.redAccent),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                      color: Colors.redAccent,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'ELIMINAR',
-                      hintStyle: GoogleFonts.poppins(color: Colors.red.withOpacity(0.3)),
+                      hintStyle: GoogleFonts.poppins(
+                        color: Colors.red.withOpacity(0.3),
+                      ),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                Row(children: [
-                  Expanded(child: DialogButton(label: 'Cancelar', onTap: () => Navigator.pop(ctx, false), isDestructive: false)),
-                  const SizedBox(width: 12),
-                  Expanded(child: DialogButton(
-                    label: 'Eliminar',
-                    onTap: textoController.text.trim() == 'ELIMINAR'
-                        ? () => Navigator.pop(ctx, true)
-                        : null,
-                    isDestructive: true,
-                  )),
-                ]),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DialogButton(
+                        label: 'Cancelar',
+                        onTap: () => Navigator.pop(ctx, false),
+                        isDestructive: false,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DialogButton(
+                        label: 'Eliminar',
+                        onTap: textoController.text.trim() == 'ELIMINAR'
+                            ? () => Navigator.pop(ctx, true)
+                            : null,
+                        isDestructive: true,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -411,22 +559,26 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
 
     if (!mounted) return;
     Navigator.pop(context); // cierra loading
+
     if (res['success'] == true) {
       parent.reset();
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
         (route) => false,
       );
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Tu cuenta ha sido eliminada correctamente.'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 4),
-      ));
+      await _mostrarDialogoMensaje(
+        titulo: 'Cuenta eliminada',
+        mensaje: 'Tu cuenta ha sido eliminada correctamente.',
+        icono: Icons.check_circle_outline_rounded,
+        colorIcono: Colors.green,
+      );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(res['message'] ?? 'Error al eliminar cuenta'),
-        backgroundColor: Colors.red,
-      ));
+      await _mostrarDialogoMensaje(
+        titulo: 'No se pudo eliminar',
+        mensaje: res['message'] ?? 'Error al eliminar cuenta',
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+      );
     }
   }
 
@@ -442,30 +594,28 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
           parent.segundoApellido,
         ].where((s) => s.isNotEmpty).join(' ');
 
-        final fechaTexto = parent.fechaNacimiento.isEmpty
-            ? 'No registrada'
-            : parent.fechaNacimiento;
+        final fechaTexto =
+            parent.fechaNacimiento.isEmpty ? 'No registrada' : parent.fechaNacimiento;
 
         return ParentProfileBody(
-          nombre:             parent.nombre,
-          correoActual:       parent.correoActual,
-          nombreCompleto:     nombreCompleto,
-          fechaTexto:         fechaTexto,
-          isLoading:          parent.isLoadingPerfil,
-          isSaving:           parent.isSaving,
-          onLogout:           cerrarSesion,
-          onSwitchProfile:    _cambiarRol,
-          onEditarNombres:    editarNombres,
-          onEditarFecha:      editarFecha,
+          nombre: parent.nombre,
+          correoActual: parent.correoActual,
+          nombreCompleto: nombreCompleto,
+          fechaTexto: fechaTexto,
+          isLoading: parent.isLoadingPerfil,
+          isSaving: parent.isSaving,
+          onLogout: cerrarSesion,
+          onSwitchProfile: _cambiarRol,
+          onEditarNombres: editarNombres,
+          onEditarFecha: editarFecha,
           onEditarContrasena: editarContrasena,
-          onEditarCorreo:     editarCorreo,
-          onEliminarCuenta:   mostrarDialogoEliminarCuenta,
+          onEditarCorreo: editarCorreo,
+          onEliminarCuenta: mostrarDialogoEliminarCuenta,
         );
       },
     );
   }
 }
-
 
 // ─── DIÁLOGO OSCURO REUTILIZABLE ─────────────────────────────────────────────
 class DarkDialog extends StatelessWidget {
@@ -498,37 +648,58 @@ class DarkDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: accentCyan.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: accentCyan.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: accentCyan, size: 18),
                 ),
-                child: Icon(icon, color: accentCyan, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(title,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
                     style: GoogleFonts.poppins(
-                        fontSize: 15, fontWeight: FontWeight.bold, color: textPearl)),
-              ),
-            ]),
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: textPearl,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
             content,
             const SizedBox(height: 24),
-            Row(children: [
-              Expanded(child: DialogButton(label: 'Cancelar', onTap: onCancel, isDestructive: false)),
-              const SizedBox(width: 12),
-              Expanded(child: DialogButton(label: 'Aceptar', onTap: onAccept, isDestructive: false, isPrimary: true)),
-            ]),
+            Row(
+              children: [
+                Expanded(
+                  child: DialogButton(
+                    label: 'Cancelar',
+                    onTap: onCancel,
+                    isDestructive: false,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DialogButton(
+                    label: 'Aceptar',
+                    onTap: onAccept,
+                    isDestructive: false,
+                    isPrimary: true,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 }
-
 
 // ─── CAMPO DE TEXTO OSCURO ────────────────────────────────────────────────────
 class DarkField extends StatelessWidget {
@@ -548,9 +719,14 @@ class DarkField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: GoogleFonts.poppins(
-                fontSize: 11, color: accentCyan, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 11,
+            color: accentCyan,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
@@ -573,7 +749,6 @@ class DarkField extends StatelessWidget {
   }
 }
 
-
 // ─── BOTÓN DE DIÁLOGO ─────────────────────────────────────────────────────────
 class DialogButton extends StatelessWidget {
   final String label;
@@ -594,16 +769,16 @@ class DialogButton extends StatelessWidget {
     Color borderColor, textColor, bgColor;
     if (isDestructive) {
       borderColor = Colors.red.withOpacity(0.5);
-      textColor   = Colors.redAccent;
-      bgColor     = Colors.red.withOpacity(0.08);
+      textColor = Colors.redAccent;
+      bgColor = Colors.red.withOpacity(0.08);
     } else if (isPrimary) {
       borderColor = accentCyan.withOpacity(0.5);
-      textColor   = accentCyan;
-      bgColor     = accentCyan.withOpacity(0.1);
+      textColor = accentCyan;
+      bgColor = accentCyan.withOpacity(0.1);
     } else {
       borderColor = Colors.white.withOpacity(0.1);
-      textColor   = textMuted;
-      bgColor     = Colors.white.withOpacity(0.04);
+      textColor = textMuted;
+      bgColor = Colors.white.withOpacity(0.04);
     }
     return GestureDetector(
       onTap: onTap,

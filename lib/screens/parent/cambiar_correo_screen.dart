@@ -34,15 +34,120 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
   static const accentCyan = Color(0xFF06B6D4);
   static const textPearl = Color(0xFFF1F5F9);
 
+  Future<void> _mostrarDialogoMensaje({
+    required String titulo,
+    required String mensaje,
+    IconData icono = Icons.info_outline_rounded,
+    Color colorIcono = accentCyan,
+    String textoBoton = 'Entendido',
+  }) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: bgCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colorIcono.withOpacity(0.25), width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorIcono.withOpacity(0.12),
+                  border: Border.all(
+                    color: colorIcono.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(icono, color: colorIcono, size: 28),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                titulo,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: textPearl,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                mensaje,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: const Color(0xFF94A3B8),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(ctx),
+                  child: Container(
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: colorIcono == Colors.redAccent || colorIcono == Colors.red
+                          ? Colors.red.withOpacity(0.08)
+                          : accentCyan.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: colorIcono == Colors.redAccent || colorIcono == Colors.red
+                            ? Colors.red.withOpacity(0.5)
+                            : accentCyan.withOpacity(0.5),
+                        width: 1,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      textoBoton,
+                      style: GoogleFonts.poppins(
+                        color: colorIcono == Colors.redAccent || colorIcono == Colors.red
+                            ? Colors.redAccent
+                            : accentCyan,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── ENVIAR ENLACE ──────────────────────────────────────────────────────────
   Future<void> enviarVerificacion() async {
     final correo = correoController.text.trim();
     if (correo.isEmpty || !correo.contains('@')) {
-      showSnack('Ingresa un correo válido', isError: true);
+      await _mostrarDialogoMensaje(
+        titulo: 'Correo inválido',
+        mensaje: 'Ingresa un correo válido',
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+      );
       return;
     }
     if (correo == widget.correoActual) {
-      showSnack('El nuevo correo debe ser diferente al actual', isError: true);
+      await _mostrarDialogoMensaje(
+        titulo: 'Correo no permitido',
+        mensaje: 'El nuevo correo debe ser diferente al actual',
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+      );
       return;
     }
 
@@ -55,15 +160,30 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
       if (resp['success'] == true) {
         nuevoCorreo = correo;
         setState(() => enviado = true);
-        showSnack(resp['message'] ?? 'Enlace de verificación enviado');
+        await _mostrarDialogoMensaje(
+          titulo: 'Enlace enviado',
+          mensaje: resp['message'] ?? 'Enlace de verificación enviado',
+          icono: Icons.mark_email_read_outlined,
+          colorIcono: accentCyan,
+        );
         _iniciarPolling();
       } else {
-        showSnack(resp['message'] ?? 'Error al enviar', isError: true);
+        await _mostrarDialogoMensaje(
+          titulo: 'No se pudo enviar',
+          mensaje: resp['message'] ?? 'Error al enviar',
+          icono: Icons.error_outline_rounded,
+          colorIcono: Colors.redAccent,
+        );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => isLoading = false);
-      showSnack('Error: $e', isError: true);
+      await _mostrarDialogoMensaje(
+        titulo: 'Error inesperado',
+        mensaje: 'Error: $e',
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+      );
     }
   }
 
@@ -108,15 +228,23 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
         _pollTimer = null;
         await _actualizarFirestoreYSalir();
       } else {
-        showSnack(
-          'Aún no verificado. Haz clic en el enlace del correo primero.',
-          isError: true,
+        await _mostrarDialogoMensaje(
+          titulo: 'Correo no verificado',
+          mensaje:
+              'Aún no verificado. Haz clic en el enlace del correo primero.',
+          icono: Icons.error_outline_rounded,
+          colorIcono: Colors.redAccent,
         );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => verificando = false);
-      showSnack('Error: $e', isError: true);
+      await _mostrarDialogoMensaje(
+        titulo: 'Error inesperado',
+        mensaje: 'Error: $e',
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+      );
     }
   }
 
@@ -126,18 +254,14 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
       await FirestoreService.actualizarPadre(widget.userId, {'gmail': nuevoCorreo});
     } catch (_) {}
     if (!mounted) return;
-    showSnack('¡Correo actualizado correctamente!');
-    await Future.delayed(const Duration(milliseconds: 800));
+    await _mostrarDialogoMensaje(
+      titulo: 'Correo actualizado',
+      mensaje: '¡Correo actualizado correctamente!',
+      icono: Icons.check_circle_outline_rounded,
+      colorIcono: Colors.green,
+    );
     if (!mounted) return;
     Navigator.pop(context, nuevoCorreo);
-  }
-
-  void showSnack(String msg, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: isError ? Colors.red : Colors.green,
-    ));
   }
 
   @override

@@ -42,6 +42,68 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   static const _textPearl = Color(0xFFF1F5F9);
   static const _textMuted = Color(0xFF94A3B8);
 
+  Future<void> _mostrarDialogoMensaje({
+    required IconData icono,
+    required Color colorIcono,
+    required String titulo,
+    required String mensaje,
+    String textoBoton = 'Entendido',
+  }) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Icon(icono, color: colorIcono, size: 56),
+        title: Text(
+          titulo,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            color: _textPearl,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        content: Text(
+          mensaje,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            color: _textMuted,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorIcono,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: Text(
+              textoBoton,
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -244,12 +306,11 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       debugPrint('validarPasswordNino error: $e');
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error de conexión. Intenta de nuevo.'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
+      await _mostrarDialogoMensaje(
+        icono: Icons.wifi_off_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'Error de conexión',
+        mensaje: 'Error de conexión. Intenta de nuevo.',
       );
       return;
     }
@@ -284,11 +345,11 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Contraseña incorrecta'),
-          backgroundColor: Colors.red,
-        ),
+      await _mostrarDialogoMensaje(
+        icono: Icons.lock_outline_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'Contraseña incorrecta',
+        mensaje: 'La contraseña ingresada no es válida.',
       );
     }
   }

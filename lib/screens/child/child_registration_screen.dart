@@ -7,7 +7,6 @@ import '../../servicces/firestore_service.dart';
 import '../../widgets/auth/password_dialog.dart';
 import '../../widgets/child/child_registration_body.dart';
 
-
 class ChildRegistrationScreen extends StatefulWidget {
   final String parentEmail;
 
@@ -21,51 +20,110 @@ class ChildRegistrationScreen extends StatefulWidget {
       _ChildRegistrationScreenState();
 }
 
-
 class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
-  final TextEditingController _nombreController          = TextEditingController();
+  final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _fechaNacimientoController = TextEditingController();
 
-  DateTime?                             _fechaNacimiento;
-  String?                               _codigoVinculacion;
-  bool                                  _isLoading      = false;
-  bool                                  _codigoGenerado = false;
+  DateTime? _fechaNacimiento;
+  String? _codigoVinculacion;
+  bool _isLoading = false;
+  bool _codigoGenerado = false;
   StreamSubscription<DocumentSnapshot>? _vinculacionSub;
+
+  Future<void> _mostrarDialogoMensaje({
+    required IconData icono,
+    required Color colorIcono,
+    required String titulo,
+    required String mensaje,
+    String textoBoton = 'Entendido',
+  }) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A3E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Icon(icono, color: colorIcono, size: 56),
+        title: Text(
+          titulo,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        content: Text(
+          mensaje,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorIcono,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: Text(
+              textoBoton,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return ChildRegistrationBody(
-      nombreController:          _nombreController,
+      nombreController: _nombreController,
       fechaNacimientoController: _fechaNacimientoController,
-      isLoading:                 _isLoading,
-      codigoGenerado:            _codigoGenerado,
-      esperandoVinculacion:      _vinculacionSub != null,
-      codigoVinculacion:         _codigoVinculacion,
-      onBack:                    () => Navigator.pop(context),
-      onGenerarCodigo:           _generarCodigo,
-      onTapFecha:                _seleccionarFechaNacimiento,
+      isLoading: _isLoading,
+      codigoGenerado: _codigoGenerado,
+      esperandoVinculacion: _vinculacionSub != null,
+      codigoVinculacion: _codigoVinculacion,
+      onBack: () => Navigator.pop(context),
+      onGenerarCodigo: _generarCodigo,
+      onTapFecha: _seleccionarFechaNacimiento,
     );
   }
 
   Future<void> _seleccionarFechaNacimiento() async {
-    final hoy    = DateTime.now();
+    final hoy = DateTime.now();
     final picked = await showDatePicker(
-      context:     context,
+      context: context,
       initialDate: DateTime(hoy.year - 8, hoy.month, hoy.day),
-      firstDate:   DateTime(1900),
-      lastDate:    hoy,
+      firstDate: DateTime(1900),
+      lastDate: hoy,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
-            primary:   Color(0xFF06B6D4),
+            primary: Color(0xFF06B6D4),
             onPrimary: Colors.white,
             secondary: Color(0xFF8B5CF6),
-            surface:   Color(0xFF1E293B),
+            surface: Color(0xFF1E293B),
             onSurface: Color(0xFFF1F5F9),
           ),
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF06B6D4)),
+              foregroundColor: const Color(0xFF06B6D4),
+            ),
           ),
           dialogBackgroundColor: const Color(0xFF1E293B),
         ),
@@ -90,17 +148,19 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
   Future<void> _generarCodigo() async {
     final nombre = _nombreController.text.trim();
     if (nombre.isEmpty || _fechaNacimiento == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Por favor completa todos los campos'),
-        backgroundColor: Colors.red,
-      ));
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.orangeAccent,
+        titulo: 'Campos incompletos',
+        mensaje: 'Por favor completa todos los campos',
+      );
       return;
     }
 
     final password = await PasswordDialog.show(
-      context:            context,
-      title:              'Crear Contraseña',
-      subtitle:           'Protege el perfil de $nombre',
+      context: context,
+      title: 'Crear Contraseña',
+      subtitle: 'Protege el perfil de $nombre',
       isCreatingPassword: true,
     );
     if (password == null) return;
@@ -110,43 +170,40 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
 
     try {
       final resultado = await FirestoreService.crearNino(
-        nombre:          nombre,
+        nombre: nombre,
         fechaNacimiento: _toYyyyMmDd(_fechaNacimiento!),
-        password:        password,
+        password: password,
       );
 
       setState(() => _isLoading = false);
 
       if (resultado['success'] == true) {
-        final id     = resultado['id']     as String;
+        final id = resultado['id'] as String;
         final codigo = resultado['codigo'] as String;
         setState(() {
           _codigoVinculacion = codigo;
-          _codigoGenerado    = true;
+          _codigoGenerado = true;
         });
         _iniciarEscuchaVinculacion(id, nombre);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('¡Código $codigo generado! Espera a que el padre lo ingrese...'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-          ));
-        }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(resultado['message'] ?? 'Error al generar código'),
-            backgroundColor: Colors.red,
-          ));
+          await _mostrarDialogoMensaje(
+            icono: Icons.error_outline_rounded,
+            colorIcono: Colors.redAccent,
+            titulo: 'No se pudo generar el código',
+            mensaje: resultado['message'] ?? 'Error al generar código',
+          );
         }
       }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('Error al crear el perfil. Intenta de nuevo.'),
-          backgroundColor: Colors.red,
-        ));
+        await _mostrarDialogoMensaje(
+          icono: Icons.error_outline_rounded,
+          colorIcono: Colors.redAccent,
+          titulo: 'Error al crear perfil',
+          mensaje: 'Error al crear el perfil. Intenta de nuevo.',
+        );
       }
       debugPrint('_generarCodigo error: $e');
     }
@@ -157,37 +214,31 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
     _vinculacionSub = FirestoreService.streamNino(ninoId).listen(
       (snap) async {
         if (!snap.exists) return;
-        final data    = snap.data() as Map<String, dynamic>;
+        final data = snap.data() as Map<String, dynamic>;
         // 'id_padre' con underscore es el campo real de crearNino — fallback sin underscore
         final idPadre = data['id_padre'] ?? data['idpadre'];
-        final activo  = data['activo'] == true;
+        final activo = data['activo'] == true;
 
         if (idPadre != null && activo) {
           _vinculacionSub?.cancel();
           _vinculacionSub = null;
 
-          final padreIdStr  = idPadre.toString();
+          final padreIdStr = idPadre.toString();
           final nombrePadre = await _obtenerNombrePadre(padreIdStr);
-          final emailPadre  = await _obtenerEmailPadre(padreIdStr);
+          final emailPadre = await _obtenerEmailPadre(padreIdStr);
 
-          final emailFinal = emailPadre.isNotEmpty
-              ? emailPadre
-              : widget.parentEmail;
+          final emailFinal =
+              emailPadre.isNotEmpty ? emailPadre : widget.parentEmail;
 
           await ChildStateService.saveNinoRegistrado(
-            idNino:      ninoId,
-            nombreNino:  nombreNino,
-            idPadre:     padreIdStr,
+            idNino: ninoId,
+            nombreNino: nombreNino,
+            idPadre: padreIdStr,
             nombrePadre: nombrePadre,
             parentEmail: emailFinal,
           );
 
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('¡$nombreNino vinculado con éxito! 🎉'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ));
 
           await Future.delayed(const Duration(milliseconds: 1500));
           if (!mounted) return;
@@ -196,9 +247,9 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
             context,
             MaterialPageRoute(
               builder: (_) => ChildHomeScreen(
-                ninoId:      ninoId,
-                nombreNino:  nombreNino,
-                padreId:     padreIdStr,
+                ninoId: ninoId,
+                nombreNino: nombreNino,
+                padreId: padreIdStr,
                 nombrePadre: nombrePadre,
                 parentEmail: emailFinal,
               ),
@@ -206,32 +257,25 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
           );
         }
       },
-      // ✅ NUEVO: manejo de errores del stream
-      onError: (e) {
+      onError: (e) async {
         debugPrint('_vinculacionSub stream error: $e');
-        // Cancelamos para no dejar el stream en estado indefinido
         _vinculacionSub?.cancel();
         _vinculacionSub = null;
 
         if (!mounted) return;
 
-        // Actualizamos UI: quitamos el indicador de "esperando vinculación"
         setState(() {
-          _codigoGenerado    = false;
+          _codigoGenerado = false;
           _codigoVinculacion = null;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Se perdió la conexión. Por favor genera el código nuevamente.',
-            ),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
-          ),
+        await _mostrarDialogoMensaje(
+          icono: Icons.wifi_off_rounded,
+          colorIcono: Colors.redAccent,
+          titulo: 'Conexión perdida',
+          mensaje: 'Se perdió la conexión. Por favor genera el código nuevamente.',
         );
       },
-      // ✅ NUEVO: si hay error cancela el stream en vez de reintentar infinito
       cancelOnError: true,
     );
     if (mounted) setState(() {});
@@ -241,7 +285,8 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
     try {
       final datos = await FirestoreService.obtenerPadre(padreId);
       // FIX: 'primer_nombre' con underscore es el campo real de crearPadre
-      return (datos?['primer_nombre'] ?? datos?['primernombre'] ?? 'Papá').toString();
+      return (datos?['primer_nombre'] ?? datos?['primernombre'] ?? 'Papá')
+          .toString();
     } catch (_) {
       return 'Papá';
     }

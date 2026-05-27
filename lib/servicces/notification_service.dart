@@ -13,8 +13,7 @@ class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static GlobalKey<NavigatorState>? _navigatorKey;
 
-  static bool _foregroundHandlerInitialized  = false;
-  // ✅ FIX: guardar la suscripción para poder cancelarla antes de re-registrar
+  static bool _foregroundHandlerInitialized = false;
   static StreamSubscription<String>? _tokenRefreshSub;
 
   static Future<void> Function(String token)? _onTokenRefresh;
@@ -62,24 +61,9 @@ class NotificationService {
     debugPrint('✅ NotificationService inicializado');
   }
 
-  /// Registra el listener de token refresh.
-  /// Llamar DESPUÉS del login exitoso, pasando el callback que actualiza
-  /// la sesión en Firestore. Ejemplo en auth_provider.dart:
-  ///
-  ///   NotificationService.initTokenRefreshListener(
-  ///     onTokenRefresh: (newToken) => FirestoreService.guardarSesion(
-  ///       idUsuario: userId,
-  ///       tipoUsuario: 'padre',
-  ///       deviceId: deviceId,
-  ///       deviceToken: newToken,
-  ///     ),
-  ///   );
   static void initTokenRefreshListener({
     required Future<void> Function(String token) onTokenRefresh,
   }) {
-    // ✅ FIX: cancelar suscripción previa antes de crear una nueva.
-    // Sin esto, cada login agrega un listener adicional y el token
-    // se guarda N veces en paralelo tras N logins.
     _tokenRefreshSub?.cancel();
     _tokenRefreshSub = null;
 
@@ -113,10 +97,9 @@ class NotificationService {
       if (notif == null) return;
       _mostrarNotificacionLocal(
         titulo: notif.title ?? '',
-        cuerpo: notif.body  ?? '',
-        data:   message.data,
+        cuerpo: notif.body ?? '',
+        data: message.data,
       );
-      _mostrarSnackBar(notif.title ?? '', notif.body ?? '');
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
@@ -141,63 +124,22 @@ class NotificationService {
           _channel.id,
           _channel.name,
           channelDescription: _channel.description,
-          importance:       Importance.max,
-          priority:         Priority.high,
-          icon:             '@mipmap/ic_launcher',
-          playSound:        true,
-          enableVibration:  true,
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+          playSound: true,
+          enableVibration: true,
         ),
       ),
       payload: data.toString(),
     );
   }
 
-  static void _mostrarSnackBar(String titulo, String cuerpo) {
-    final context = _navigatorKey?.currentContext;
-    if (context == null) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF1A1A3E),
-        duration:        const Duration(seconds: 5),
-        behavior:        SnackBarBehavior.floating,
-        margin:          const EdgeInsets.all(12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        content: Row(
-          children: [
-            const Icon(Icons.notifications_active,
-                color: Color(0xFF6C63FF), size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize:       MainAxisSize.min,
-                children: [
-                  Text(titulo,
-                      style: const TextStyle(
-                          color:      Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize:   14)),
-                  Text(cuerpo,
-                      style: const TextStyle(
-                          color:    Colors.white70,
-                          fontSize: 12),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   static void _handleNotificationTap(Map<String, dynamic> data) {
     if (data['tipo'] == 'vinculacion_padre_hijo') {
-      debugPrint('📍 Notificación de vinculación tocada — ninoId: ${data['ninoId']}');
+      debugPrint(
+        '📍 Notificación de vinculación tocada — ninoId: ${data['ninoId']}',
+      );
       // _navigatorKey?.currentState?.pushNamed('/hijos');
     }
   }

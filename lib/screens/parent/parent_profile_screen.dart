@@ -8,12 +8,14 @@ import '../../providers/parent_provider.dart';
 import 'cambiar_correo_screen.dart';
 import '../../../../widgets/parent/parent_profile_body.dart';
 
+
 const bgPrimary = Color(0xFF0F172A);
 const bgCard = Color(0xFF1E293B);
 const accentCyan = Color(0xFF06B6D4);
 const accentViolet = Color(0xFF8B5CF6);
 const textPearl = Color(0xFFF1F5F9);
 const textMuted = Color(0xFF94A3B8);
+
 
 class ParentProfileScreen extends StatefulWidget {
   final String parentEmail;
@@ -33,6 +35,7 @@ class ParentProfileScreen extends StatefulWidget {
   State<ParentProfileScreen> createState() => _ParentProfileScreenState();
 }
 
+
 class _ParentProfileScreenState extends State<ParentProfileScreen>
     with AutomaticKeepAliveClientMixin {
   @override
@@ -44,6 +47,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<ParentProvider>().cargarDatos(
             widget.userId,
             emailFallback: widget.parentEmail,
@@ -113,8 +117,10 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                 child: DialogButton(
                   label: textoBoton,
                   onTap: () => Navigator.pop(ctx),
-                  isPrimary: colorIcono == accentCyan || colorIcono == Colors.green,
-                  isDestructive: colorIcono == Colors.redAccent || colorIcono == Colors.red,
+                  isPrimary:
+                      colorIcono == accentCyan || colorIcono == Colors.green,
+                  isDestructive: colorIcono == Colors.redAccent ||
+                      colorIcono == Colors.red,
                 ),
               ),
             ],
@@ -126,9 +132,13 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
 
   // ── CERRAR SESIÓN ─────────────────────────────────────────────────────────
   Future<void> cerrarSesion() async {
-    await widget.onGuardarTiempo(); // ← guarda tiempo antes de salir
+    await widget.onGuardarTiempo();
     if (!mounted) return;
+
     context.read<ParentProvider>().reset();
+    await authService.signOut();
+
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
@@ -138,14 +148,17 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
   // ── CAMBIAR ROL ───────────────────────────────────────────────────────────
   Future<void> _cambiarRol() async {
     final parent = context.read<ParentProvider>();
-    await widget.onGuardarTiempo(); // ← guarda tiempo antes de cambiar rol
+    await widget.onGuardarTiempo();
     if (!mounted) return;
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => RoleSelectionScreen(
-          email: parent.correoActual,
-          userName: parent.nombre,
+          email: parent.correoActual.isNotEmpty
+              ? parent.correoActual
+              : widget.parentEmail,
+          userName: parent.nombre.isNotEmpty ? parent.nombre : widget.userName,
           userId: widget.userId,
         ),
       ),
@@ -160,66 +173,73 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     final c3 = TextEditingController(text: parent.primerApellido);
     final c4 = TextEditingController(text: parent.segundoApellido);
 
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => DarkDialog(
-        title: 'Editar nombre completo',
-        icon: Icons.badge_outlined,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DarkField(controller: c1, label: 'Primer nombre *'),
-            const SizedBox(height: 12),
-            DarkField(controller: c2, label: 'Segundo nombre'),
-            const SizedBox(height: 12),
-            DarkField(controller: c3, label: 'Primer apellido *'),
-            const SizedBox(height: 12),
-            DarkField(controller: c4, label: 'Segundo apellido'),
-          ],
+    try {
+      final result = await showDialog<Map<String, String>>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => DarkDialog(
+          title: 'Editar nombre completo',
+          icon: Icons.badge_outlined,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DarkField(controller: c1, label: 'Primer nombre *'),
+              const SizedBox(height: 12),
+              DarkField(controller: c2, label: 'Segundo nombre'),
+              const SizedBox(height: 12),
+              DarkField(controller: c3, label: 'Primer apellido *'),
+              const SizedBox(height: 12),
+              DarkField(controller: c4, label: 'Segundo apellido'),
+            ],
+          ),
+          onCancel: () => Navigator.pop(ctx),
+          onAccept: () async {
+            if (c1.text.trim().isEmpty || c3.text.trim().isEmpty) {
+              await _mostrarDialogoMensaje(
+                titulo: 'Campos obligatorios',
+                mensaje: 'Primer nombre y apellido son obligatorios',
+                icono: Icons.error_outline_rounded,
+                colorIcono: Colors.redAccent,
+              );
+              return;
+            }
+            if (!ctx.mounted) return;
+            Navigator.pop(ctx, {
+              'primernombre': c1.text.trim(),
+              'segundonombre': c2.text.trim(),
+              'primerapellido': c3.text.trim(),
+              'segundoapellido': c4.text.trim(),
+            });
+          },
         ),
-        onCancel: () => Navigator.pop(ctx),
-        onAccept: () async {
-          if (c1.text.trim().isEmpty || c3.text.trim().isEmpty) {
-            await _mostrarDialogoMensaje(
-              titulo: 'Campos obligatorios',
-              mensaje: 'Primer nombre y apellido son obligatorios',
-              icono: Icons.error_outline_rounded,
-              colorIcono: Colors.redAccent,
-            );
-            return;
-          }
-          if (!ctx.mounted) return;
-          Navigator.pop(ctx, {
-            'primernombre': c1.text.trim(),
-            'segundonombre': c2.text.trim(),
-            'primerapellido': c3.text.trim(),
-            'segundoapellido': c4.text.trim(),
-          });
-        },
-      ),
-    );
+      );
 
-    if (result == null || !mounted) return;
-    final res = await parent.guardarEnBD(
-      userId: widget.userId,
-      primerNombre: result['primernombre']!,
-      segundoNombreVal: result['segundonombre'],
-      primerApellidoVal: result['primerapellido'],
-      segundoApellidoVal: result['segundoapellido'],
-      fechaNacimientoVal:
-          parent.fechaNacimiento.isEmpty ? null : parent.fechaNacimiento,
-    );
-    if (!mounted) return;
+      if (result == null || !mounted) return;
+      final res = await parent.guardarEnBD(
+        userId: widget.userId,
+        primerNombre: result['primernombre']!,
+        segundoNombreVal: result['segundonombre'],
+        primerApellidoVal: result['primerapellido'],
+        segundoApellidoVal: result['segundoapellido'],
+        fechaNacimientoVal:
+            parent.fechaNacimiento.isEmpty ? null : parent.fechaNacimiento,
+      );
+      if (!mounted) return;
 
-    await _mostrarDialogoMensaje(
-      titulo: res['success'] == true ? 'Datos actualizados' : 'No se pudo actualizar',
-      mensaje: res['message'] ?? 'Actualizado',
-      icono: res['success'] == true
-          ? Icons.check_circle_outline_rounded
-          : Icons.error_outline_rounded,
-      colorIcono: res['success'] == true ? Colors.green : Colors.redAccent,
-    );
+      await _mostrarDialogoMensaje(
+        titulo: res.success ? 'Datos actualizados' : 'No se pudo actualizar',
+        mensaje: res.message ?? 'Actualizado',
+        icono: res.success
+            ? Icons.check_circle_outline_rounded
+            : Icons.error_outline_rounded,
+        colorIcono: res.success ? Colors.green : Colors.redAccent,
+      );
+    } finally {
+      c1.dispose();
+      c2.dispose();
+      c3.dispose();
+      c4.dispose();
+    }
   }
 
   // ── EDITAR FECHA ──────────────────────────────────────────────────────────
@@ -267,12 +287,12 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     if (!mounted) return;
 
     await _mostrarDialogoMensaje(
-      titulo: res['success'] == true ? 'Fecha actualizada' : 'No se pudo actualizar',
-      mensaje: res['message'] ?? 'Actualizado',
-      icono: res['success'] == true
+      titulo: res.success ? 'Fecha actualizada' : 'No se pudo actualizar',
+      mensaje: res.message ?? 'Actualizado',
+      icono: res.success
           ? Icons.check_circle_outline_rounded
           : Icons.error_outline_rounded,
-      colorIcono: res['success'] == true ? Colors.green : Colors.redAccent,
+      colorIcono: res.success ? Colors.green : Colors.redAccent,
     );
   }
 
@@ -282,74 +302,85 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     final c1 = TextEditingController();
     final c2 = TextEditingController();
 
-    final accepted = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => DarkDialog(
-        title: 'Cambiar contraseña',
-        icon: Icons.lock_outline_rounded,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DarkField(controller: c1, label: 'Nueva contraseña', obscure: true),
-            const SizedBox(height: 12),
-            DarkField(controller: c2, label: 'Confirmar contraseña', obscure: true),
-            const SizedBox(height: 6),
-            Text(
-              'Mínimo 4 caracteres.',
-              style: GoogleFonts.poppins(fontSize: 11, color: textMuted),
-            ),
-          ],
+    try {
+      final accepted = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => DarkDialog(
+          title: 'Cambiar contraseña',
+          icon: Icons.lock_outline_rounded,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DarkField(controller: c1, label: 'Nueva contraseña', obscure: true),
+              const SizedBox(height: 12),
+              DarkField(
+                controller: c2,
+                label: 'Confirmar contraseña',
+                obscure: true,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Mínimo 4 caracteres.',
+                style: GoogleFonts.poppins(fontSize: 11, color: textMuted),
+              ),
+            ],
+          ),
+          onCancel: () => Navigator.pop(ctx, false),
+          onAccept: () async {
+            final p1 = c1.text.trim();
+            final p2 = c2.text.trim();
+            if (p1.length < 4) {
+              await _mostrarDialogoMensaje(
+                titulo: 'Contraseña inválida',
+                mensaje: 'Contraseña muy corta (mínimo 4)',
+                icono: Icons.error_outline_rounded,
+                colorIcono: Colors.redAccent,
+              );
+              return;
+            }
+            if (p1 != p2) {
+              await _mostrarDialogoMensaje(
+                titulo: 'Contraseñas distintas',
+                mensaje: 'Las contraseñas no coinciden',
+                icono: Icons.error_outline_rounded,
+                colorIcono: Colors.redAccent,
+              );
+              return;
+            }
+            if (!ctx.mounted) return;
+            Navigator.pop(ctx, true);
+          },
         ),
-        onCancel: () => Navigator.pop(ctx, false),
-        onAccept: () async {
-          final p1 = c1.text.trim();
-          final p2 = c2.text.trim();
-          if (p1.length < 4) {
-            await _mostrarDialogoMensaje(
-              titulo: 'Contraseña inválida',
-              mensaje: 'Contraseña muy corta (mínimo 4)',
-              icono: Icons.error_outline_rounded,
-              colorIcono: Colors.redAccent,
-            );
-            return;
-          }
-          if (p1 != p2) {
-            await _mostrarDialogoMensaje(
-              titulo: 'Contraseñas distintas',
-              mensaje: 'Las contraseñas no coinciden',
-              icono: Icons.error_outline_rounded,
-              colorIcono: Colors.redAccent,
-            );
-            return;
-          }
-          if (!ctx.mounted) return;
-          Navigator.pop(ctx, true);
-        },
-      ),
-    );
+      );
 
-    if (accepted != true || !mounted) return;
-    final res = await parent.guardarEnBD(
-      userId: widget.userId,
-      primerNombre: parent.nombre,
-      segundoNombreVal: parent.segundoNombre,
-      primerApellidoVal: parent.primerApellido,
-      segundoApellidoVal: parent.segundoApellido,
-      fechaNacimientoVal:
-          parent.fechaNacimiento.isEmpty ? null : parent.fechaNacimiento,
-      nuevaContrasena: c1.text.trim(),
-    );
-    if (!mounted) return;
+      if (accepted != true || !mounted) return;
+      final res = await parent.guardarEnBD(
+        userId: widget.userId,
+        primerNombre: parent.nombre,
+        segundoNombreVal: parent.segundoNombre,
+        primerApellidoVal: parent.primerApellido,
+        segundoApellidoVal: parent.segundoApellido,
+        fechaNacimientoVal:
+            parent.fechaNacimiento.isEmpty ? null : parent.fechaNacimiento,
+        nuevaContrasena: c1.text.trim(),
+      );
+      if (!mounted) return;
 
-    await _mostrarDialogoMensaje(
-      titulo: res['success'] == true ? 'Contraseña actualizada' : 'No se pudo actualizar',
-      mensaje: res['message'] ?? 'Actualizado',
-      icono: res['success'] == true
-          ? Icons.check_circle_outline_rounded
-          : Icons.error_outline_rounded,
-      colorIcono: res['success'] == true ? Colors.green : Colors.redAccent,
-    );
+      await _mostrarDialogoMensaje(
+        titulo: res.success
+            ? 'Contraseña actualizada'
+            : 'No se pudo actualizar',
+        mensaje: res.message ?? 'Actualizado',
+        icono: res.success
+            ? Icons.check_circle_outline_rounded
+            : Icons.error_outline_rounded,
+        colorIcono: res.success ? Colors.green : Colors.redAccent,
+      );
+    } finally {
+      c1.dispose();
+      c2.dispose();
+    }
   }
 
   // ── EDITAR CORREO ─────────────────────────────────────────────────────────
@@ -391,7 +422,10 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.red.withOpacity(0.12),
-                  border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
                 child: const Icon(
                   Icons.warning_amber_rounded,
@@ -449,136 +483,143 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     if (confirmar1 != true || !mounted) return;
 
     final textoController = TextEditingController();
-    final confirmar2 = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setStateDialog) => Dialog(
-          backgroundColor: bgCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: Colors.red.withOpacity(0.3), width: 1),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Confirmación final',
-                  style: GoogleFonts.poppins(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: textPearl,
+
+    try {
+      final confirmar2 = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setStateDialog) => Dialog(
+            backgroundColor: bgCard,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: Colors.red.withOpacity(0.3), width: 1),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Confirmación final',
+                    style: GoogleFonts.poppins(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: textPearl,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Para confirmar, escribe ELIMINAR en el campo de abajo',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: textMuted,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    color: bgPrimary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.withOpacity(0.35), width: 1),
-                  ),
-                  child: TextField(
-                    controller: textoController,
-                    onChanged: (_) => setStateDialog(() {}),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Para confirmar, escribe ELIMINAR en el campo de abajo',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: Colors.redAccent,
+                      fontSize: 12,
+                      color: textMuted,
                     ),
-                    decoration: InputDecoration(
-                      hintText: 'ELIMINAR',
-                      hintStyle: GoogleFonts.poppins(
-                        color: Colors.red.withOpacity(0.3),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: bgPrimary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.red.withOpacity(0.35),
+                        width: 1,
                       ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
+                    ),
+                    child: TextField(
+                      controller: textoController,
+                      onChanged: (_) => setStateDialog(() {}),
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                        color: Colors.redAccent,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'ELIMINAR',
+                        hintStyle: GoogleFonts.poppins(
+                          color: Colors.red.withOpacity(0.3),
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DialogButton(
-                        label: 'Cancelar',
-                        onTap: () => Navigator.pop(ctx, false),
-                        isDestructive: false,
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DialogButton(
+                          label: 'Cancelar',
+                          onTap: () => Navigator.pop(ctx, false),
+                          isDestructive: false,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DialogButton(
-                        label: 'Eliminar',
-                        onTap: textoController.text.trim() == 'ELIMINAR'
-                            ? () => Navigator.pop(ctx, true)
-                            : null,
-                        isDestructive: true,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DialogButton(
+                          label: 'Eliminar',
+                          onTap: textoController.text.trim() == 'ELIMINAR'
+                              ? () => Navigator.pop(ctx, true)
+                              : null,
+                          isDestructive: true,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
-
-    if (confirmar2 != true || !mounted) return;
-
-    // ← guarda el tiempo ANTES de desactivar y cerrar sesión
-    await widget.onGuardarTiempo();
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: accentCyan, strokeWidth: 2.5),
-      ),
-    );
-
-    final parent = context.read<ParentProvider>();
-    final res = await parent.desactivarCuenta(widget.userId);
-    await authService.signOut();
-
-    if (!mounted) return;
-    Navigator.pop(context); // cierra loading
-
-    if (res['success'] == true) {
-      parent.reset();
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
       );
-      await _mostrarDialogoMensaje(
-        titulo: 'Cuenta eliminada',
-        mensaje: 'Tu cuenta ha sido eliminada correctamente.',
-        icono: Icons.check_circle_outline_rounded,
-        colorIcono: Colors.green,
+
+      if (confirmar2 != true || !mounted) return;
+
+      await widget.onGuardarTiempo();
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: CircularProgressIndicator(
+            color: accentCyan,
+            strokeWidth: 2.5,
+          ),
+        ),
       );
-    } else {
-      await _mostrarDialogoMensaje(
-        titulo: 'No se pudo eliminar',
-        mensaje: res['message'] ?? 'Error al eliminar cuenta',
-        icono: Icons.error_outline_rounded,
-        colorIcono: Colors.redAccent,
-      );
+
+      final parent = context.read<ParentProvider>();
+      final res = await parent.desactivarCuenta(widget.userId);
+
+      if (res.success) {
+        await authService.signOut();
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (res.success) {
+        parent.reset();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      } else {
+        await _mostrarDialogoMensaje(
+          titulo: 'No se pudo eliminar',
+          mensaje: res.message ?? 'Error al eliminar cuenta',
+          icono: Icons.error_outline_rounded,
+          colorIcono: Colors.redAccent,
+        );
+      }
+    } finally {
+      textoController.dispose();
     }
   }
 
@@ -616,6 +657,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     );
   }
 }
+
 
 // ─── DIÁLOGO OSCURO REUTILIZABLE ─────────────────────────────────────────────
 class DarkDialog extends StatelessWidget {
@@ -701,7 +743,8 @@ class DarkDialog extends StatelessWidget {
   }
 }
 
-// ─── CAMPO DE TEXTO OSCURO ────────────────────────────────────────────────────
+
+// ─── CAMPO DE TEXTO OSCURO ──────────────────────────────────────────────────
 class DarkField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -749,7 +792,8 @@ class DarkField extends StatelessWidget {
   }
 }
 
-// ─── BOTÓN DE DIÁLOGO ─────────────────────────────────────────────────────────
+
+// ─── BOTÓN DE DIÁLOGO ────────────────────────────────────────────────────────
 class DialogButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
@@ -780,6 +824,7 @@ class DialogButton extends StatelessWidget {
       textColor = textMuted;
       bgColor = Colors.white.withOpacity(0.04);
     }
+
     return GestureDetector(
       onTap: onTap,
       child: Container(

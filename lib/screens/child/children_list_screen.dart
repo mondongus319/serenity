@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart'; // ← agregar
-import 'package:permission_handler/permission_handler.dart'; // ← agregar
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'child_registration_screen.dart';
 import 'child_home_screen.dart';
@@ -93,29 +93,30 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<ChildProvider>().cargarNinos(widget.padreId);
     });
   }
 
   Future<void> agregarNuevoNino() async {
-    // ✅ CAMBIO: ya no pedimos ubicación aquí.
-    //    El padre ya concedió permisos en RoleSelectionScreen al entrar.
-    //    Solo verificamos silenciosamente que el permiso sigue activo.
-    //    Si no lo está, mostramos un mensaje claro sin trabarse.
     final tienePermiso = await LocationService.tienePermisos();
     final gpsActivo = await LocationService.gpsActivo();
 
     if (!tienePermiso || !gpsActivo) {
       if (!mounted) return;
-      // ✅ Mostramos un bottom sheet informativo en vez de bloquear el flujo
-      await _mostrarAvisoUbicacion(tienePermiso: tienePermiso);
-      // Volvemos a verificar tras el aviso — si el usuario activó, continuamos
+
+      await _mostrarAvisoUbicacion(
+        tienePermiso: tienePermiso,
+        gpsActivo: gpsActivo,
+      );
+
       final tienePermisoAhora = await LocationService.tienePermisos();
       final gpsActivoAhora = await LocationService.gpsActivo();
       if (!tienePermisoAhora || !gpsActivoAhora) return;
     }
 
     if (!mounted) return;
+
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -124,13 +125,30 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
         ),
       ),
     );
+
     if (!mounted) return;
-    context.read<ChildProvider>().cargarNinos(widget.padreId);
+    await context.read<ChildProvider>().cargarNinos(widget.padreId);
   }
 
-  // ✅ NUEVO: aviso no bloqueante con instrucción clara
-  Future<void> _mostrarAvisoUbicacion({required bool tienePermiso}) async {
+  Future<void> _mostrarAvisoUbicacion({
+    required bool tienePermiso,
+    required bool gpsActivo,
+  }) async {
     if (!mounted) return;
+
+    String mensaje = '';
+    String textoBoton = '';
+
+    if (!tienePermiso) {
+      mensaje =
+          'Serenity necesita permiso de ubicación. Ve a Configuración > Aplicaciones > Serenity y activa la ubicación.';
+      textoBoton = 'Ir a Configuración';
+    } else if (!gpsActivo) {
+      mensaje =
+          'El GPS está desactivado. Actívalo en los ajustes de tu dispositivo y vuelve a intentarlo.';
+      textoBoton = 'Abrir ajustes de GPS';
+    }
+
     await showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -164,9 +182,7 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              tienePermiso
-                  ? 'El GPS está desactivado. Actívalo en los ajustes de tu dispositivo y vuelve a intentarlo.'
-                  : 'Serenity necesita permiso de ubicación. Ve a Configuración > Aplicaciones > Serenity y activa la ubicación.',
+              mensaje,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -180,10 +196,10 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
               child: ElevatedButton(
                 onPressed: () async {
                   Navigator.pop(ctx);
-                  if (tienePermiso) {
-                    await Geolocator.openLocationSettings();
-                  } else {
+                  if (!tienePermiso) {
                     await openAppSettings();
+                  } else if (!gpsActivo) {
+                    await Geolocator.openLocationSettings();
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -194,7 +210,7 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
                   ),
                 ),
                 child: Text(
-                  tienePermiso ? 'Abrir ajustes de GPS' : 'Ir a Configuración',
+                  textoBoton,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,
@@ -218,9 +234,16 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
   }
 
   Future<void> seleccionarNino(Map<String, dynamic> nino) async {
-    // ✅ FIX: 'id' en minúscula — listarNinosPadre retorna {'id': d.id, ...}
     final ninoId = (nino['id'] ?? nino['ID'] ?? '').toString();
     final nombreNino = (nino['nombre'] ?? nino['Nombre'] ?? '').toString();
+
+    if (ninoId.isEmpty || nombreNino.isEmpty) {
+      await _mostrarDialogoError(
+        titulo: 'Datos incompletos',
+        mensaje: 'No se pudo abrir el perfil del niño. Intenta nuevamente.',
+      );
+      return;
+    }
 
     final password = await PasswordDialog.show(
       context: context,
@@ -242,10 +265,10 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
       ),
     );
 
-    final valido =
-        await FirestoreService.validarPasswordNino(ninoId, password);
+    final valido = await FirestoreService.validarPasswordNino(ninoId, password);
+
     if (!mounted) return;
-    Navigator.pop(context); // cierra loading
+    Navigator.pop(context);
 
     if (valido) {
       await ChildStateService.saveNinoRegistrado(
@@ -254,6 +277,20 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
         idPadre: widget.padreId,
         nombrePadre: widget.nombrePadre,
       );
+
+      try {
+        final position = await LocationService.obtenerUbicacionSilenciosa();
+        if (position != null) {
+          await FirestoreService.guardarUbicacionNino(
+            ninoId,
+            position.latitude,
+            position.longitude,
+          );
+        }
+      } catch (e) {
+        debugPrint('guardarUbicacionNino seleccionarNino error: $e');
+      }
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -278,6 +315,7 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
   Future<void> cambiarRol() async {
     await ChildStateService.clearNinoRegistrado();
     if (!mounted) return;
+
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(

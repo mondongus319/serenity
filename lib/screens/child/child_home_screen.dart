@@ -8,6 +8,7 @@ import '../../servicces/kiosk_service.dart';
 import 'children_list_screen.dart';
 import '../../widgets/auth/password_dialog.dart';
 import 'child_youtube_screen.dart';
+import 'child_youtuber_selection_screen.dart';
 import '../../widgets/child/child_home_body.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -367,6 +368,18 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     );
   }
 
+  void _irASeleccionYoutubers() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChildYoutuberSelectionScreen(
+          ninoId: widget.ninoId,
+          nombreNino: widget.nombreNino,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -374,10 +387,46 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _cerrarSesion();
       },
-      child: ChildHomeBody(
-        nombreNino: widget.nombreNino,
-        onCerrarSesion: _cerrarSesion,
-        onYoutube: _irAYoutube,
+      child: Scaffold(
+        backgroundColor: _bgPrimary,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: ChildHomeBody(
+                  nombreNino: widget.nombreNino,
+                  onCerrarSesion: _cerrarSesion,
+                  onYoutube: _irAYoutube,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _irASeleccionYoutubers,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _accentViolet,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.favorite_rounded),
+                    label: Text(
+                      'Elegir mis Youtubers',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

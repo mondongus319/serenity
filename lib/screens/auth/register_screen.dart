@@ -6,6 +6,7 @@ import 'login_screen.dart';
 import '../../../widgets/auth/register_body.dart';
 import '../../providers/auth_provider.dart';
 
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -13,19 +14,20 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+
 class _RegisterScreenState extends State<RegisterScreen> {
-  final primerNombreController = TextEditingController();
-  final segundoNombreController = TextEditingController();
-  final primerApellidoController = TextEditingController();
-  final segundoApellidoController = TextEditingController();
-  final fechaNacimientoController = TextEditingController();
-  final gmailController = TextEditingController();
-  final contrasenaController = TextEditingController();
+  final primerNombreController        = TextEditingController();
+  final segundoNombreController       = TextEditingController();
+  final primerApellidoController      = TextEditingController();
+  final segundoApellidoController     = TextEditingController();
+  final fechaNacimientoController     = TextEditingController();
+  final gmailController               = TextEditingController();
+  final contrasenaController          = TextEditingController();
   final confirmarContrasenaController = TextEditingController();
 
-  bool terminosAceptados = false;
-  bool obscureContrasena = true;
-  bool obscureConfirmar = true;
+  bool terminosAceptados  = false;
+  bool obscureContrasena  = true;
+  bool obscureConfirmar   = true;
 
   @override
   void initState() {
@@ -96,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ── DIÁLOGO DE TÉRMINOS — sin cambios visuales ────────────────────────────
+  // ── DIÁLOGO DE TÉRMINOS ────────────────────────────────────────────────────
   Future<void> mostrarDialogoTerminos() async {
     final aceptado = await showDialog<bool>(
       context: context,
@@ -238,7 +240,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.close_rounded,
                                   color: Colors.redAccent,
                                   size: 16,
@@ -342,13 +344,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final primerNombre = primerNombreController.text.trim();
-    final segundoNombre = segundoNombreController.text.trim();
-    final primerApellido = primerApellidoController.text.trim();
-    final segundoApellido = segundoApellidoController.text.trim();
-    final fechaNacimiento = fechaNacimientoController.text.trim();
-    final gmail = gmailController.text.trim();
-    final contrasena = contrasenaController.text.trim();
+    final primerNombre        = primerNombreController.text.trim();
+    final segundoNombre       = segundoNombreController.text.trim();
+    final primerApellido      = primerApellidoController.text.trim();
+    final segundoApellido     = segundoApellidoController.text.trim();
+    final fechaNacimiento     = fechaNacimientoController.text.trim();
+    final gmail               = gmailController.text.trim();
+    final contrasena          = contrasenaController.text.trim();
     final confirmarContrasena = confirmarContrasenaController.text.trim();
 
     if (primerNombre.isEmpty ||
@@ -390,48 +392,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final fechaParaDB =
         '${partesFecha[2]}-${partesFecha[1]}-${partesFecha[0]}';
 
-    final auth = context.read<AuthProvider>();
+    final auth      = context.read<AuthProvider>();
     final resultado = await auth.registrarUsuario(
-      primerNombre: primerNombre,
-      segundoNombre: segundoNombre,
-      primerApellido: primerApellido,
+      primerNombre:    primerNombre,
+      segundoNombre:   segundoNombre,
+      primerApellido:  primerApellido,
       segundoApellido: segundoApellido,
       fechaNacimiento: fechaParaDB,
-      gmail: gmail,
-      contrasena: contrasena,
+      gmail:           gmail,
+      contrasena:      contrasena,
     );
 
     if (!mounted) return;
 
-    if (resultado['success'] == true) {
+    if (resultado.success) {
       await _mostrarDialogoMensaje(
-        icono: Icons.mark_email_read_outlined,
+        icono:      Icons.mark_email_read_outlined,
         colorIcono: Colors.green,
-        titulo: 'Registro exitoso',
-        mensaje: resultado['message'] ?? 'Usuario registrado exitosamente',
+        titulo:     'Registro exitoso',
+        mensaje:    resultado.message ?? 'Usuario registrado exitosamente',
       );
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => VerifyEmailScreen(
-            email: resultado['email'] ?? gmail,
+            email: resultado.email ?? gmail,
           ),
         ),
       );
     } else {
       await _mostrarDialogoMensaje(
-        icono: Icons.error_outline_rounded,
+        icono:      Icons.error_outline_rounded,
         colorIcono: Colors.redAccent,
-        titulo: 'No se pudo registrar',
-        mensaje: resultado['message'] ?? 'Error al registrar usuario',
+        titulo:     'No se pudo registrar',
+        mensaje:    resultado.message ?? 'Error al registrar usuario',
       );
     }
   }
 
   // ── SELECTOR DE FECHA ─────────────────────────────────────────────────────
   Future<void> seleccionarFecha() async {
-    DateTime? fechaSeleccionada = await showDatePicker(
+    final fechaSeleccionada = await showDatePicker(
       context: context,
       initialDate: DateTime(2000),
       firstDate: DateTime(1900),
@@ -481,24 +483,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         return RegisterBody(
-          primerNombreController: primerNombreController,
-          segundoNombreController: segundoNombreController,
-          primerApellidoController: primerApellidoController,
-          segundoApellidoController: segundoApellidoController,
-          fechaNacimientoController: fechaNacimientoController,
-          gmailController: gmailController,
-          contrasenaController: contrasenaController,
+          primerNombreController:        primerNombreController,
+          segundoNombreController:       segundoNombreController,
+          primerApellidoController:      primerApellidoController,
+          segundoApellidoController:     segundoApellidoController,
+          fechaNacimientoController:     fechaNacimientoController,
+          gmailController:               gmailController,
+          contrasenaController:          contrasenaController,
           confirmarContrasenaController: confirmarContrasenaController,
-          isLoading: auth.isLoading,
+          isLoading:         auth.isLoading,
           obscureContrasena: obscureContrasena,
-          obscureConfirmar: obscureConfirmar,
+          obscureConfirmar:  obscureConfirmar,
           onToggleContrasena: () =>
               setState(() => obscureContrasena = !obscureContrasena),
           onToggleConfirmar: () =>
               setState(() => obscureConfirmar = !obscureConfirmar),
-          onBack: () => Navigator.pop(context),
+          onBack:      () => Navigator.pop(context),
           onRegistrar: registrarUsuario,
-          onTapFecha: seleccionarFecha,
+          onTapFecha:  seleccionarFecha,
         );
       },
     );

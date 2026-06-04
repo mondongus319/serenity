@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+
 class YoutubeAutoPlayScreen extends StatefulWidget {
   final List<Map<String, dynamic>> videos;
   final String nombreNino;
@@ -18,19 +19,21 @@ class YoutubeAutoPlayScreen extends StatefulWidget {
   State<YoutubeAutoPlayScreen> createState() => _YoutubeAutoPlayScreenState();
 }
 
+
 class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
-  static const bg = Color(0xFF0F172A);
-  static const card = Color(0xFF1E293B);
-  static const cyan = Color(0xFF06B6D4);
+  static const bg    = Color(0xFF0F172A);
+  static const card  = Color(0xFF1E293B);
+  static const cyan  = Color(0xFF06B6D4);
   static const pearl = Color(0xFFF1F5F9);
   static const muted = Color(0xFF94A3B8);
 
   late YoutubePlayerController controller;
-  int indice = 0;
-  bool avanzando = false;
+  int  indice          = 0;
+  bool avanzando       = false;
   bool mostrarSiguiente = false;
-  bool yaInicio = false;
+  bool yaInicio        = false;
 
+  // ── Animales ────────────────────────────────────────────────────────────
   final Random _random = Random();
   List<String> _animalAssets = [];
   String? _animalActual;
@@ -39,7 +42,7 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
   @override
   void initState() {
     super.initState();
-    iniciarControlador(indice);
+    _iniciarControlador(indice);
     _cargarAnimalesYEscoger();
   }
 
@@ -49,6 +52,115 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     _precacheSiSePuede();
   }
 
+  @override
+  void dispose() {
+    controller
+      ..removeListener(_escucharEstado)
+      ..dispose();
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    super.dispose();
+  }
+
+  // ── Controlador YouTube ─────────────────────────────────────────────────
+  void _iniciarControlador(int idx) {
+    yaInicio   = false;
+    avanzando  = false;
+
+    final videoId = _idDeVideo(idx);
+
+    // Si el id está vacío, saltamos directamente
+    if (videoId.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _irAlSiguiente());
+      return;
+    }
+
+    controller = YoutubePlayerController(
+      initialVideoId: videoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay:               true,
+        mute:                   false,
+        hideControls:           false,
+        disableDragSeek:        true,
+        hideThumbnail:          false,
+        enableCaption:          false,
+        loop:                   false,
+        useHybridComposition:   true,
+        controlsVisibleAtStart: false,
+      ),
+    )..addListener(_escucharEstado);
+  }
+
+  void _escucharEstado() {
+    if (!mounted) return;
+    final v = controller.value;
+
+    // Forzar play cuando el player esté listo (fix autoplay bloqueado)
+    if (v.isReady && !yaInicio) {
+      yaInicio = true;
+      Future.microtask(() {
+        if (mounted) controller.play();
+      });
+    }
+
+    // Salta automáticamente si el video no permite embedding
+    if ((v.errorCode == 101 || v.errorCode == 150) && !avanzando) {
+      avanzando = true;
+      _irAlSiguiente();
+      return;
+    }
+
+    // Auto-avance al terminar
+    if (v.playerState == PlayerState.ended && !avanzando) {
+      avanzando = true;
+      _irAlSiguiente();
+    }
+  }
+
+  Future<void> _irAlSiguiente() async {
+    if (!mounted) return;
+
+    setState(() => mostrarSiguiente = true);
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (!mounted) return;
+
+    final siguiente = (indice + 1) % widget.videos.length;
+
+    // Remover listener antes de reasignar el controlador
+    controller
+      ..removeListener(_escucharEstado)
+      ..dispose();
+
+    setState(() {
+      indice           = siguiente;
+      mostrarSiguiente = false;
+      avanzando        = false;
+      yaInicio         = false;
+    });
+
+    _iniciarControlador(siguiente);
+    _escogerAnimalAleatorio();
+  }
+
+  void _volverAtras() {
+    if (controller.value.isFullScreen) {
+      controller.toggleFullScreenMode();
+      return;
+    }
+    controller.pause();
+    Navigator.pop(context);
+  }
+
+  // ── Helpers de video ────────────────────────────────────────────────────
+  String _idDeVideo(int i) =>
+      (widget.videos[i]['video_id'] as String? ?? '').trim();
+
+  Map<String, dynamic> get _video    => widget.videos[indice];
+  String get _titulo    => _video['titulo']    as String? ?? 'Video';
+  String get _categoria => _video['categoria'] as String? ?? '';
+  String get _canal     => _video['canal']     as String? ?? '';
+
+  // ── Animales ────────────────────────────────────────────────────────────
   Future<void> _cargarAnimalesYEscoger() async {
     try {
       final AssetManifest manifest =
@@ -56,7 +168,8 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
       final List<String> assets = manifest.listAssets();
 
       final animales = assets
-          .where((p) => p.startsWith('assets/images/animales_con_acciones/'))
+          .where((p) =>
+              p.startsWith('assets/images/animales_con_acciones/'))
           .where((p) {
             final lower = p.toLowerCase();
             return lower.endsWith('.png') ||
@@ -74,14 +187,11 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
 
   void _escogerAnimalAleatorio() {
     if (_animalAssets.isEmpty) {
-      if (mounted) {
-        setState(() => _animalActual = null);
-      }
+      if (mounted) setState(() => _animalActual = null);
       return;
     }
 
     String elegido = _animalAssets[_random.nextInt(_animalAssets.length)];
-
     if (_animalAssets.length > 1) {
       while (elegido == _animalActual) {
         elegido = _animalAssets[_random.nextInt(_animalAssets.length)];
@@ -89,10 +199,9 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     }
 
     if (!mounted) return;
-
     setState(() {
-      _animalActual = elegido;
-      _intentandoPrecarga = true;
+      _animalActual        = elegido;
+      _intentandoPrecarga  = true;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -103,102 +212,11 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
   void _precacheSiSePuede() {
     if (!_intentandoPrecarga) return;
     if (_animalActual == null) return;
-
     _intentandoPrecarga = false;
     precacheImage(AssetImage(_animalActual!), context);
   }
 
-  @override
-  void dispose() {
-    controller
-      ..removeListener(escucharEstado)
-      ..dispose();
-
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-
-    super.dispose();
-  }
-
-  void iniciarControlador(int indice) {
-    yaInicio = false;
-
-    controller = YoutubePlayerController(
-      initialVideoId: idDeVideo(indice),
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
-        mute: false,
-        hideControls: false,
-        disableDragSeek: true,
-        hideThumbnail: false,
-        enableCaption: false,
-        loop: false,
-        useHybridComposition: true,
-        controlsVisibleAtStart: false,
-      ),
-    )..addListener(escucharEstado);
-  }
-
-  void escucharEstado() {
-    if (!mounted) return;
-    final v = controller.value;
-
-    if (v.isReady && !yaInicio) {
-      yaInicio = true;
-      Future.microtask(() => controller.play());
-    }
-
-    if ((v.errorCode == 101 || v.errorCode == 150) && !avanzando) {
-      avanzando = true;
-      irAlSiguiente();
-      return;
-    }
-
-    if (v.playerState == PlayerState.ended && !avanzando) {
-      avanzando = true;
-      irAlSiguiente();
-    }
-  }
-
-  Future<void> irAlSiguiente() async {
-    if (!mounted) return;
-
-    setState(() => mostrarSiguiente = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (!mounted) return;
-
-    final siguiente = (indice + 1) % widget.videos.length;
-
-    setState(() {
-      indice = siguiente;
-      mostrarSiguiente = false;
-      avanzando = false;
-      yaInicio = false;
-    });
-
-    controller.load(idDeVideo(siguiente));
-    _escogerAnimalAleatorio();
-  }
-
-  void _volverAtras() {
-    if (controller.value.isFullScreen) {
-      controller.toggleFullScreenMode();
-      return;
-    }
-
-    controller.pause();
-    Navigator.pop(context);
-  }
-
-  String idDeVideo(int i) => widget.videos[i]['video_id'] as String? ?? '';
-
-  Map<String, dynamic> get video => widget.videos[indice];
-  String get titulo => video['titulo'] as String? ?? 'Video';
-  String get categoria => video['categoria'] as String? ?? '';
-  String get canal => video['canal'] as String? ?? '';
-
+  // ── Build ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return YoutubePlayerBuilder(
@@ -209,24 +227,22 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
         ]);
       },
       onExitFullScreen: () {
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-        ]);
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
       },
       player: YoutubePlayer(
         controller: controller,
         showVideoProgressIndicator: true,
         progressIndicatorColor: cyan,
         progressColors: const ProgressBarColors(
-          playedColor: Color(0xFF06B6D4),
-          handleColor: Color(0xFF06B6D4),
-          bufferedColor: Color(0xFF334155),
+          playedColor:     Color(0xFF06B6D4),
+          handleColor:     Color(0xFF06B6D4),
+          bufferedColor:   Color(0xFF334155),
           backgroundColor: Color(0xFF1E293B),
         ),
         onEnded: (_) {
           if (!avanzando) {
             avanzando = true;
-            irAlSiguiente();
+            _irAlSiguiente();
           }
         },
         topActions: const [SizedBox.shrink()],
@@ -235,9 +251,9 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
           ProgressBar(
             isExpanded: true,
             colors: ProgressBarColors(
-              playedColor: Color(0xFF06B6D4),
-              handleColor: Color(0xFF06B6D4),
-              bufferedColor: Color(0xFF334155),
+              playedColor:     Color(0xFF06B6D4),
+              handleColor:     Color(0xFF06B6D4),
+              bufferedColor:   Color(0xFF334155),
               backgroundColor: Color(0xFF1E293B),
             ),
           ),
@@ -262,23 +278,27 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+
+                  // ── VIDEO ──────────────────────────────────────────────
                   Material(
                     color: Colors.black,
                     child: player,
                   ),
+
+                  // ── INFO ──────────────────────────────────────────────
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+
+                          // Botón volver
                           GestureDetector(
                             onTap: _volverAtras,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
+                                  horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
                                 color: card,
                                 borderRadius: BorderRadius.circular(14),
@@ -315,21 +335,28 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
                               ),
                             ),
                           ),
+
                           const SizedBox(height: 14),
+
+                          // Categoría + contador
                           Row(
                             children: [
-                              if (categoria.isNotEmpty)
-                                _Chip(label: categoria, color: cyan),
+                              if (_categoria.isNotEmpty)
+                                _Chip(label: _categoria, color: cyan),
                               const Spacer(),
                               _Chip(
-                                label: '${indice + 1} / ${widget.videos.length}',
+                                label:
+                                    '${indice + 1} / ${widget.videos.length}',
                                 color: muted,
                               ),
                             ],
                           ),
+
                           const SizedBox(height: 12),
+
+                          // Título
                           Text(
-                            titulo,
+                            _titulo,
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
@@ -339,8 +366,11 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
                               height: 1.4,
                             ),
                           ),
+
                           const SizedBox(height: 6),
-                          if (canal.isNotEmpty)
+
+                          // Canal
+                          if (_canal.isNotEmpty)
                             Row(
                               children: [
                                 const Icon(
@@ -350,7 +380,7 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
                                 ),
                                 const SizedBox(width: 5),
                                 Text(
-                                  canal,
+                                  _canal,
                                   style: GoogleFonts.poppins(
                                     color: muted,
                                     fontSize: 12,
@@ -358,14 +388,15 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
                                 ),
                               ],
                             ),
+
+                          // Imagen animal
                           Expanded(
                             child: _animalActual != null
                                 ? IgnorePointer(
                                     child: Center(
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                        ),
+                                            vertical: 12),
                                         child: Image.asset(
                                           _animalActual!,
                                           fit: BoxFit.contain,
@@ -377,6 +408,8 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
                                   )
                                 : const SizedBox.shrink(),
                           ),
+
+                          // Progreso de sesión
                           Row(
                             children: [
                               Text(
@@ -401,12 +434,15 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
-                              value: (indice + 1) / widget.videos.length,
+                              value:
+                                  (indice + 1) / widget.videos.length,
                               backgroundColor: card,
                               color: cyan,
                               minHeight: 5,
                             ),
                           ),
+
+                          // Banner "Cargando siguiente"
                           if (mostrarSiguiente)
                             Container(
                               margin: const EdgeInsets.only(top: 12),
@@ -415,8 +451,7 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
                                 color: card,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: cyan.withOpacity(0.3),
-                                ),
+                                    color: cyan.withOpacity(0.3)),
                               ),
                               child: Row(
                                 children: [
@@ -453,14 +488,12 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
   }
 }
 
+
 class _Chip extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _Chip({
-    required this.label,
-    required this.color,
-  });
+  const _Chip({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {

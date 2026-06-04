@@ -4,9 +4,7 @@ import 'package:flutter/services.dart' show rootBundle, AssetManifest;
 import 'package:serenity_app/screens/child/children_list_screen.dart';
 import '/servicces/firestore_service.dart';
 import '/servicces/device_id_service.dart';
-import '/servicces/location_service.dart';
 import '/servicces/notification_service.dart';
-import 'package:geolocator/geolocator.dart';
 import '/screens/parent/parent_main_screen.dart';
 import '../../widgets/auth/role_selection_body.dart';
 
@@ -170,64 +168,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
   Future<void> _onTapPadres() async {
     try {
-      // Obtener deviceId y FCM token en paralelo
-      // eagerError: false → si uno falla, el otro sigue y no cancela el flujo
-      final results = await Future.wait(
-        [
-          DeviceIdService.getInstallationId(),
-          NotificationService.getToken(),
-        ],
-        eagerError: false,
-      ).catchError((_) => ['', '']);
-
-      final String deviceId = results.length > 0 ? results[0] : '';
-      final String fcmToken = results.length > 1 ? results[1] : '';
-
-      // Guardar sesión con deviceToken
-      try {
-        await FirestoreService.guardarSesion(
-          idUsuario: widget.userId,
-          tipoUsuario: 'padre',
-          deviceId: deviceId,
-          deviceToken: fcmToken,
-        );
-      } catch (e) {
-        // No bloqueamos el flujo si guardarSesion falla,
-        // el padre igual puede continuar
-        debugPrint('guardarSesion error: $e');
-      }
-
       if (!mounted) return;
 
-      final Position? position =
-          await LocationService.obtenerUbicacionObligatoria(context);
-
-      if (position == null) {
-        if (!mounted) return;
-        await _mostrarDialogoMensaje(
-          icono: Icons.location_off_outlined,
-          colorIcono: Colors.redAccent,
-          titulo: 'Ubicación requerida',
-          mensaje:
-              'No puedes continuar sin conceder permisos de ubicación',
-        );
-        return;
-      }
-
-      try {
-        await FirestoreService.guardarUbicacionPadre(
-          widget.userId,
-          position.latitude,
-          position.longitude,
-        );
-      } catch (e) {
-        // La ubicación se guardará en el siguiente ciclo, no bloqueamos
-        debugPrint('guardarUbicacionPadre error: $e');
-      }
-
-      if (!mounted) return;
-
-      await Navigator.pushReplacement(
+      // Navegar inmediatamente sin esperar deviceId ni sesión
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => ParentMainScreen(
@@ -237,6 +181,25 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
           ),
         ),
       );
+
+      // Fire-and-forget: guardar sesión en segundo plano
+      Future.wait(
+        [
+          DeviceIdService.getInstallationId(),
+          NotificationService.getToken(),
+        ],
+        eagerError: false,
+      ).then((results) {
+        final String deviceId = results.length > 0 ? results[0] : '';
+        final String fcmToken = results.length > 1 ? results[1] : '';
+        FirestoreService.guardarSesion(
+          idUsuario: widget.userId,
+          tipoUsuario: 'padre',
+          deviceId: deviceId,
+          deviceToken: fcmToken,
+        ).catchError((e) => debugPrint('guardarSesion error: $e'));
+      }).catchError((e) => debugPrint('deviceId/fcmToken error: $e'));
+
     } catch (e) {
       if (!mounted) return;
       await _mostrarDialogoMensaje(

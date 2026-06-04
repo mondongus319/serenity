@@ -8,6 +8,7 @@ import '../../servicces/notification_service.dart';
 import '../../../widgets/auth/login_body.dart';
 import '../../providers/auth_provider.dart';
 
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -15,18 +16,19 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+
 class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool obscurePassword = true;
 
   // paleta
-  static const _bg = Color(0xFF0F172A);
+  static const _bg     = Color(0xFF0F172A);
   static const _bgCard = Color(0xFF1E293B);
-  static const _cyan = Color(0xFF06B6D4);
+  static const _cyan   = Color(0xFF06B6D4);
   static const _violet = Color(0xFF8B5CF6);
-  static const _pearl = Color(0xFFF1F5F9);
-  static const _muted = Color(0xFF94A3B8);
+  static const _pearl  = Color(0xFFF1F5F9);
+  static const _muted  = Color(0xFF94A3B8);
 
   @override
   void initState() {
@@ -359,13 +361,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             fechaSeleccionada != null
                                 ? '${fechaSeleccionada!.day.toString().padLeft(2, '0')}/'
-                                  '${fechaSeleccionada!.month.toString().padLeft(2, '0')}/'
-                                  '${fechaSeleccionada!.year}'
+                                    '${fechaSeleccionada!.month.toString().padLeft(2, '0')}/'
+                                    '${fechaSeleccionada!.year}'
                                 : 'Seleccionar fecha',
                             style: GoogleFonts.poppins(
-                              color: fechaSeleccionada != null
-                                  ? _pearl
-                                  : _muted,
+                              color: fechaSeleccionada != null ? _pearl : _muted,
                               fontSize: 14,
                               fontWeight: fechaSeleccionada != null
                                   ? FontWeight.w600
@@ -418,9 +418,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         'Confirmar',
                         style: GoogleFonts.poppins(
-                          color: fechaSeleccionada != null
-                              ? Colors.white
-                              : _muted,
+                          color: fechaSeleccionada != null ? Colors.white : _muted,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -438,7 +436,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // ── LOGIN CON CORREO ──────────────────────────────────────────────────────
   Future<void> iniciarSesion() async {
-    final gmail = emailController.text.trim();
+    final gmail     = emailController.text.trim();
     final contrasena = passwordController.text.trim();
 
     if (gmail.isEmpty || contrasena.isEmpty) {
@@ -451,7 +449,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final auth = context.read<AuthProvider>();
+    final auth     = context.read<AuthProvider>();
     final resultado = await auth.loginConCorreo(
       gmail: gmail,
       contrasena: contrasena,
@@ -459,33 +457,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
-    if (resultado['success'] == true) {
+    if (resultado.success) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (_) => RoleSelectionScreen(
-              email: gmail,
-              userName: resultado['primerNombre'],
-              userId: resultado['userId'],
+              email:    gmail,
+              userName: resultado.primerNombre ?? '',
+              userId:   resultado.userId ?? '',
             ),
           ),
         );
       });
     } else {
-      if (resultado['needsVerification'] == true) {
+      if (resultado.needsVerification) {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => VerifyEmailScreen(
-              email: resultado['email'] ?? gmail,
+              email: resultado.email ?? gmail,
             ),
           ),
         );
         return;
       }
-      if (resultado['message'] == 'Esta cuenta ha sido desactivada') {
+      if (resultado.message == 'Esta cuenta ha sido desactivada') {
         mostrarDialogoDesactivada();
         return;
       }
@@ -493,23 +491,23 @@ class _LoginScreenState extends State<LoginScreen> {
         icono: Icons.error_outline_rounded,
         colorIcono: Colors.redAccent,
         titulo: 'No se pudo iniciar sesión',
-        mensaje: resultado['message'] ?? 'Error al iniciar sesión',
+        mensaje: resultado.message ?? 'Error al iniciar sesión',
       );
     }
   }
 
   // ── LOGIN CON GOOGLE ──────────────────────────────────────────────────────
   Future<void> signInWithGoogle() async {
-    final auth = context.read<AuthProvider>();
+    final auth     = context.read<AuthProvider>();
     final resultado = await auth.loginConGoogle();
 
     if (!mounted) return;
 
-    if (resultado['success'] == true) {
-      final String userId = resultado['userId'];
-      final String primerNombre = resultado['primerNombre'];
-      final String email = resultado['gmail'];
-      final bool needsBirthDate = resultado['needsBirthDate'] == true;
+    if (resultado.success) {
+      final String userId       = resultado.userId ?? '';
+      final String primerNombre = resultado.primerNombre ?? '';
+      final String email        = resultado.gmail ?? '';
+      final bool needsBirthDate = resultado.needsBirthDate;
 
       if (needsBirthDate) {
         final fechaDB = await _mostrarDialogoFechaNacimiento(primerNombre);
@@ -530,15 +528,15 @@ class _LoginScreenState extends State<LoginScreen> {
           context,
           MaterialPageRoute(
             builder: (_) => RoleSelectionScreen(
-              email: email,
+              email:    email,
               userName: primerNombre,
-              userId: userId,
+              userId:   userId,
             ),
           ),
         );
       });
     } else {
-      final String mensaje = resultado['message'] ?? '';
+      final String mensaje = resultado.message ?? '';
       if (mensaje == 'Inicio de sesión cancelado') return;
       if (mensaje == 'Esta cuenta ha sido desactivada') {
         mostrarDialogoDesactivada();
@@ -568,13 +566,13 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: const Color(0xFF0D0D2B),
           body: Builder(
             builder: (scaffoldContext) => LoginBody(
-              emailController: emailController,
+              emailController:    emailController,
               passwordController: passwordController,
-              isLoading: auth.isLoading || auth.isLoadingGoogle,
-              obscurePassword: obscurePassword,
-              onTogglePassword: () =>
+              isLoading:          auth.isLoading || auth.isLoadingGoogle,
+              obscurePassword:    obscurePassword,
+              onTogglePassword:   () =>
                   setState(() => obscurePassword = !obscurePassword),
-              onLogin: iniciarSesion,
+              onLogin:       iniciarSesion,
               onGoogleLogin: signInWithGoogle,
               onForgotPassword: () {},
               onRegister: () => Navigator.push(

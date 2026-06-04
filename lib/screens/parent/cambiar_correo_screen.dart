@@ -157,12 +157,12 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
       if (!mounted) return;
       setState(() => isLoading = false);
 
-      if (resp['success'] == true) {
+      if (resp.success) {
         nuevoCorreo = correo;
         setState(() => enviado = true);
         await _mostrarDialogoMensaje(
           titulo: 'Enlace enviado',
-          mensaje: resp['message'] ?? 'Enlace de verificación enviado',
+          mensaje: resp.message ?? 'Enlace de verificación enviado',
           icono: Icons.mark_email_read_outlined,
           colorIcono: accentCyan,
         );
@@ -170,7 +170,7 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
       } else {
         await _mostrarDialogoMensaje(
           titulo: 'No se pudo enviar',
-          mensaje: resp['message'] ?? 'Error al enviar',
+          mensaje: resp.message ?? 'Error al enviar',
           icono: Icons.error_outline_rounded,
           colorIcono: Colors.redAccent,
         );
@@ -248,10 +248,13 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
     }
   }
 
-  // ── ACTUALIZAR FIRESTORE Y SALIR (solo cuando Firebase ya confirmó) ────────
+  // ── ACTUALIZAR FIRESTORE Y SALIR (solo cuando Firebase ya confirmó) ───────
   Future<void> _actualizarFirestoreYSalir() async {
     try {
-      await FirestoreService.actualizarPadre(widget.userId, {'gmail': nuevoCorreo});
+      await FirestoreService.actualizarPadre(
+        widget.userId,
+        {'gmail': nuevoCorreo},
+      );
     } catch (_) {}
     if (!mounted) return;
     await _mostrarDialogoMensaje(
@@ -278,13 +281,11 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── HEADER ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(
                 children: [
                   GestureDetector(
-                    // null = volver sin cambio confirmado todavía
                     onTap: () => Navigator.pop(context, null),
                     child: Container(
                       width: 44,
@@ -316,8 +317,6 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
                 ],
               ),
             ),
-
-            // ── CONTENIDO ───────────────────────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -342,8 +341,6 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
     );
   }
 }
-
-// ─── FORMULARIO ─────────────────────────────────────────────────────────────
 
 class BuildFormulario extends StatelessWidget {
   final String correoActual;
@@ -372,8 +369,6 @@ class BuildFormulario extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-
-        // Correo actual
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -402,7 +397,6 @@ class BuildFormulario extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-
         Text(
           'Nuevo correo electrónico',
           style: GoogleFonts.poppins(
@@ -434,7 +428,6 @@ class BuildFormulario extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -448,8 +441,7 @@ class BuildFormulario extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Se enviará un enlace de verificación al nuevo correo. '
-                  'Debes hacer clic en él para completar el cambio.',
+                  'Se enviará un enlace de verificación al nuevo correo. Debes hacer clic en él para completar el cambio.',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     color: textMuted,
@@ -461,7 +453,6 @@ class BuildFormulario extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 32),
-
         GestureDetector(
           onTap: isLoading ? null : onEnviar,
           child: Container(
@@ -505,8 +496,6 @@ class BuildFormulario extends StatelessWidget {
   }
 }
 
-// ─── ENVIADO (PENDIENTE DE VERIFICACIÓN) ────────────────────────────────────
-
 class BuildEnviado extends StatelessWidget {
   final String nuevoCorreo;
   final bool verificando;
@@ -533,7 +522,6 @@ class BuildEnviado extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(height: 40),
-
         Container(
           width: 90,
           height: 90,
@@ -556,7 +544,6 @@ class BuildEnviado extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-
         Text(
           '¡Enlace enviado!',
           style: GoogleFonts.poppins(
@@ -572,7 +559,6 @@ class BuildEnviado extends StatelessWidget {
           style: GoogleFonts.poppins(fontSize: 13, color: textMuted),
         ),
         const SizedBox(height: 8),
-
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
@@ -590,7 +576,6 @@ class BuildEnviado extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -599,8 +584,7 @@ class BuildEnviado extends StatelessWidget {
             border: Border.all(color: accentViolet.withOpacity(0.2)),
           ),
           child: Text(
-            'Haz clic en el enlace del correo para confirmar el cambio. '
-            'Una vez verificado, tu correo se actualizará automáticamente.',
+            'Haz clic en el enlace del correo para confirmar el cambio. Una vez verificado, tu correo se actualizará automáticamente.',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 12,
@@ -610,8 +594,6 @@ class BuildEnviado extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 32),
-
-        // Botón principal: verificar manualmente
         GestureDetector(
           onTap: verificando ? null : onVerificar,
           child: Container(
@@ -662,8 +644,6 @@ class BuildEnviado extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
-        // Botón secundario: volver sin confirmar
         GestureDetector(
           onTap: onVolver,
           child: Container(

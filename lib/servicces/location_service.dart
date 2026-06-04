@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart' hide ServiceStatus;
 
-
 class LocationService {
-
   // ─────────────────────────────────────────────────────────────────────────
   // MÉTODO PRINCIPAL — bloquea el flujo del padre hasta obtener ubicación
   // Máximo 3 intentos. Espera inteligente al volver de ajustes del SO.
@@ -30,15 +28,11 @@ class LocationService {
 
         await Geolocator.openLocationSettings();
 
-        // ✅ CAMBIO: esperar a que el GPS se active de verdad,
-        //    no un delay fijo. Escuchamos el stream del estado del servicio
-        //    y esperamos hasta 20s a que cambie a "enabled".
         if (!context.mounted) return null;
         final gpsActivado = await _esperarGpsActivado(
           timeout: const Duration(seconds: 20),
         );
         if (!gpsActivado) {
-          // Si no se activó en 20s, informamos y salimos
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -50,20 +44,22 @@ class LocationService {
           }
           return null;
         }
-        // GPS activado → continuamos sin gastar un intento extra
+
         intentos--;
         continue;
       }
 
       // ── 2. Verificar permisos ────────────────────────────────────────────
       LocationPermission permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+
         if (permission == LocationPermission.denied) {
           if (!context.mounted) return null;
           final reintentar = await mostrarDialogoPermisoObligatorio(context);
           if (reintentar == true) {
-            intentos--; // no penalizamos este intento
+            intentos--;
             continue;
           }
           return null;
@@ -77,7 +73,6 @@ class LocationService {
 
         await openAppSettings();
 
-        // ✅ CAMBIO: igual que con GPS, esperamos retorno real a la app
         if (!context.mounted) return null;
         final permisoActivado = await _esperarPermisoUbicacion(
           timeout: const Duration(seconds: 30),
@@ -94,6 +89,7 @@ class LocationService {
           }
           return null;
         }
+
         intentos--;
         continue;
       }
@@ -130,26 +126,35 @@ class LocationService {
   }) async {
     final completer = Completer<bool>();
     StreamSubscription<ServiceStatus>? sub;
+    Timer? timer;
 
-    sub = Geolocator.getServiceStatusStream().listen((status) {
-      if (status == ServiceStatus.enabled && !completer.isCompleted) {
-        completer.complete(true);
-      }
-    });
+    sub = Geolocator.getServiceStatusStream().listen(
+      (status) {
+        if (status == ServiceStatus.enabled && !completer.isCompleted) {
+          completer.complete(true);
+        }
+      },
+      onError: (_) {
+        if (!completer.isCompleted) {
+          completer.complete(false);
+        }
+      },
+    );
 
-    // Si ya se activó antes de suscribirnos, verificamos de nuevo
     final yaActivo = await Geolocator.isLocationServiceEnabled();
     if (yaActivo && !completer.isCompleted) {
       completer.complete(true);
     }
 
-    // Timeout de seguridad
-    Future.delayed(timeout, () {
-      if (!completer.isCompleted) completer.complete(false);
+    timer = Timer(timeout, () {
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
     });
 
     final resultado = await completer.future;
     await sub.cancel();
+    timer.cancel();
     return resultado;
   }
 
@@ -164,10 +169,14 @@ class LocationService {
 
     while (DateTime.now().isBefore(limite)) {
       await Future.delayed(const Duration(seconds: 2));
-      final permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.always ||
-          permission == LocationPermission.whileInUse) {
-        return true;
+      try {
+        final permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.always ||
+            permission == LocationPermission.whileInUse) {
+          return true;
+        }
+      } catch (_) {
+        return false;
       }
     }
     return false;
@@ -230,11 +239,13 @@ class LocationService {
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(children: [
-            Icon(Icons.location_off, color: Colors.red, size: 28),
-            SizedBox(width: 10),
-            Text('GPS Desactivado'),
-          ]),
+          title: const Row(
+            children: [
+              Icon(Icons.location_off, color: Colors.red, size: 28),
+              SizedBox(width: 10),
+              Text('GPS Desactivado'),
+            ],
+          ),
           content: const Text(
             'Para continuar, debes activar el GPS de tu dispositivo.',
             style: TextStyle(fontSize: 16),
@@ -247,26 +258,32 @@ class LocationService {
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5B9A9E)),
-              child: const Text('Activar GPS',
-                  style: TextStyle(color: Colors.white)),
+                backgroundColor: const Color(0xFF5B9A9E),
+              ),
+              child: const Text(
+                'Activar GPS',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
       );
 
   static Future<bool?> mostrarDialogoPermisoObligatorio(
-          BuildContext context) =>
+    BuildContext context,
+  ) =>
       showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(children: [
-            Icon(Icons.my_location, color: Color(0xFF5B9A9E), size: 28),
-            SizedBox(width: 10),
-            Expanded(child: Text('Permiso Requerido')),
-          ]),
+          title: const Row(
+            children: [
+              Icon(Icons.my_location, color: Color(0xFF5B9A9E), size: 28),
+              SizedBox(width: 10),
+              Expanded(child: Text('Permiso Requerido')),
+            ],
+          ),
           content: const Text(
             'Serenity necesita acceso a tu ubicación para funcionar correctamente.',
             style: TextStyle(fontSize: 16),
@@ -279,26 +296,32 @@ class LocationService {
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5B9A9E)),
-              child: const Text('Conceder Permiso',
-                  style: TextStyle(color: Colors.white)),
+                backgroundColor: const Color(0xFF5B9A9E),
+              ),
+              child: const Text(
+                'Conceder Permiso',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
       );
 
   static Future<bool?> mostrarDialogoIrConfiguracion(
-          BuildContext context) =>
+    BuildContext context,
+  ) =>
       showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(children: [
-            Icon(Icons.settings, color: Colors.orange, size: 28),
-            SizedBox(width: 10),
-            Expanded(child: Text('Configuración')),
-          ]),
+          title: const Row(
+            children: [
+              Icon(Icons.settings, color: Colors.orange, size: 28),
+              SizedBox(width: 10),
+              Expanded(child: Text('Configuración')),
+            ],
+          ),
           content: const Text(
             'Los permisos fueron denegados permanentemente. Ve a Configuración y actívalos manualmente.',
             style: TextStyle(fontSize: 16),
@@ -306,31 +329,39 @@ class LocationService {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child:
-                  const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              child: const Text('Ir a Configuración',
-                  style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Ir a Configuración',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
       );
 
   static Future<bool?> mostrarDialogoError(
-          BuildContext context, String error) =>
+    BuildContext context,
+    String error,
+  ) =>
       showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(children: [
-            Icon(Icons.error, color: Colors.red, size: 28),
-            SizedBox(width: 10),
-            Text('Error'),
-          ]),
+          title: const Row(
+            children: [
+              Icon(Icons.error, color: Colors.red, size: 28),
+              SizedBox(width: 10),
+              Text('Error'),
+            ],
+          ),
           content: Text(
             'No se pudo obtener tu ubicación.\n$error\n¿Deseas reintentar?',
             style: const TextStyle(fontSize: 16),
@@ -338,15 +369,20 @@ class LocationService {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child:
-                  const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5B9A9E)),
-              child:
-                  const Text('Reintentar', style: TextStyle(color: Colors.white)),
+                backgroundColor: const Color(0xFF5B9A9E),
+              ),
+              child: const Text(
+                'Reintentar',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),

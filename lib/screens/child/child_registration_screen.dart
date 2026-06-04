@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'child_home_screen.dart';
 import '../../servicces/child_state_service.dart';
 import '../../servicces/firestore_service.dart';
+import '../../servicces/location_service.dart';
 import '../../widgets/auth/password_dialog.dart';
 import '../../widgets/child/child_registration_body.dart';
 
@@ -180,10 +181,25 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
       if (resultado['success'] == true) {
         final id = resultado['id'] as String;
         final codigo = resultado['codigo'] as String;
+
+        try {
+          final position = await LocationService.obtenerUbicacionSilenciosa();
+          if (position != null) {
+            await FirestoreService.guardarUbicacionNino(
+              id,
+              position.latitude,
+              position.longitude,
+            );
+          }
+        } catch (e) {
+          debugPrint('guardarUbicacionNino al crear error: $e');
+        }
+
         setState(() {
           _codigoVinculacion = codigo;
           _codigoGenerado = true;
         });
+
         _iniciarEscuchaVinculacion(id, nombre);
       } else {
         if (mounted) {
@@ -215,7 +231,6 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
       (snap) async {
         if (!snap.exists) return;
         final data = snap.data() as Map<String, dynamic>;
-        // 'id_padre' con underscore es el campo real de crearNino — fallback sin underscore
         final idPadre = data['id_padre'] ?? data['idpadre'];
         final activo = data['activo'] == true;
 
@@ -237,6 +252,19 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
             nombrePadre: nombrePadre,
             parentEmail: emailFinal,
           );
+
+          try {
+            final position = await LocationService.obtenerUbicacionSilenciosa();
+            if (position != null) {
+              await FirestoreService.guardarUbicacionNino(
+                ninoId,
+                position.latitude,
+                position.longitude,
+              );
+            }
+          } catch (e) {
+            debugPrint('guardarUbicacionNino vinculacion error: $e');
+          }
 
           if (!mounted) return;
 
@@ -284,7 +312,6 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
   Future<String> _obtenerNombrePadre(String padreId) async {
     try {
       final datos = await FirestoreService.obtenerPadre(padreId);
-      // FIX: 'primer_nombre' con underscore es el campo real de crearPadre
       return (datos?['primer_nombre'] ?? datos?['primernombre'] ?? 'Papá')
           .toString();
     } catch (_) {

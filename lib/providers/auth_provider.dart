@@ -3,6 +3,7 @@ import '../servicces/auth_service.dart';
 import '../servicces/firestore_service.dart';
 import '../servicces/device_id_service.dart';
 import '../servicces/notification_service.dart';
+import '../models/app_result.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -12,7 +13,7 @@ class AuthProvider extends ChangeNotifier {
   String? errorMessage;
 
   // ── LOGIN CON CORREO ──────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> loginConCorreo({
+  Future<LoginResult> loginConCorreo({
     required String gmail,
     required String contrasena,
   }) async {
@@ -28,42 +29,46 @@ class AuthProvider extends ChangeNotifier {
 
       isLoading = false;
 
-      if (resultado['success'] == true) {
-        final String userId = resultado['user']['ID'].toString();
-        // El spread en auth_service trae 'primer_nombre' (con underscore) desde Firestore
-        final String primerNombre = (
-          resultado['user']['primer_nombre'] ??
-          resultado['user']['primernombre']  ??
-          'Usuario'
-        ).toString();
+      if (resultado.success) {
+        final String userId = resultado.userId ?? '';
+        final String primerNombre = resultado.primerNombre ?? 'Usuario';
 
         await _guardarSesionFirestore(userId: userId);
         errorMessage = null;
         notifyListeners();
-        return {
-          'success':           true,
-          'userId':            userId,
-          'primerNombre':      primerNombre,
-          'gmail':             gmail,
-          'message':           resultado['message'],
-          'needsVerification': resultado['needsverification'] ?? false,
-          'email':             resultado['email'] ?? gmail,
-        };
+
+        return LoginResult(
+          success: true,
+          userId: userId,
+          primerNombre: primerNombre,
+          gmail: gmail,
+          message: resultado.message,
+          needsVerification: resultado.needsVerification,
+          email: resultado.email ?? gmail,
+        );
       } else {
-        errorMessage = resultado['message'];
+        errorMessage = resultado.message;
         notifyListeners();
-        return resultado;
+        return LoginResult(
+          success: false,
+          message: errorMessage,
+          needsVerification: resultado.needsVerification,
+          email: resultado.email ?? gmail,
+        );
       }
     } catch (e) {
       isLoading = false;
       errorMessage = e.toString();
       notifyListeners();
-      return {'success': false, 'message': 'Error de conexión: $e'};
+      return LoginResult(
+        success: false,
+        message: 'Error de conexión: $e',
+      );
     }
   }
 
   // ── LOGIN CON GOOGLE ──────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> loginConGoogle() async {
+  Future<GoogleLoginResult> loginConGoogle() async {
     isLoadingGoogle = true;
     errorMessage = null;
     notifyListeners();
@@ -73,36 +78,34 @@ class AuthProvider extends ChangeNotifier {
 
       isLoadingGoogle = false;
 
-      if (resultado['success'] == true) {
-        final userData = resultado['user'];
-        final String userId = userData['ID'].toString();
-        final String email  = userData['gmail'] ?? '';
+      if (resultado.success) {
+        final String userId = resultado.userId ?? '';
+        final String email = resultado.gmail ?? '';
 
-        // Leer directo de Firestore — fuente de verdad
         String primerNombre = '';
         String? fechaNac;
+
         try {
           final datosFS = await FirestoreService.obtenerPadre(userId)
               .timeout(const Duration(seconds: 10));
+
           if (datosFS != null) {
             primerNombre = (
               datosFS['primer_nombre'] ??
-              datosFS['primernombre']  ?? ''
+              datosFS['primernombre'] ??
+              ''
             ).toString();
-            // ✅ FIX: 'fecha_nacimiento' con underscore es el campo real en Firestore
+
             fechaNac = (
               datosFS['fecha_nacimiento'] ??
-              datosFS['fechanacimiento']  ?? ''
+              datosFS['fechanacimiento'] ??
+              ''
             ).toString();
           }
         } catch (_) {}
 
-        // Fallback si Firestore falla
         if (primerNombre.isEmpty) {
-          primerNombre = (
-            userData['primer_nombre'] ??
-            userData['primernombre']  ?? ''
-          ).toString();
+          primerNombre = resultado.primerNombre ?? '';
         }
 
         final bool needsBirthDate =
@@ -111,28 +114,36 @@ class AuthProvider extends ChangeNotifier {
         await _guardarSesionFirestore(userId: userId);
         errorMessage = null;
         notifyListeners();
-        return {
-          'success':        true,
-          'userId':         userId,
-          'primerNombre':   primerNombre,
-          'gmail':          email,
-          'needsBirthDate': needsBirthDate,
-        };
+
+        return GoogleLoginResult(
+          success: true,
+          userId: userId,
+          primerNombre: primerNombre,
+          gmail: email,
+          needsBirthDate: needsBirthDate,
+          message: resultado.message,
+        );
       } else {
-        errorMessage = resultado['message'];
+        errorMessage = resultado.message;
         notifyListeners();
-        return resultado;
+        return GoogleLoginResult(
+          success: false,
+          message: errorMessage,
+        );
       }
     } catch (e) {
       isLoadingGoogle = false;
       errorMessage = e.toString();
       notifyListeners();
-      return {'success': false, 'message': 'Error inesperado: $e'};
+      return GoogleLoginResult(
+        success: false,
+        message: 'Error inesperado: $e',
+      );
     }
   }
 
   // ── REGISTRO ──────────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> registrarUsuario({
+  Future<RegistroResult> registrarUsuario({
     required String primerNombre,
     required String segundoNombre,
     required String primerApellido,
@@ -147,24 +158,32 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final resultado = await _authService.registrarUsuario(
-        primerNombre:    primerNombre,
-        segundoNombre:   segundoNombre,
-        primerApellido:  primerApellido,
+        primerNombre: primerNombre,
+        segundoNombre: segundoNombre,
+        primerApellido: primerApellido,
         segundoApellido: segundoApellido,
         fechaNacimiento: fechaNacimiento,
-        gmail:           gmail,
-        contrasena:      contrasena,
+        gmail: gmail,
+        contrasena: contrasena,
       );
 
       isLoading = false;
-      errorMessage = resultado['success'] != true ? resultado['message'] : null;
+      errorMessage = !resultado.success ? resultado.message : null;
       notifyListeners();
-      return resultado;
+
+      return RegistroResult(
+        success: resultado.success,
+        message: resultado.message,
+        email: resultado.email,
+      );
     } catch (e) {
       isLoading = false;
       errorMessage = e.toString();
       notifyListeners();
-      return {'success': false, 'message': 'Error de conexión: $e'};
+      return RegistroResult(
+        success: false,
+        message: 'Error de conexión: $e',
+      );
     }
   }
 
@@ -176,7 +195,6 @@ class AuthProvider extends ChangeNotifier {
     try {
       await FirestoreService.actualizarPadre(
         userId,
-        // ✅ FIX: era 'fechanacimiento' (sin underscore) — corregido a 'fecha_nacimiento'
         {'fecha_nacimiento': fechaNacimiento},
       );
       return true;
@@ -192,18 +210,17 @@ class AuthProvider extends ChangeNotifier {
       final fcmToken = await NotificationService.getToken();
 
       await FirestoreService.guardarSesion(
-        idUsuario:   userId,
+        idUsuario: userId,
         tipoUsuario: 'padre',
-        deviceId:    deviceId,
+        deviceId: deviceId,
         deviceToken: fcmToken,
       );
 
-      // Listener de rotación de token FCM para mantener sesión siempre actualizada
       NotificationService.initTokenRefreshListener(
         onTokenRefresh: (newToken) => FirestoreService.guardarSesion(
-          idUsuario:   userId,
+          idUsuario: userId,
           tipoUsuario: 'padre',
-          deviceId:    deviceId,
+          deviceId: deviceId,
           deviceToken: newToken,
         ),
       );

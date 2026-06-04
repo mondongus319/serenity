@@ -1,13 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firestore_service.dart';
+import '../models/app_result.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // ─── REGISTRO ─────────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> registrarUsuario({
+  Future<RegistroResult> registrarUsuario({
     required String primerNombre,
     required String segundoNombre,
     required String primerApellido,
@@ -18,144 +20,160 @@ class AuthService {
   }) async {
     try {
       final cred = await _auth.createUserWithEmailAndPassword(
-        email: gmail,
+        email: gmail.trim(),
         password: contrasena,
       );
       final user = cred.user!;
 
       await FirestoreService.crearPadre(
         uid: user.uid,
-        primerNombre: primerNombre,
-        segundoNombre: segundoNombre,
-        primerApellido: primerApellido,
-        segundoApellido: segundoApellido,
+        primerNombre: primerNombre.trim(),
+        segundoNombre: segundoNombre.trim(),
+        primerApellido: primerApellido.trim(),
+        segundoApellido: segundoApellido.trim(),
         fechaNacimiento: fechaNacimiento,
-        gmail: gmail,
+        gmail: gmail.trim(),
         tipoRegistro: 'manual',
       );
 
       await user.sendEmailVerification();
 
-      return {
-        'success': true,
-        'message':
+      return RegistroResult(
+        success: true,
+        message:
             'Cuenta creada. Revisa tu correo y haz clic en el enlace de verificación.',
-        'email': gmail,
-      };
+        email: gmail.trim(),
+      );
     } on FirebaseAuthException catch (e) {
-      String msg;
-      switch (e.code) {
-        case 'email-already-in-use':
-          msg = 'Este correo ya está registrado';
-          break;
-        case 'weak-password':
-          msg = 'Contraseña muy débil (mínimo 6 caracteres)';
-          break;
-        case 'invalid-email':
-          msg = 'Correo electrónico inválido';
-          break;
-        default:
-          msg = e.message ?? 'Error al registrar';
-      }
-      return {'success': false, 'message': msg};
+      return RegistroResult(
+        success: false,
+        message: _mensajeAuth(e),
+      );
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      debugPrint('AuthService.registrarUsuario error: $e');
+      return const RegistroResult(
+        success: false,
+        message: 'Error al registrar. Intenta nuevamente.',
+      );
     }
   }
 
-  // ─── LOGIN EMAIL/CONTRASEÑA ────────────────────────────────────────────────
-  Future<Map<String, dynamic>> loginUsuario({
+  // ─── LOGIN EMAIL/CONTRASEÑA ───────────────────────────────────────────────
+  Future<LoginResult> loginUsuario({
     required String gmail,
     required String contrasena,
   }) async {
     try {
       final cred = await _auth.signInWithEmailAndPassword(
-        email: gmail,
+        email: gmail.trim(),
         password: contrasena,
       );
       final user = cred.user!;
 
       if (!user.emailVerified) {
         await _auth.signOut();
-        return {
-          'success': false,
-          'message':
+        return LoginResult(
+          success: false,
+          message:
               'Debes verificar tu correo primero. Revisa tu bandeja de entrada.',
-          'needsverification': true,
-          'email': gmail,
-        };
+          needsVerification: true,
+          email: gmail.trim(),
+        );
       }
 
       final datos = await FirestoreService.obtenerPadre(user.uid);
       if (datos == null) {
         await _auth.signOut();
-        return {'success': false, 'message': 'Perfil no encontrado'};
+        return const LoginResult(
+          success: false,
+          message: 'Perfil no encontrado',
+        );
       }
 
       if (datos['activo'] == false) {
         await _auth.signOut();
-        return {'success': false, 'message': 'Esta cuenta ha sido desactivada'};
+        return const LoginResult(
+          success: false,
+          message: 'Esta cuenta ha sido desactivada',
+        );
       }
 
-      // El spread ...datos trae todos los campos con sus claves reales de Firestore
-      // (primer_nombre, fecha_nacimiento, etc.) — no se necesita clave explícita.
-      return {
-        'success': true,
-        'user': {
-          'ID': user.uid,
-          'gmail': gmail,
-          ...datos,
-        },
-      };
+      final String primerNombre = (
+        datos['primer_nombre'] ??
+        datos['primernombre'] ??
+        'Usuario'
+      ).toString();
+
+      return LoginResult(
+        success: true,
+        userId: user.uid,
+        primerNombre: primerNombre,
+        gmail: gmail.trim(),
+      );
     } on FirebaseAuthException catch (e) {
-      String msg;
-      switch (e.code) {
-        case 'user-not-found':
-        case 'wrong-password':
-        case 'invalid-credential':
-          msg = 'Correo o contraseña incorrectos';
-          break;
-        case 'user-disabled':
-          msg = 'Esta cuenta ha sido desactivada';
-          break;
-        case 'too-many-requests':
-          msg = 'Demasiados intentos. Intenta más tarde';
-          break;
-        default:
-          msg = e.message ?? 'Error al iniciar sesión';
-      }
-      return {'success': false, 'message': msg};
+      return LoginResult(
+        success: false,
+        message: _mensajeAuth(e),
+      );
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      debugPrint('AuthService.loginUsuario error: $e');
+      return const LoginResult(
+        success: false,
+        message: 'Error al iniciar sesión. Intenta nuevamente.',
+      );
     }
   }
 
   // ─── REENVIAR VERIFICACIÓN ────────────────────────────────────────────────
-  Future<Map<String, dynamic>> reenviarVerificacion(
-      String gmail, String contrasena) async {
+  Future<AppResult> reenviarVerificacion(
+    String gmail,
+    String contrasena,
+  ) async {
     try {
       final cred = await _auth.signInWithEmailAndPassword(
-        email: gmail,
+        email: gmail.trim(),
         password: contrasena,
       );
       await cred.user!.sendEmailVerification();
       await _auth.signOut();
-      return {'success': true, 'message': 'Correo de verificación reenviado'};
+
+      return const AppResult(
+        success: true,
+        message: 'Correo de verificación reenviado',
+      );
+    } on FirebaseAuthException catch (e) {
+      return AppResult(
+        success: false,
+        message: _mensajeAuth(e),
+      );
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      debugPrint('AuthService.reenviarVerificacion error: $e');
+      return const AppResult(
+        success: false,
+        message: 'Error al reenviar verificación. Intenta nuevamente.',
+      );
     }
   }
 
   // ─── GOOGLE SIGN-IN ───────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> signInWithGoogle() async {
+  Future<GoogleLoginResult> signInWithGoogle() async {
     try {
-      try { await _googleSignIn.signOut(); } catch (_) {}
-      try { await _googleSignIn.disconnect(); } catch (_) {}
-      try { await _auth.signOut(); } catch (_) {}
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {}
+      try {
+        await _auth.signOut();
+      } catch (_) {}
 
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        return {'success': false, 'message': 'Inicio de sesión cancelado'};
+        return const GoogleLoginResult(
+          success: false,
+          message: 'Inicio de sesión cancelado',
+        );
       }
 
       final googleAuth = await googleUser.authentication;
@@ -170,10 +188,10 @@ class AuthService {
       var datos = await FirestoreService.obtenerPadre(user.uid);
 
       if (datos == null) {
-        final partes = (user.displayName ?? '').split(' ');
+        final partes = (user.displayName ?? '').trim().split(' ');
         await FirestoreService.crearPadre(
           uid: user.uid,
-          primerNombre: partes.isNotEmpty ? partes[0] : '',
+          primerNombre: partes.isNotEmpty ? partes.first : '',
           primerApellido: partes.length > 1 ? partes.last : '',
           fechaNacimiento: '',
           gmail: user.email ?? '',
@@ -183,57 +201,149 @@ class AuthService {
         datos = await FirestoreService.obtenerPadre(user.uid);
       } else if (datos['activo'] == false) {
         await _auth.signOut();
-        return {'success': false, 'message': 'Esta cuenta ha sido desactivada'};
+        return const GoogleLoginResult(
+          success: false,
+          message: 'Esta cuenta ha sido desactivada',
+        );
       }
 
-      // ✅ Clave 'primer_nombre' con underscore — consistente con crearPadre.
-      // El spread ...?datos sobreescribirá con el valor real si existe.
-      return {
-        'success': true,
-        'user': {
-          'ID': user.uid,
-          'primer_nombre': datos?['primer_nombre'] ??
-              user.displayName?.split(' ').first ?? '',
-          'gmail': user.email ?? '',
-          ...?datos,
-        },
-      };
+      final String primerNombre = (
+        datos?['primer_nombre'] ??
+        user.displayName?.trim().split(' ').first ??
+        ''
+      ).toString();
+
+      final String fechaNac = (
+        datos?['fecha_nacimiento'] ??
+        datos?['fechanacimiento'] ??
+        ''
+      ).toString();
+
+      return GoogleLoginResult(
+        success: true,
+        userId: user.uid,
+        primerNombre: primerNombre,
+        gmail: user.email ?? '',
+        needsBirthDate: fechaNac.trim().isEmpty,
+      );
+    } on FirebaseAuthException catch (e) {
+      return GoogleLoginResult(
+        success: false,
+        message: _mensajeAuth(e),
+      );
     } catch (e) {
-      return {'success': false, 'message': 'Error con Google: $e'};
+      debugPrint('AuthService.signInWithGoogle error: $e');
+      return const GoogleLoginResult(
+        success: false,
+        message: 'Error con Google Sign-In. Intenta nuevamente.',
+      );
     }
   }
 
   // ─── ACTUALIZAR CONTRASEÑA ────────────────────────────────────────────────
-  Future<Map<String, dynamic>> actualizarContrasena(
-      String nuevaContrasena) async {
+  Future<AppResult> actualizarContrasena(String nuevaContrasena) async {
     try {
-      await _auth.currentUser!.updatePassword(nuevaContrasena);
-      return {'success': true, 'message': 'Contraseña actualizada correctamente'};
+      final user = _auth.currentUser;
+      if (user == null) {
+        return const AppResult(
+          success: false,
+          message: 'No hay sesión activa',
+        );
+      }
+
+      await user.updatePassword(nuevaContrasena);
+
+      return const AppResult(
+        success: true,
+        message: 'Contraseña actualizada correctamente',
+      );
     } on FirebaseAuthException catch (e) {
-      return {'success': false, 'message': e.message ?? 'Error al actualizar'};
+      return AppResult(
+        success: false,
+        message: _mensajeAuth(e),
+      );
+    } catch (e) {
+      debugPrint('AuthService.actualizarContrasena error: $e');
+      return const AppResult(
+        success: false,
+        message: 'Error al actualizar contraseña.',
+      );
     }
   }
 
   // ─── CAMBIAR EMAIL ────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> iniciarCambioEmail(String nuevoEmail) async {
+  Future<AppResult> iniciarCambioEmail(String nuevoEmail) async {
     try {
-      await _auth.currentUser!.verifyBeforeUpdateEmail(nuevoEmail);
-      return {
-        'success': true,
-        'message':
-            'Se envió un enlace de verificación a $nuevoEmail. Haz clic en él para confirmar el cambio.'
-      };
+      final user = _auth.currentUser;
+      if (user == null) {
+        return const AppResult(
+          success: false,
+          message: 'No hay sesión activa',
+        );
+      }
+
+      await user.verifyBeforeUpdateEmail(nuevoEmail.trim());
+
+      return AppResult(
+        success: true,
+        message:
+            'Se envió un enlace de verificación a ${nuevoEmail.trim()}. Haz clic en él para confirmar el cambio.',
+      );
     } on FirebaseAuthException catch (e) {
-      return {'success': false, 'message': e.message ?? 'Error al cambiar correo'};
+      return AppResult(
+        success: false,
+        message: _mensajeAuth(e),
+      );
+    } catch (e) {
+      debugPrint('AuthService.iniciarCambioEmail error: $e');
+      return const AppResult(
+        success: false,
+        message: 'Error al cambiar correo.',
+      );
     }
   }
 
   // ─── SIGN OUT ─────────────────────────────────────────────────────────────
   Future<void> signOut() async {
-    try { await _googleSignIn.signOut(); } catch (_) {}
-    try { await _googleSignIn.disconnect(); } catch (_) {}
-    try { await _auth.signOut(); } catch (_) {}
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+    try {
+      await _googleSignIn.disconnect();
+    } catch (_) {}
+    try {
+      await _auth.signOut();
+    } catch (_) {}
   }
 
+  // ─── HELPERS ──────────────────────────────────────────────────────────────
   User? getCurrentUser() => _auth.currentUser;
+
+  /// Convierte FirebaseAuthException en mensajes legibles para el usuario.
+  static String _mensajeAuth(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'Este correo ya está registrado';
+      case 'weak-password':
+        return 'Contraseña muy débil (mínimo 6 caracteres)';
+      case 'invalid-email':
+        return 'Correo electrónico inválido';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Correo o contraseña incorrectos';
+      case 'user-disabled':
+        return 'Esta cuenta ha sido desactivada';
+      case 'too-many-requests':
+        return 'Demasiados intentos. Intenta más tarde';
+      case 'requires-recent-login':
+        return 'Por seguridad, cierra sesión, vuelve a entrar e intenta de nuevo';
+      case 'email-already-exists':
+        return 'Este correo ya está en uso';
+      case 'network-request-failed':
+        return 'Sin conexión a internet. Revisa tu red';
+      default:
+        return e.message ?? 'Error de autenticación';
+    }
+  }
 }

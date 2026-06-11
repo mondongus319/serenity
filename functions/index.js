@@ -13,13 +13,12 @@ const db            = admin.firestore();
 const youtubeApiKey = defineSecret("YOUTUBE_API_KEY");
 
 const MAX_RESULTS_POR_KEYWORD   = 8;
-const MAX_DURACION_KEYWORDS_SEG = 20 * 60;       // 20 min para keywords
-const MAX_DURACION_CANALES_SEG  = 3 * 60 * 60;   // 3 horas para canales (bloquea directos largos)
-const MIN_DURACION_SEGUNDOS     = 60;             // 60s mínimo (excluye Shorts en keywords)
+const MAX_DURACION_KEYWORDS_SEG = 20 * 60;
+const MAX_DURACION_CANALES_SEG  = 3 * 60 * 60;
+const MIN_DURACION_SEGUNDOS     = 60;
 const IDIOMA                    = "es";
 const REGION                    = "CO";
 
-// Heurístico para directos grabados y podcasts en títulos
 const TITULOS_EXCLUIDOS = [
   "#shorts", "#short",
   "en vivo", "en directo", "live stream", "livestream",
@@ -40,20 +39,12 @@ function parseDuracionISO(iso) {
   return h * 3600 + m * 60 + s;
 }
 
-// ─────────────────────────────────────────────
-// Helper: detectar título de directo grabado
-// o podcast por heurístico
-// ─────────────────────────────────────────────
 function esTituloExcluido(titulo) {
   if (!titulo) return false;
   const lower = titulo.toLowerCase();
   return TITULOS_EXCLUIDOS.some((t) => lower.includes(t));
 }
 
-// ─────────────────────────────────────────────
-// Helper: detectar directo activo o premiere
-// Solo aplica a videos obtenidos via API (keywords)
-// ─────────────────────────────────────────────
 function esDirectoOPremiere(snippet) {
   const lbc = snippet?.liveBroadcastContent;
   return lbc === "live" || lbc === "upcoming";
@@ -83,6 +74,33 @@ async function limpiarCatalogo() {
   }
 
   console.log(`Serenity: Catálogo limpiado: ${totalBorrados} videos borrados.`);
+  return totalBorrados;
+}
+
+// ─────────────────────────────────────────────
+// Borrar toda la colección videos_youtubers
+// ─────────────────────────────────────────────
+async function limpiarVideosYoutubers() {
+  console.log("Serenity: Limpiando videos_youtubers anterior...");
+  const colRef         = db.collection("videos_youtubers");
+  let   totalBorrados  = 0;
+  let   maxIteraciones = 200;
+
+  let snapshot = await colRef.limit(500).get();
+  while (!snapshot.empty && maxIteraciones > 0) {
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    totalBorrados  += snapshot.docs.length;
+    maxIteraciones--;
+    snapshot = await colRef.limit(500).get();
+  }
+
+  if (maxIteraciones === 0) {
+    console.warn("Serenity: ⚠️ Se alcanzó el límite máximo de iteraciones al limpiar videos_youtubers.");
+  }
+
+  console.log(`Serenity: videos_youtubers limpiado: ${totalBorrados} videos borrados.`);
   return totalBorrados;
 }
 
@@ -126,7 +144,6 @@ async function buscarVideosYoutube(keyword, apiKey) {
 
 // ─────────────────────────────────────────────
 // Obtener videos de un canal via RSS (sin API)
-// Trae los últimos 15 videos del canal.
 // ─────────────────────────────────────────────
 async function obtenerVideosViaRss(channelId) {
   const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
@@ -153,10 +170,7 @@ async function obtenerVideosViaRss(channelId) {
 }
 
 // ─────────────────────────────────────────────
-// Validar duración de videos de canales via API
-// Solo obtiene contentDetails para conocer la
-// duración y descartar directos muy largos.
-// Costo: ~10 unidades para 32 canales × 15 videos
+// Validar duración de videos via API
 // ─────────────────────────────────────────────
 async function validarDuracionCanales(videoIds, apiKey) {
   if (!videoIds.length) return {};
@@ -193,17 +207,11 @@ async function validarDuracionCanales(videoIds, apiKey) {
   return resultado;
 }
 
-// ─────────────────────────────────────────────
-// Extraer channelId desde URL /channel/UCxxxx
-// ─────────────────────────────────────────────
 function extraerChannelId(url) {
   const match = url.match(/youtube\.com\/channel\/(UC[\w-]+)/);
   return match ? match[1] : null;
 }
 
-// ─────────────────────────────────────────────
-// Merge de categorias_info en un video existente
-// ─────────────────────────────────────────────
 function mergeCategoriaEnDocExistente(dataActual, categoriaId, categoriaNombre, rangoEdad) {
   const categoriasActuales = Array.isArray(dataActual.categorias_info)
     ? dataActual.categorias_info
@@ -238,9 +246,7 @@ function mergeCategoriaEnDocExistente(dataActual, categoriaId, categoriaNombre, 
 }
 
 // ─────────────────────────────────────────────
-// Fetch canales desde Firestore (canales_admin)
-// Usa RSS para obtener videos y API solo para
-// validar duración (bloquea directos > 3 horas).
+// Fetch canales_admin → videos_catalogo
 // ─────────────────────────────────────────────
 async function ejecutarFetchCanalesAdmin(apiKey) {
   console.log("Serenity [canales_admin]: Leyendo canales desde Firestore...");
@@ -258,7 +264,6 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
   const entradas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   console.log(`Serenity [canales_admin]: ${entradas.length} entradas a procesar.`);
 
-  // Agrupar por channelId para evitar race conditions
   const porChannel = {};
   for (const entrada of entradas) {
     const channelId = extraerChannelId(entrada.url);
@@ -287,7 +292,6 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
         continue;
       }
 
-      // Filtro rápido por título antes de llamar a la API
       const videosPretitulo = videosRss.filter((v) => {
         if (!v.video_id) return false;
         if (esTituloExcluido(v.titulo)) {
@@ -299,20 +303,15 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
 
       if (!videosPretitulo.length) continue;
 
-      // Validar duración via API (solo contentDetails — costo mínimo)
       const videoIds    = videosPretitulo.map((v) => v.video_id);
       const duracionMap = await validarDuracionCanales(videoIds, apiKey);
 
       const videosFiltrados = videosPretitulo.filter((v) => {
         const meta = duracionMap[v.video_id];
-
-        // Si la API no devolvió info (video privado/eliminado), descartar
         if (!meta) {
           console.log(`Serenity [canales_admin]: Sin metadata para ${v.video_id}, omitido.`);
           return false;
         }
-
-        // Descartar directos y videos demasiado largos (> 3 horas)
         if (meta.duracion_segundos > MAX_DURACION_CANALES_SEG) {
           console.log(
             `Serenity [canales_admin]: Video muy largo omitido: ${v.video_id} - ${v.titulo} ` +
@@ -320,7 +319,6 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
           );
           return false;
         }
-
         return true;
       });
 
@@ -373,7 +371,6 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
           continue;
         }
 
-        // Video nuevo: todas las categorías del canal de una vez
         const categorias_info = cats.map((cat) => ({
           categoria_id:     cat.categoriaId,
           categoria_nombre: cat.categoriaNombre,
@@ -423,12 +420,144 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
 }
 
 // ─────────────────────────────────────────────
+// Fetch canales_youtubers → videos_youtubers
+// Sin categorías, sin rangos de edad — global
+// ─────────────────────────────────────────────
+async function ejecutarFetchCanalesYoutubers(apiKey) {
+  console.log("Serenity [canales_youtubers]: Leyendo canales desde Firestore...");
+
+  const snap = await db
+    .collection("canales_youtubers")
+    .where("activo", "==", true)
+    .get();
+
+  if (snap.empty) {
+    console.warn("Serenity [canales_youtubers]: No hay canales activos.");
+    return { canales_procesados: 0, guardados: 0, omitidos: 0, errores: 0 };
+  }
+
+  const canales = snap.docs.map((d) => ({ docId: d.id, ...d.data() }));
+  console.log(`Serenity [canales_youtubers]: ${canales.length} canales a procesar.`);
+
+  let totalGuardados = 0;
+  let totalOmitidos  = 0;
+  let totalErrores   = 0;
+  let totalCanales   = 0;
+
+  for (const canal of canales) {
+    try {
+      totalCanales++;
+      const channelId = extraerChannelId(canal.channel_url);
+
+      if (!channelId) {
+        console.warn(`Serenity [canales_youtubers]: ⚠️ URL no válida: ${canal.channel_url}`);
+        totalErrores++;
+        continue;
+      }
+
+      console.log(`Serenity [canales_youtubers]: Procesando ${canal.nombre_canal} (${channelId})`);
+
+      const videosRss = await obtenerVideosViaRss(channelId);
+      if (!videosRss.length) {
+        console.log(`Serenity [canales_youtubers]: Sin videos en RSS para ${channelId}`);
+        continue;
+      }
+
+      // Filtro por título
+      const videosPretitulo = videosRss.filter((v) => {
+        if (!v.video_id) return false;
+        if (esTituloExcluido(v.titulo)) {
+          console.log(`Serenity [canales_youtubers]: Título excluido: ${v.video_id} - ${v.titulo}`);
+          return false;
+        }
+        return true;
+      });
+
+      if (!videosPretitulo.length) continue;
+
+      // Validar duración via API
+      const videoIds    = videosPretitulo.map((v) => v.video_id);
+      const duracionMap = await validarDuracionCanales(videoIds, apiKey);
+
+      const videosFiltrados = videosPretitulo.filter((v) => {
+        const meta = duracionMap[v.video_id];
+        if (!meta) {
+          console.log(`Serenity [canales_youtubers]: Sin metadata para ${v.video_id}, omitido.`);
+          return false;
+        }
+        if (meta.duracion_segundos > MAX_DURACION_CANALES_SEG) {
+          console.log(
+            `Serenity [canales_youtubers]: Video muy largo omitido: ${v.video_id} ` +
+            `(${Math.round(meta.duracion_segundos / 3600)}h)`
+          );
+          return false;
+        }
+        return true;
+      });
+
+      console.log(
+        `Serenity [canales_youtubers]: ${canal.nombre_canal} → ` +
+        `${videosFiltrados.length}/${videosRss.length} válidos`
+      );
+
+      if (!videosFiltrados.length) continue;
+
+      // Guardar en videos_youtubers (limpia antes del fetch, así solo se insertan)
+      const batch = db.batch();
+      for (const video of videosFiltrados) {
+        if (!video.video_id) continue;
+        const meta   = duracionMap[video.video_id];
+        const docRef = db.collection("videos_youtubers").doc(video.video_id);
+
+        batch.set(docRef, {
+          video_id:          video.video_id,
+          titulo:            video.titulo,
+          descripcion:       video.descripcion,
+          canal:             canal.nombre_canal,
+          canal_id:          channelId,
+          canal_youtuber_id: canal.docId,
+          thumbnail:         video.thumbnail,
+          imagen_canal:      canal.imagen_url ?? "",
+          duracion_iso:      meta?.duracion_iso      ?? "",
+          duracion_segundos: meta?.duracion_segundos ?? 0,
+          activo:            true,
+          fuente:            "youtuber",
+          fecha_agregado:    admin.firestore.FieldValue.serverTimestamp(),
+          actualizado_en:    admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        totalGuardados++;
+      }
+
+      await batch.commit();
+      await new Promise((r) => setTimeout(r, 500));
+
+    } catch (err) {
+      totalErrores++;
+      console.error(
+        `Serenity [canales_youtubers]: Error en canal [${canal.nombre_canal}]:`,
+        err.message
+      );
+    }
+  }
+
+  return {
+    canales_procesados: totalCanales,
+    guardados:          totalGuardados,
+    omitidos:           totalOmitidos,
+    errores:            totalErrores,
+  };
+}
+
+// ─────────────────────────────────────────────
 // Lógica principal: keywords + canales_admin
+//                  + canales_youtubers
 // ─────────────────────────────────────────────
 async function ejecutarFetch(apiKey) {
-  console.log("Serenity: Iniciando fetch completo (keywords + canales_admin)...");
+  console.log("Serenity: Iniciando fetch completo (keywords + canales_admin + canales_youtubers)...");
 
-  const borrados = await limpiarCatalogo();
+  const borrados          = await limpiarCatalogo();
+  const borradosYoutubers = await limpiarVideosYoutubers();
 
   let totalGuardados = 0;
   let totalOmitidos  = 0;
@@ -457,20 +586,17 @@ async function ejecutarFetch(apiKey) {
         const detalles = video.contentDetails;
         const duracion = parseDuracionISO(detalles?.duration);
 
-        // Filtrar directos activos y premieres
         if (esDirectoOPremiere(snippet)) {
           console.log(`Serenity: Directo omitido: ${videoId} - ${snippet?.title}`);
           totalOmitidos++;
           continue;
         }
 
-        // Filtrar Shorts (< 60s) y videos muy largos para keywords (> 20 min)
         if (duracion > MAX_DURACION_KEYWORDS_SEG || duracion < MIN_DURACION_SEGUNDOS) {
           totalOmitidos++;
           continue;
         }
 
-        // Filtrar directos grabados y podcasts por título
         if (esTituloExcluido(snippet?.title)) {
           console.log(`Serenity: Título excluido: ${videoId} - ${snippet?.title}`);
           totalOmitidos++;
@@ -529,19 +655,26 @@ async function ejecutarFetch(apiKey) {
     }
   }
 
-  // ── PARTE 2: Canales admin via RSS + validación de duración ──
+  // ── PARTE 2: Canales admin via RSS ──
   const resumenCanales = await ejecutarFetchCanalesAdmin(apiKey);
   totalGuardados += resumenCanales.guardados;
   totalOmitidos  += resumenCanales.omitidos;
   totalErrores   += resumenCanales.errores;
 
+  // ── PARTE 3: Canales youtubers via RSS ──
+  const resumenYoutubers = await ejecutarFetchCanalesYoutubers(apiKey);
+
   const resumen = {
-    borrados_anteriores:      borrados,
-    guardados:                totalGuardados,
-    omitidos:                 totalOmitidos,
-    errores:                  totalErrores,
-    canales_admin_procesados: resumenCanales.canales_procesados,
-    timestamp:                new Date().toISOString(),
+    borrados_anteriores:           borrados,
+    borrados_youtubers_anteriores: borradosYoutubers,
+    guardados:                     totalGuardados,
+    omitidos:                      totalOmitidos,
+    errores:                       totalErrores,
+    canales_admin_procesados:      resumenCanales.canales_procesados,
+    youtubers_procesados:          resumenYoutubers.canales_procesados,
+    youtubers_guardados:           resumenYoutubers.guardados,
+    youtubers_errores:             resumenYoutubers.errores,
+    timestamp:                     new Date().toISOString(),
   };
 
   await db.collection("fetch_logs").add({

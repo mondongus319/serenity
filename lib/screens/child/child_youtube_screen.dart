@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:serenity_app/screens/child/youtube_auto_play_screen.dart';
 import '../../servicces/firestore_service.dart';
 import '../../servicces/youtube_service.dart';
 import 'youtube_autoplay_screen.dart';

@@ -1,9 +1,7 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../servicces/firestore_service.dart';
-import '../../servicces/youtube_service.dart';
-import 'youtube_autoplay_screen.dart';
+import 'youtube_auto_play_screen.dart';
 
 class ChildYoutubeScreen extends StatefulWidget {
   final String idNino;
@@ -22,57 +20,46 @@ class ChildYoutubeScreen extends StatefulWidget {
 }
 
 class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
-  static const Color _bg = Color(0xFF0F172A);
-  static const Color _card = Color(0xFF1E293B);
-  static const Color _cyan = Color(0xFF06B6D4);
-  static const Color _pearl = Color(0xFFF1F5F9);
-  static const Color _muted = Color(0xFF94A3B8);
+  static const _bg = Color(0xFF0F172A);
+  static const _card = Color(0xFF1E293B);
+  static const _cyan = Color(0xFF06B6D4);
+  static const _pearl = Color(0xFFF1F5F9);
+  static const _muted = Color(0xFF94A3B8);
 
-  String estado = 'Preparando tus videos...';
-  String? error;
+  String _estado = 'Preparando tus videos...';
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    cargarYLanzar();
+    _cargarYLanzar();
   }
 
-  Future<void> cargarYLanzar() async {
+  Future<void> _cargarYLanzar() async {
     try {
-      setError(null);
-
-      setEstado('Calculando tu edad...');
+      _setEstado('Calculando tu edad...');
       final datoNino = await FirestoreService.obtenerNino(widget.idNino);
 
-      if (datoNino == null) {
-        setError(
-          'No pudimos encontrar tu perfil. Por favor intenta entrar nuevamente.',
-        );
-        return;
-      }
-
-      final fechaNac = (datoNino['fecha_nacimiento'] as String? ?? '').trim();
+      final fechaNac = (datoNino?['fecha_nacimiento'] as String?)?.trim() ?? '';
       final rangoEdad = fechaNac.isNotEmpty
           ? (FirestoreService.calcularRangoEdad(fechaNac) ?? '3-5')
           : '3-5';
 
-      setEstado('Cargando categorías y canales...');
+      _setEstado('Cargando categorías...');
       final categorias =
           await FirestoreService.obtenerCategoriasNino(widget.idNino);
-      final youtubers =
-          await FirestoreService.obtenerYoutubersPermitidosNino(widget.idNino);
 
-      if (categorias.isEmpty && youtubers.isEmpty) {
-        setError(
-          'Todavía no tienes contenido seleccionado. Agrega categorías o tus Youtubers favoritos.',
+      if (categorias.isEmpty) {
+        _setError(
+          'Tu papá/mamá todavía no\nha configurado categorías para ti.\n\n'
+          '¡Pídele que lo haga!',
         );
         return;
       }
 
-      final Map<String, Map<String, dynamic>> catalogoMap = {};
-      final Map<String, Map<String, dynamic>> youtubersMap = {};
+      _setEstado('Buscando videos para ti...');
+      final todosMap = <String, Map<String, dynamic>>{};
 
-      setEstado('Buscando videos del catálogo...');
       for (final cat in categorias) {
         final catId = cat['id']?.toString() ?? '';
         if (catId.isEmpty) continue;
@@ -83,126 +70,50 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         );
 
         for (final v in videos) {
-          final vid = (v['video_id'] as String? ?? '').trim();
-          if (vid.isEmpty) continue;
-
-          catalogoMap[vid] = {
-            ...v,
-            'fuente': 'catalogo',
-          };
+          final vid = v['video_id'] as String? ?? '';
+          if (vid.isNotEmpty) {
+            todosMap[vid] = v;
+          }
         }
       }
 
-      setEstado('Buscando videos de tus Youtubers...');
-      for (final y in youtubers) {
-        final url = (y['channel_url'] as String? ?? '').trim();
-        final nombreCanal = (y['nombre_canal'] as String? ?? '').trim();
+      final todos = todosMap.values.toList();
 
-        if (url.isEmpty) continue;
-
-        final videosCanal = await YoutubeService.obtenerVideosDeCanal(url);
-
-        for (final v in videosCanal) {
-          final vid = (v['video_id'] as String? ?? '').trim();
-          if (vid.isEmpty) continue;
-
-          youtubersMap[vid] = {
-            ...v,
-            'canal': nombreCanal.isNotEmpty
-                ? nombreCanal
-                : (v['canal'] ?? ''),
-            'categoria': (v['categoria'] ?? 'Tus Youtubers'),
-            'fuente': 'youtuber',
-          };
-        }
-      }
-
-      final videosCatalogo = catalogoMap.values.toList()..shuffle(Random());
-      final videosYoutubers = youtubersMap.values.toList()..shuffle(Random());
-
-      final mezclados = _mezclarVideos3x1Estable(
-        videosCatalogo: videosCatalogo,
-        videosYoutubers: videosYoutubers,
-      );
-
-      if (mezclados.isEmpty) {
-        setError(
-          'Aún no hay videos disponibles para tus categorías o Youtubers. Vuelve más tarde.',
+      if (todos.isEmpty) {
+        _setError(
+          'Aún no hay videos disponibles\npara tus categorías.\n\n'
+          '¡Vuelve más tarde!',
         );
         return;
       }
 
+      todos.shuffle();
+
       if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => YoutubeAutoPlayScreen(
-            videos: mezclados,
+            videos: todos,
             nombreNino: widget.nombreNino,
+            ninoId: widget.idNino,
           ),
         ),
       );
     } catch (e) {
-      setError('Ocurrió un problema al cargar tus videos. Intenta nuevamente.');
-      debugPrint('ChildYoutubeScreen cargarYLanzar error: $e');
+      _setError('ERROR:\n$e');
     }
   }
 
-  List<Map<String, dynamic>> _mezclarVideos3x1Estable({
-    required List<Map<String, dynamic>> videosCatalogo,
-    required List<Map<String, dynamic>> videosYoutubers,
-  }) {
-    final List<Map<String, dynamic>> resultado = [];
-
-    int iCatalogo = 0;
-    int iYoutuber = 0;
-
-    while (iCatalogo < videosCatalogo.length ||
-        iYoutuber < videosYoutubers.length) {
-      final bool hayCatalogo = iCatalogo < videosCatalogo.length;
-      final bool hayYoutubers = iYoutuber < videosYoutubers.length;
-
-      if (hayCatalogo && hayYoutubers) {
-        int agregadosCatalogo = 0;
-
-        while (agregadosCatalogo < 3 && iCatalogo < videosCatalogo.length) {
-          resultado.add(videosCatalogo[iCatalogo]);
-          iCatalogo++;
-          agregadosCatalogo++;
-        }
-
-        if (iYoutuber < videosYoutubers.length) {
-          resultado.add(videosYoutubers[iYoutuber]);
-          iYoutuber++;
-        }
-
-        continue;
-      }
-
-      if (hayCatalogo) {
-        resultado.add(videosCatalogo[iCatalogo]);
-        iCatalogo++;
-        continue;
-      }
-
-      if (hayYoutubers) {
-        resultado.add(videosYoutubers[iYoutuber]);
-        iYoutuber++;
-        continue;
-      }
-    }
-
-    return resultado;
+  void _setEstado(String msg) {
+    if (!mounted) return;
+    setState(() => _estado = msg);
   }
 
-  void setEstado(String msg) {
+  void _setError(String msg) {
     if (!mounted) return;
-    setState(() => estado = msg);
-  }
-
-  void setError(String? msg) {
-    if (!mounted) return;
-    setState(() => error = msg);
+    setState(() => _error = msg);
   }
 
   @override
@@ -213,14 +124,14 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         child: Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: error != null ? buildError() : buildCargando(),
+            child: _error != null ? _buildError() : _buildCargando(),
           ),
         ),
       ),
     );
   }
 
-  Widget buildCargando() {
+  Widget _buildCargando() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -247,7 +158,7 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         ),
         const SizedBox(height: 28),
         Text(
-          'A ver videos!',
+          '¡A ver videos!',
           style: GoogleFonts.poppins(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -256,27 +167,21 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          estado,
+          _estado,
           textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: _muted,
-          ),
+          style: GoogleFonts.poppins(fontSize: 13, color: _muted),
         ),
         const SizedBox(height: 28),
         const SizedBox(
           width: 32,
           height: 32,
-          child: CircularProgressIndicator(
-            color: _cyan,
-            strokeWidth: 2.5,
-          ),
+          child: CircularProgressIndicator(color: _cyan, strokeWidth: 2.5),
         ),
       ],
     );
   }
 
-  Widget buildError() {
+  Widget _buildError() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -299,7 +204,7 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         ),
         const SizedBox(height: 20),
         Text(
-          error!,
+          _error!,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
             fontSize: 14,
@@ -311,10 +216,10 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         GestureDetector(
           onTap: () {
             setState(() {
-              error = null;
-              estado = 'Preparando tus videos...';
+              _error = null;
+              _estado = 'Preparando tus videos...';
             });
-            cargarYLanzar();
+            _cargarYLanzar();
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

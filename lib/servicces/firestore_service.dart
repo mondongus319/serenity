@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'dart:math';
-
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 
@@ -13,42 +12,10 @@ class FirestoreService {
   }
 
   static const List<Map<String, dynamic>> _catalogoRangos = [
-    {
-      'id': '3-5',
-      'nombre': 'Preescolar',
-      'edad_min': 3,
-      'edad_max': 5,
-      'icono': '🧒',
-      'color': '#FFB74D',
-      'orden': 1,
-    },
-    {
-      'id': '6-9',
-      'nombre': 'Primaria',
-      'edad_min': 6,
-      'edad_max': 9,
-      'icono': '📚',
-      'color': '#81C784',
-      'orden': 2,
-    },
-    {
-      'id': '10-13',
-      'nombre': 'Secundaria',
-      'edad_min': 10,
-      'edad_max': 13,
-      'icono': '🎓',
-      'color': '#64B5F6',
-      'orden': 3,
-    },
-    {
-      'id': '14-17',
-      'nombre': 'Adolescente',
-      'edad_min': 14,
-      'edad_max': 17,
-      'icono': '🧑',
-      'color': '#BA68C8',
-      'orden': 4,
-    },
+    {'id': '3-5', 'nombre': 'Preescolar', 'edad_min': 3, 'edad_max': 5, 'icono': '🧒', 'color': '#FFB74D', 'orden': 1},
+    {'id': '6-9', 'nombre': 'Primaria', 'edad_min': 6, 'edad_max': 9, 'icono': '📚', 'color': '#81C784', 'orden': 2},
+    {'id': '10-13', 'nombre': 'Secundaria', 'edad_min': 10, 'edad_max': 13, 'icono': '🎓', 'color': '#64B5F6', 'orden': 3},
+    {'id': '14-17', 'nombre': 'Adolescente', 'edad_min': 14, 'edad_max': 17, 'icono': '🧑', 'color': '#BA68C8', 'orden': 4},
   ];
 
   static List<Map<String, dynamic>> obtenerCatalogoRangosEdad() {
@@ -57,31 +24,24 @@ class FirestoreService {
 
   static String? calcularRangoEdad(String fechaNacimiento) {
     try {
-      final parts = fechaNacimiento.trim().split('-');
+      final parts = fechaNacimiento.split('-');
       if (parts.length != 3) return null;
-
       final nacimiento = DateTime(
         int.parse(parts[0]),
         int.parse(parts[1]),
         int.parse(parts[2]),
       );
-
       final hoy = DateTime.now();
-
-      if (nacimiento.isAfter(hoy)) return null;
-
       int edad = hoy.year - nacimiento.year;
       if (hoy.month < nacimiento.month ||
           (hoy.month == nacimiento.month && hoy.day < nacimiento.day)) {
         edad--;
       }
-
       if (edad < 0) return null;
       if (edad <= 5) return '3-5';
       if (edad <= 9) return '6-9';
       if (edad <= 13) return '10-13';
       if (edad <= 17) return '14-17';
-
       return null;
     } catch (_) {
       return null;
@@ -90,12 +50,10 @@ class FirestoreService {
 
   static Future<void> poblarRangosEdad() async {
     final batch = _db.batch();
-
     for (final rango in _catalogoRangos) {
       final ref = _db.collection('rangos_edad').doc(rango['id'] as String);
       batch.set(ref, rango, SetOptions(merge: true));
     }
-
     await batch.commit();
   }
 
@@ -107,15 +65,12 @@ class FirestoreService {
   static Future<Map<String, int>> migrarRangosEdadNinos() async {
     final todos = await _db.collection('ninos').get();
     final batch = _db.batch();
-
     int actualizados = 0;
     int sinRango = 0;
-
     for (final doc in todos.docs) {
       final data = doc.data();
-      final fecha = (data['fecha_nacimiento'] as String? ?? '').trim();
+      final fecha = data['fecha_nacimiento'] as String? ?? '';
       final rango = calcularRangoEdad(fecha);
-
       if (rango != null) {
         batch.update(doc.reference, {'rango_edad': rango});
         actualizados++;
@@ -123,13 +78,8 @@ class FirestoreService {
         sinRango++;
       }
     }
-
     await batch.commit();
-
-    return {
-      'actualizados': actualizados,
-      'sin_rango': sinRango,
-    };
+    return {'actualizados': actualizados, 'sin_rango': sinRango};
   }
 
   static Future<void> crearPadre({
@@ -144,13 +94,13 @@ class FirestoreService {
     String tipoRegistro = 'manual',
   }) async {
     await _db.collection('padres').doc(uid).set({
-      'primer_nombre': primerNombre.trim(),
-      'segundo_nombre': segundoNombre.trim(),
-      'primer_apellido': primerApellido.trim(),
-      'segundo_apellido': segundoApellido.trim(),
+      'primer_nombre': primerNombre,
+      'segundo_nombre': segundoNombre,
+      'primer_apellido': primerApellido,
+      'segundo_apellido': segundoApellido,
       'fecha_nacimiento': fechaNacimiento,
-      'gmail': gmail.trim(),
-      'photo_url': photoUrl.trim(),
+      'gmail': gmail,
+      'photo_url': photoUrl,
       'tipo_registro': tipoRegistro,
       'activo': true,
       'latitud': null,
@@ -167,23 +117,16 @@ class FirestoreService {
   }
 
   static Future<void> actualizarPadre(
-    String uid,
-    Map<String, dynamic> datos,
-  ) async {
+      String uid, Map<String, dynamic> datos) async {
     await _db.collection('padres').doc(uid).update(datos);
   }
 
   static Future<void> desactivarPadre(String uid) async {
-    await _db.collection('padres').doc(uid).update({
-      'activo': false,
-    });
+    await _db.collection('padres').doc(uid).update({'activo': false});
   }
 
   static Future<void> guardarUbicacionPadre(
-    String uid,
-    double lat,
-    double lng,
-  ) async {
+      String uid, double lat, double lng) async {
     await _db.collection('padres').doc(uid).update({
       'latitud': lat,
       'longitud': lng,
@@ -205,28 +148,22 @@ class FirestoreService {
     String codigo;
     bool existe = true;
     int intentos = 0;
-
     do {
       codigo = _generarCodigo();
-
       final q = await _db
           .collection('ninos')
           .where('codigo_vinculacion', isEqualTo: codigo)
           .limit(1)
           .get();
-
       existe = q.docs.isNotEmpty;
       intentos++;
-
-      if (intentos > 20) {
-        throw Exception('No se pudo generar código único');
-      }
+      if (intentos > 20) throw Exception('No se pudo generar código único');
     } while (existe);
 
     final rangoEdad = calcularRangoEdad(fechaNacimiento);
 
     final doc = await _db.collection('ninos').add({
-      'nombre': nombre.trim(),
+      'nombre': nombre,
       'fecha_nacimiento': fechaNacimiento,
       'rango_edad': rangoEdad,
       'codigo_vinculacion': codigo,
@@ -238,24 +175,16 @@ class FirestoreService {
       'longitud': null,
       'fecha_ultima_ubicacion': null,
       'categorias_permitidas': <String>[],
-      'youtubers_permitidos': <Map<String, dynamic>>[],
       'creado_en': FieldValue.serverTimestamp(),
     });
 
-    return {
-      'success': true,
-      'id': doc.id,
-      'codigo': codigo,
-    };
+    return {'success': true, 'id': doc.id, 'codigo': codigo};
   }
 
   static Future<bool> validarPasswordNino(
-    String ninoId,
-    String password,
-  ) async {
+      String ninoId, String password) async {
     final doc = await _db.collection('ninos').doc(ninoId).get();
     if (!doc.exists) return false;
-
     final hash = doc.data()!['password_hash'] as String? ?? '';
     return hash == hashPassword(password);
   }
@@ -274,10 +203,7 @@ class FirestoreService {
         .get();
 
     if (q.docs.isEmpty) {
-      return {
-        'success': false,
-        'message': 'Código inválido o no encontrado',
-      };
+      return {'success': false, 'message': 'Código inválido o no encontrado'};
     }
 
     final doc = q.docs.first;
@@ -296,38 +222,22 @@ class FirestoreService {
       'fecha_vinculacion': FieldValue.serverTimestamp(),
     });
 
-    return {
-      'success': true,
-      'id': doc.id,
-      'nombre': data['nombre'],
-    };
+    return {'success': true, 'id': doc.id, 'nombre': data['nombre']};
   }
 
   static Future<List<Map<String, dynamic>>> listarNinosPadre(
-    String padreId,
-  ) async {
+      String padreId) async {
     final q = await _db
         .collection('ninos')
         .where('id_padre', isEqualTo: padreId)
-        .where('activo', isEqualTo: true)
         .get();
-
     return q.docs
-        .map(
-          (d) => {
-            'id': d.id,
-            'nombre': d.data()['nombre'] ?? '',
-            ...d.data(),
-          },
-        )
+        .map((d) => {'id': d.id, 'nombre': d.data()['nombre'] ?? '', ...d.data()})
         .toList();
   }
 
-  static Stream<DocumentSnapshot<Map<String, dynamic>>> streamNino(
-    String ninoId,
-  ) {
-    return _db.collection('ninos').doc(ninoId).snapshots();
-  }
+  static Stream<DocumentSnapshot> streamNino(String ninoId) =>
+      _db.collection('ninos').doc(ninoId).snapshots();
 
   static Future<Map<String, dynamic>?> obtenerNino(String ninoId) async {
     final doc = await _db.collection('ninos').doc(ninoId).get();
@@ -336,10 +246,7 @@ class FirestoreService {
   }
 
   static Future<void> guardarUbicacionNino(
-    String ninoId,
-    double lat,
-    double lng,
-  ) async {
+      String ninoId, double lat, double lng) async {
     await _db.collection('ninos').doc(ninoId).update({
       'latitud': lat,
       'longitud': lng,
@@ -360,19 +267,15 @@ class FirestoreService {
     'cat_10': {'id': 'cat_10', 'nombre': 'Experimentos'},
   };
 
-  static List<Map<String, dynamic>> obtenerTodasLasCategorias() {
-    return _catalogoCategorias.values.toList();
-  }
+  static List<Map<String, dynamic>> obtenerTodasLasCategorias() =>
+      _catalogoCategorias.values.toList();
 
   static Future<List<Map<String, dynamic>>> obtenerCategoriasNino(
-    String ninoId,
-  ) async {
+      String ninoId) async {
     final doc = await _db.collection('ninos').doc(ninoId).get();
     if (!doc.exists) return [];
-
     final data = doc.data()!;
     final List ids = (data['categorias_permitidas'] as List?) ?? [];
-
     return ids
         .map<Map<String, dynamic>>(
           (id) => _catalogoCategorias[id.toString()] ?? {},
@@ -382,12 +285,11 @@ class FirestoreService {
   }
 
   static Future<void> guardarCategoriasNino(
-    String ninoId,
-    List<String> categoriaIds,
-  ) async {
-    await _db.collection('ninos').doc(ninoId).set({
-      'categorias_permitidas': categoriaIds,
-    }, SetOptions(merge: true));
+      String ninoId, List<String> categoriaIds) async {
+    await _db
+        .collection('ninos')
+        .doc(ninoId)
+        .set({'categorias_permitidas': categoriaIds}, SetOptions(merge: true));
   }
 
   static Future<List<Map<String, dynamic>>> obtenerVideosCatalogo({
@@ -413,103 +315,93 @@ class FirestoreService {
                 entry['rango_edad'] == rangoEdad;
           });
         })
-        .map(
-          (data) => {
-            'video_id': (data['video_id'] ?? '').toString(),
-            'titulo': (data['titulo'] ?? '').toString(),
-            'thumbnail': (data['thumbnail'] ?? '').toString(),
-            'canal': (data['canal'] ?? '').toString(),
-            'duracion': data['duracion_segundos'] ?? 0,
-            'categoria': nombreCategoria,
-            'rango': data['rangos_edad'] ?? <dynamic>[],
-          },
-        )
-        .where((v) => (v['video_id'] as String).trim().isNotEmpty)
+        .map((data) => {
+              'video_id': data['video_id'] ?? '',
+              'titulo': data['titulo'] ?? '',
+              'thumbnail': data['thumbnail'] ?? '',
+              'canal': data['canal'] ?? '',
+              'duracion': data['duracion_segundos'] ?? 0,
+              'categoria': nombreCategoria,
+              'rango': data['rangos_edad'] ?? [],
+            })
+        .where((v) => (v['video_id'] as String).isNotEmpty)
         .toList();
   }
 
   static Future<List<Map<String, dynamic>>> obtenerVideosPorCategoria(
-    String categoriaId,
-  ) async {
+      String categoriaId) async {
     final q = await _db
         .collection('videos')
         .where('id_categoria', isEqualTo: categoriaId)
         .where('activo', isEqualTo: true)
         .get();
-
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
   static const Map<String, Map<String, String>> _catalogoCanales = {
     'cat_1': {
       'nombre': 'Canticuénticos',
-      'url': 'https://www.youtube.com/@CANTICUENTICOSMUSICAPARACHICOS',
+      'url': 'https://www.youtube.com/@CANTICUENTICOSMUSICAPARACHICOS'
     },
     'cat_2': {
       'nombre': 'Little Sports Español',
-      'url': 'https://www.youtube.com/@littlesportsespanol',
+      'url': 'https://www.youtube.com/@littlesportsespanol'
     },
     'cat_3': {
       'nombre': 'Happy Learning ES',
-      'url': 'https://www.youtube.com/@HappyLearningES',
+      'url': 'https://www.youtube.com/@HappyLearningES'
     },
     'cat_4': {
       'nombre': 'CuriosaMente',
-      'url': 'https://www.youtube.com/@curiosamente',
+      'url': 'https://www.youtube.com/@curiosamente'
     },
     'cat_5': {
       'nombre': 'CNTV Infantil',
-      'url': 'https://www.youtube.com/@cntvinfantil',
+      'url': 'https://www.youtube.com/@cntvinfantil'
     },
     'cat_6': {
       'nombre': 'Aprendemos Juntos Kids',
-      'url': 'https://www.youtube.com/@AprendemosjuntosKIDS',
+      'url': 'https://www.youtube.com/@AprendemosjuntosKIDS'
     },
     'cat_7': {
       'nombre': 'Smile and Learn ES',
-      'url': 'https://www.youtube.com/@SmileandLearnEspañol',
+      'url': 'https://www.youtube.com/@SmileandLearnEspañol'
     },
     'cat_8': {
       'nombre': 'GENIAL Bright Side',
-      'url': 'https://www.youtube.com/@GENIALBrightSideSpanish',
+      'url': 'https://www.youtube.com/@GENIALBrightSideSpanish'
     },
     'cat_9': {
       'nombre': 'Academia Play',
-      'url': 'https://www.youtube.com/@academiaplay',
+      'url': 'https://www.youtube.com/@academiaplay'
     },
     'cat_10': {
       'nombre': 'ExpCaserosMix',
-      'url': 'https://www.youtube.com/@ExpCaserosMix',
+      'url': 'https://www.youtube.com/@ExpCaserosMix'
     },
   };
 
-  static Map<String, String>? obtenerCanalDefault(String catId) {
-    return _catalogoCanales[catId];
-  }
+  static Map<String, String>? obtenerCanalDefault(String catId) =>
+      _catalogoCanales[catId];
 
   static Future<List<Map<String, dynamic>>> obtenerCanalesCustom(
-    String padreId,
-    String catId,
-  ) async {
+      String padreId, String catId) async {
     final q = await _db
         .collection('canales')
         .where('id_padre', isEqualTo: padreId)
         .where('id_categoria', isEqualTo: catId)
         .where('activo', isEqualTo: true)
         .get();
-
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
   static Future<List<Map<String, dynamic>>> obtenerTodosCanalesCustom(
-    String padreId,
-  ) async {
+      String padreId) async {
     final q = await _db
         .collection('canales')
         .where('id_padre', isEqualTo: padreId)
         .where('activo', isEqualTo: true)
         .get();
-
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
@@ -519,39 +411,10 @@ class FirestoreService {
         .where('activo', isEqualTo: true)
         .get();
 
-    return q.docs
-        .map(
-          (d) => {
-            'id': d.id,
-            ...d.data(),
-          },
-        )
-        .toList();
-  }
-
-  static Future<List<Map<String, dynamic>>> obtenerYoutubersPermitidosNino(
-    String ninoId,
-  ) async {
-    final doc = await _db.collection('ninos').doc(ninoId).get();
-    if (!doc.exists) return [];
-
-    final data = doc.data()!;
-    final List lista = (data['youtubers_permitidos'] as List?) ?? [];
-
-    return lista
-        .map<Map<String, dynamic>>(
-          (item) => Map<String, dynamic>.from(item as Map),
-        )
-        .toList();
-  }
-
-  static Future<void> guardarYoutubersPermitidosNino(
-    String ninoId,
-    List<Map<String, dynamic>> youtubers,
-  ) async {
-    await _db.collection('ninos').doc(ninoId).set({
-      'youtubers_permitidos': youtubers,
-    }, SetOptions(merge: true));
+    return q.docs.map((d) => {
+          'id': d.id,
+          ...d.data(),
+        }).toList();
   }
 
   static Future<void> agregarCanalCustom({
@@ -563,8 +426,8 @@ class FirestoreService {
     await _db.collection('canales').add({
       'id_padre': padreId,
       'id_categoria': catId,
-      'channel_url': channelUrl.trim(),
-      'nombre_canal': nombreCanal.trim(),
+      'channel_url': channelUrl,
+      'nombre_canal': nombreCanal,
       'activo': true,
       'creado_en': FieldValue.serverTimestamp(),
     });
@@ -572,64 +435,6 @@ class FirestoreService {
 
   static Future<void> eliminarCanalCustom(String docId) async {
     await _db.collection('canales').doc(docId).delete();
-  }
-
-  static Future<List<Map<String, dynamic>>> obtenerYoutubersNino(
-    String ninoId,
-  ) async {
-    return obtenerYoutubersPermitidosNino(ninoId);
-  }
-
-  static Future<void> agregarYoutuberNino({
-    required String ninoId,
-    required String channelUrl,
-    required String nombreCanal,
-  }) async {
-    final actuales = await obtenerYoutubersPermitidosNino(ninoId);
-
-    final normalizada = channelUrl.trim().toLowerCase();
-
-    final yaExiste = actuales.any((y) {
-      final url = (y['channel_url'] ?? '').toString().trim().toLowerCase();
-      return url == normalizada;
-    });
-
-    if (yaExiste) return;
-
-    final actualizados = [
-      ...actuales,
-      {
-        'canal_id': '',
-        'nombre_canal': nombreCanal.trim(),
-        'channel_url': channelUrl.trim(),
-        'imagen_url': '',
-      },
-    ];
-
-    await guardarYoutubersPermitidosNino(ninoId, actualizados);
-  }
-
-  static Future<void> eliminarYoutuberNino(String identificador) async {
-    final snap = await _db.collection('ninos').get();
-
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final List lista = (data['youtubers_permitidos'] as List?) ?? [];
-
-      final nuevaLista = lista.where((item) {
-        final map = Map<String, dynamic>.from(item as Map);
-        final canalId = (map['canal_id'] ?? '').toString();
-        final url = (map['channel_url'] ?? '').toString();
-        return canalId != identificador && url != identificador;
-      }).toList();
-
-      if (nuevaLista.length != lista.length) {
-        await doc.reference.update({
-          'youtubers_permitidos': nuevaLista,
-        });
-        return;
-      }
-    }
   }
 
   static Future<void> guardarSesion({
@@ -676,7 +481,6 @@ class FirestoreService {
         .where('tipo_usuario', isEqualTo: tipoUsuario)
         .limit(1)
         .get();
-
     if (q.docs.isEmpty) return null;
     return {'id': q.docs.first.id, ...q.docs.first.data()};
   }
@@ -687,13 +491,11 @@ class FirestoreService {
     required int duracionSegundos,
   }) async {
     if (duracionSegundos <= 0) return;
-
     final ahora = DateTime.now();
     final fecha =
         '${ahora.year.toString().padLeft(4, '0')}-'
         '${ahora.month.toString().padLeft(2, '0')}-'
         '${ahora.day.toString().padLeft(2, '0')}';
-
     await _db.collection('tiempo_uso').add({
       'id_usuario': idUsuario,
       'tipo': tipo,

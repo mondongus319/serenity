@@ -11,12 +11,16 @@ import 'child_youtube_screen.dart';
 import '../../widgets/child/child_home_body.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+
+
+
 class ChildHomeScreen extends StatefulWidget {
   final String ninoId;
   final String nombreNino;
   final String padreId;
   final String nombrePadre;
   final String parentEmail;
+
 
   const ChildHomeScreen({
     super.key,
@@ -27,13 +31,16 @@ class ChildHomeScreen extends StatefulWidget {
     required this.parentEmail,
   });
 
+
   @override
   State<ChildHomeScreen> createState() => _ChildHomeScreenState();
 }
 
+
 class _ChildHomeScreenState extends State<ChildHomeScreen> {
   final Stopwatch _stopwatch = Stopwatch();
   late final AppLifecycleListener _lifecycleListener;
+
 
   static const _bgPrimary = Color(0xFF0F172A);
   static const _bgCard = Color(0xFF1E293B);
@@ -41,6 +48,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   static const _accentViolet = Color(0xFF8B5CF6);
   static const _textPearl = Color(0xFFF1F5F9);
   static const _textMuted = Color(0xFF94A3B8);
+
 
   Future<void> _mostrarDialogoMensaje({
     required IconData icono,
@@ -50,6 +58,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     String textoBoton = 'Entendido',
   }) async {
     if (!mounted) return;
+
 
     await showDialog(
       context: context,
@@ -104,12 +113,14 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     );
   }
 
+
   @override
   void initState() {
     super.initState();
     _stopwatch.start();
     _enviarUbicacionUnaVez();
     _iniciarModoNino();
+
 
     _lifecycleListener = AppLifecycleListener(
       onHide: _manejarSegundoPlano,
@@ -120,6 +131,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     );
   }
 
+
   @override
   void dispose() {
     _stopwatch.stop();
@@ -127,16 +139,19 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     super.dispose();
   }
 
+
   Future<void> _iniciarModoNino() async {
     await _mostrarOnboardingSiNecesario();
     await KioskService.bloquear();
   }
+
 
   Future<void> _mostrarOnboardingSiNecesario() async {
     final prefs = await SharedPreferences.getInstance();
     final yaVio = prefs.getBool('kiosk_onboarding_visto') ?? false;
     if (yaVio) return;
     if (!mounted) return;
+
 
     await showDialog(
       context: context,
@@ -228,12 +243,15 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       ),
     );
 
+
     await prefs.setBool('kiosk_onboarding_visto', true);
   }
+
 
   Future<void> _desactivarKiosk() async {
     await KioskService.desbloquear();
   }
+
 
   Future<void> _manejarSegundoPlano() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -241,9 +259,11 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     await KioskService.traerAlFrente();
   }
 
+
   Future<void> _manejarVueltaAlFrente() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
+
 
   Future<void> _guardarTiempo() async {
     _stopwatch.stop();
@@ -261,6 +281,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     }
   }
 
+
   Future<void> _enviarUbicacionUnaVez() async {
     try {
       final position = await LocationService.obtenerUbicacionSilenciosa();
@@ -275,6 +296,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     }
   }
 
+
   Future<void> _cerrarSesion() async {
     final password = await PasswordDialog.show(
       context: context,
@@ -284,6 +306,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     );
     if (password == null) return;
     if (!mounted) return;
+
 
     showDialog(
       context: context,
@@ -295,6 +318,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         ),
       ),
     );
+
 
     bool valido = false;
     try {
@@ -315,11 +339,14 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       return;
     }
 
+
     if (!mounted) return;
     Navigator.pop(context);
 
+
     if (valido) {
       await _desactivarKiosk();
+
 
       try {
         await _guardarTiempo();
@@ -327,11 +354,13 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         debugPrint('_guardarTiempo error: $e');
       }
 
+
       try {
         await ChildStateService.clearNinoRegistrado();
       } catch (e) {
         debugPrint('clearNinoRegistrado error: $e');
       }
+
 
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -354,6 +383,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     }
   }
 
+
   void _irAYoutube() {
     Navigator.push(
       context,
@@ -366,6 +396,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+
 // ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
 const _bgPrimary    = Color(0xFF0F172A);
 const _bgCard       = Color(0xFF1E293B);
@@ -10,6 +11,7 @@ const _accentViolet = Color(0xFF8B5CF6);
 const _textPearl    = Color(0xFFF1F5F9);
 const _textMuted    = Color(0xFF94A3B8);
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,12 +20,14 @@ class ChildHomeBody extends StatelessWidget {
   final VoidCallback onCerrarSesion;
   final VoidCallback onYoutube;
 
+
   const ChildHomeBody({
     super.key,
     required this.nombreNino,
     required this.onCerrarSesion,
     required this.onYoutube,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +48,7 @@ class ChildHomeBody extends StatelessWidget {
             children: [
               // ── HEADER ──────────────────────────────────────────────────
               _ChildHeader(onCerrarSesion: onCerrarSesion),
+
 
               // ── CONTENIDO ───────────────────────────────────────────────
               Expanded(
@@ -66,12 +71,14 @@ class ChildHomeBody extends StatelessWidget {
   }
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HEADER
 // ─────────────────────────────────────────────────────────────────────────────
 class _ChildHeader extends StatelessWidget {
   final VoidCallback onCerrarSesion;
   const _ChildHeader({required this.onCerrarSesion});
+
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +119,7 @@ class _ChildHeader extends StatelessWidget {
             ),
           ),
 
+
           // Logo con glow
           Container(
             decoration: BoxDecoration(
@@ -132,6 +140,7 @@ class _ChildHeader extends StatelessWidget {
             ),
           ),
 
+
           // Espaciador para centrar el logo
           const SizedBox(width: 44),
         ],
@@ -140,6 +149,7 @@ class _ChildHeader extends StatelessWidget {
   }
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CARD PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,10 +157,12 @@ class _ChildCard extends StatelessWidget {
   final String nombreNino;
   final VoidCallback onYoutube;
 
+
   const _ChildCard({
     required this.nombreNino,
     required this.onYoutube,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +195,9 @@ class _ChildCard extends StatelessWidget {
           // ── Avatar con inicial ───────────────────────────────────────
           _ChildAvatar(nombre: nombreNino),
 
+
           const SizedBox(height: 16),
+
 
           // ── Nombre ──────────────────────────────────────────────────
           Text(
@@ -195,7 +209,9 @@ class _ChildCard extends StatelessWidget {
             ),
           ),
 
+
           const SizedBox(height: 4),
+
 
           // ── Subtítulo ────────────────────────────────────────────────
           Text(
@@ -208,7 +224,9 @@ class _ChildCard extends StatelessWidget {
             ),
           ),
 
+
           const SizedBox(height: 6),
+
 
           // Línea decorativa
           Container(
@@ -222,7 +240,9 @@ class _ChildCard extends StatelessWidget {
             ),
           ),
 
+
           const SizedBox(height: 28),
+
 
           // ── Botones de apps ──────────────────────────────────────────
           ChildAppButton(
@@ -233,7 +253,9 @@ class _ChildCard extends StatelessWidget {
             enabled: true,
           ),
 
+
           const SizedBox(height: 12),
+
 
           ChildAppButton(
             label: 'Instagram',
@@ -243,7 +265,9 @@ class _ChildCard extends StatelessWidget {
             enabled: false,
           ),
 
+
           const SizedBox(height: 12),
+
 
           ChildAppButton(
             label: 'Facebook',
@@ -258,12 +282,14 @@ class _ChildCard extends StatelessWidget {
   }
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AVATAR CON INICIAL
 // ─────────────────────────────────────────────────────────────────────────────
 class _ChildAvatar extends StatelessWidget {
   final String nombre;
   const _ChildAvatar({required this.nombre});
+
 
   @override
   Widget build(BuildContext context) {
@@ -303,6 +329,7 @@ class _ChildAvatar extends StatelessWidget {
   }
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BOTÓN DE APP — público para reutilización
 // ─────────────────────────────────────────────────────────────────────────────
@@ -313,6 +340,7 @@ class ChildAppButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool enabled;
 
+
   const ChildAppButton({
     super.key,
     required this.label,
@@ -321,6 +349,7 @@ class ChildAppButton extends StatelessWidget {
     required this.onTap,
     this.enabled = true,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -373,7 +402,9 @@ class ChildAppButton extends StatelessWidget {
                 child: Icon(icon, color: Colors.white, size: 22),
               ),
 
+
               const SizedBox(width: 14),
+
 
               // Nombre de la app
               Expanded(
@@ -386,6 +417,7 @@ class ChildAppButton extends StatelessWidget {
                   ),
                 ),
               ),
+
 
               // Badge "Próximamente" o flecha
               if (!enabled)
@@ -409,6 +441,7 @@ class ChildAppButton extends StatelessWidget {
                     ),
                   ),
                 ),
+
 
               if (enabled) ...[
                 const SizedBox(width: 8),

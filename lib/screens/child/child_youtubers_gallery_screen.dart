@@ -26,6 +26,7 @@ class _ChildYoutubersGalleryScreenState
   static const _muted = Color(0xFF94A3B8);
 
   bool _loading = true;
+  bool _guardando = false;
   String? _error;
   List<Map<String, dynamic>> _canales = [];
   final Set<String> _seleccionados = {};
@@ -39,10 +40,15 @@ class _ChildYoutubersGalleryScreenState
   Future<void> _cargarCanales() async {
     try {
       final canales = await FirestoreService.obtenerCanalesYoutubers();
+      final seleccionados =
+          await FirestoreService.obtenerYoutubersNino(widget.ninoId);
 
       if (!mounted) return;
       setState(() {
         _canales = canales;
+        _seleccionados
+          ..clear()
+          ..addAll(seleccionados);
         _loading = false;
       });
     } catch (e) {
@@ -62,6 +68,34 @@ class _ChildYoutubersGalleryScreenState
         _seleccionados.add(id);
       }
     });
+  }
+
+  Future<void> _guardarYSalir() async {
+    if (_guardando) return;
+
+    setState(() => _guardando = true);
+
+    try {
+      final lista = _seleccionados.toList()..sort();
+      await FirestoreService.guardarYoutubersNino(widget.ninoId, lista);
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _guardando = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text(
+            'No se pudo guardar la selección.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+      return;
+    }
   }
 
   @override
@@ -139,10 +173,10 @@ class _ChildYoutubersGalleryScreenState
                             final canal = _canales[i];
                             final id = canal['id']?.toString() ?? '';
                             final nombre = (canal['nombre_canal'] ??
-                                    canal['nombrecanal'] ??
-                                    canal['nombre'] ??
-                                    'Canal')
-                                .toString();
+                                        canal['nombrecanal'] ??
+                                        canal['nombre'] ??
+                                        'Canal')
+                                    .toString();
                             final imagen =
                                 (canal['imagen_url'] ?? canal['imagenurl'] ?? '')
                                     .toString();
@@ -229,8 +263,7 @@ class _ChildYoutubersGalleryScreenState
                                                   ? 'Seleccionado'
                                                   : 'Tocar para elegir',
                                               style: GoogleFonts.poppins(
-                                                color:
-                                                    seleccionado ? _cyan : _muted,
+                                                color: seleccionado ? _cyan : _muted,
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -244,6 +277,40 @@ class _ChildYoutubersGalleryScreenState
                               ),
                             );
                           },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _guardando ? null : _guardarYSalir,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _cyan,
+                              disabledBackgroundColor: _cyan.withOpacity(0.5),
+                              foregroundColor: _bg,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: _guardando
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: _bg,
+                                      strokeWidth: 2.2,
+                                    ),
+                                  )
+                                : Text(
+                                    'Guardar selección',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                          ),
                         ),
                       ),
                     ],

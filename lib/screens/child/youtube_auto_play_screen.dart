@@ -197,7 +197,7 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
   Future<void> _abrirCanales() async {
     controller.pause();
 
-    await Navigator.push(
+    final resultado = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ChildYoutubersGalleryScreen(
@@ -208,6 +208,16 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     );
 
     if (!mounted) return;
+
+    if (resultado == true) {
+      controller
+        ..removeListener(escucharEstado)
+        ..dispose();
+
+      Navigator.pop(context, true);
+      return;
+    }
+
     controller.play();
   }
 

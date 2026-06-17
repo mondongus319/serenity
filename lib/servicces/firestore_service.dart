@@ -175,6 +175,7 @@ class FirestoreService {
       'longitud': null,
       'fecha_ultima_ubicacion': null,
       'categorias_permitidas': <String>[],
+      'youtubers_seleccionados': <String>[],
       'creado_en': FieldValue.serverTimestamp(),
     });
 
@@ -292,6 +293,21 @@ class FirestoreService {
         .set({'categorias_permitidas': categoriaIds}, SetOptions(merge: true));
   }
 
+  static Future<void> guardarYoutubersNino(
+      String ninoId, List<String> youtubersIds) async {
+    await _db.collection('ninos').doc(ninoId).set({
+      'youtubers_seleccionados': youtubersIds,
+    }, SetOptions(merge: true));
+  }
+
+  static Future<List<String>> obtenerYoutubersNino(String ninoId) async {
+    final doc = await _db.collection('ninos').doc(ninoId).get();
+    if (!doc.exists) return [];
+    final data = doc.data()!;
+    final List ids = (data['youtubers_seleccionados'] as List?) ?? [];
+    return ids.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+  }
+
   static Future<List<Map<String, dynamic>>> obtenerVideosCatalogo({
     required String categoriaId,
     required String rangoEdad,
@@ -324,6 +340,61 @@ class FirestoreService {
               'categoria': nombreCategoria,
               'rango': data['rangos_edad'] ?? [],
             })
+        .where((v) => (v['video_id'] as String).isNotEmpty)
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> obtenerVideosYoutubers(
+      List<String> youtubersIds) async {
+    if (youtubersIds.isEmpty) return [];
+
+    final canalesSnap = await _db
+        .collection('canales_youtubers')
+        .where(FieldPath.documentId, whereIn: youtubersIds.take(10).toList())
+        .get();
+
+    final Map<String, String> nombresCanales = {
+      for (final d in canalesSnap.docs)
+        d.id: (d.data()['nombre_canal'] ??
+                d.data()['nombrecanal'] ??
+                d.data()['nombre'] ??
+                '')
+            .toString(),
+    };
+
+    final videosSnap = await _db
+        .collection('videos_youtubers')
+        .where('activo', isEqualTo: true)
+        .get();
+
+    final List<Map<String, dynamic>> resultado = [];
+
+    for (final d in videosSnap.docs) {
+      final data = d.data();
+
+      final canalId = (data['id_canal_youtuber'] ??
+              data['canal_youtuber_id'] ??
+              data['id_canal'] ??
+              data['canal_id'] ??
+              '')
+          .toString();
+
+      if (!youtubersIds.contains(canalId)) continue;
+
+      resultado.add({
+        'video_id': data['video_id'] ?? '',
+        'titulo': data['titulo'] ?? '',
+        'thumbnail': data['thumbnail'] ?? '',
+        'canal': data['canal'] ??
+            nombresCanales[canalId] ??
+            '',
+        'duracion': data['duracion_segundos'] ?? 0,
+        'categoria': data['categoria'] ?? 'Youtubers',
+        'rango': data['rangos_edad'] ?? [],
+      });
+    }
+
+    return resultado
         .where((v) => (v['video_id'] as String).isNotEmpty)
         .toList();
   }

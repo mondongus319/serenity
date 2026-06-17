@@ -28,6 +28,7 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
 
   String _estado = 'Preparando tus videos...';
   String? _error;
+  bool _cargando = false;
 
   @override
   void initState() {
@@ -36,6 +37,17 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
   }
 
   Future<void> _cargarYLanzar() async {
+    if (_cargando) return;
+
+    _cargando = true;
+
+    if (mounted) {
+      setState(() {
+        _error = null;
+        _estado = 'Preparando tus videos...';
+      });
+    }
+
     try {
       _setEstado('Calculando tu edad...');
       final datoNino = await FirestoreService.obtenerNino(widget.idNino);
@@ -54,11 +66,12 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
           'Tu papá/mamá todavía no\nha configurado categorías para ti.\n\n'
           '¡Pídele que lo haga!',
         );
+        _cargando = false;
         return;
       }
 
       _setEstado('Buscando videos para ti...');
-      final todosMap = <String, Map<String, dynamic>>{};
+      final catalogoMap = <String, Map<String, dynamic>>{};
 
       for (final cat in categorias) {
         final catId = cat['id']?.toString() ?? '';
@@ -72,26 +85,65 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         for (final v in videos) {
           final vid = v['video_id'] as String? ?? '';
           if (vid.isNotEmpty) {
-            todosMap[vid] = v;
+            catalogoMap[vid] = v;
           }
         }
       }
 
-      final todos = todosMap.values.toList();
+      _setEstado('Cargando youtubers seleccionados...');
+      final youtubersIds =
+          await FirestoreService.obtenerYoutubersNino(widget.idNino);
 
-      if (todos.isEmpty) {
+      final youtubersMap = <String, Map<String, dynamic>>{};
+      if (youtubersIds.isNotEmpty) {
+        final videosYoutubers =
+            await FirestoreService.obtenerVideosYoutubers(youtubersIds);
+
+        for (final v in videosYoutubers) {
+          final vid = v['video_id'] as String? ?? '';
+          if (vid.isNotEmpty && !catalogoMap.containsKey(vid)) {
+            youtubersMap[vid] = v;
+          }
+        }
+      }
+
+      final catalogo = catalogoMap.values.toList();
+      final youtubers = youtubersMap.values.toList();
+
+      if (catalogo.isEmpty && youtubers.isEmpty) {
         _setError(
           'Aún no hay videos disponibles\npara tus categorías.\n\n'
           '¡Vuelve más tarde!',
         );
+        _cargando = false;
         return;
       }
 
-      todos.shuffle();
+      catalogo.shuffle();
+      youtubers.shuffle();
 
-      if (!mounted) return;
+      final todos = _mezclarVideos(
+        catalogo: catalogo,
+        youtubers: youtubers,
+      );
 
-      Navigator.pushReplacement(
+      if (todos.isEmpty) {
+        _setError(
+          'Aún no hay videos disponibles\npara mostrar.\n\n'
+          '¡Vuelve más tarde!',
+        );
+        _cargando = false;
+        return;
+      }
+
+      if (!mounted) {
+        _cargando = false;
+        return;
+      }
+
+      _cargando = false;
+
+      final resultado = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (_) => YoutubeAutoPlayScreen(
@@ -101,9 +153,44 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
           ),
         ),
       );
+
+      if (!mounted) return;
+
+      if (resultado == true) {
+        _cargarYLanzar();
+      }
     } catch (e) {
       _setError('ERROR:\n$e');
+      _cargando = false;
     }
+  }
+
+  List<Map<String, dynamic>> _mezclarVideos({
+    required List<Map<String, dynamic>> catalogo,
+    required List<Map<String, dynamic>> youtubers,
+  }) {
+    final List<Map<String, dynamic>> resultado = [];
+    int iCatalogo = 0;
+    int iYoutuber = 0;
+
+    while (iCatalogo < catalogo.length || iYoutuber < youtubers.length) {
+      int agregadosCatalogo = 0;
+
+      while (agregadosCatalogo < 3 && iCatalogo < catalogo.length) {
+        resultado.add(catalogo[iCatalogo]);
+        iCatalogo++;
+        agregadosCatalogo++;
+      }
+
+      if (iYoutuber < youtubers.length) {
+        resultado.add(youtubers[iYoutuber]);
+        iYoutuber++;
+      } else if (iCatalogo >= catalogo.length) {
+        break;
+      }
+    }
+
+    return resultado;
   }
 
   void _setEstado(String msg) {

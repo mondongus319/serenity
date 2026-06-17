@@ -7,6 +7,7 @@ import 'role_selection_screen.dart';
 import '../../servicces/notification_service.dart';
 import '../../../widgets/auth/login_body.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,14 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool obscurePassword = true;
-
-  // paleta
-  static const _bg = Color(0xFF0F172A);
-  static const _bgCard = Color(0xFF1E293B);
-  static const _cyan = Color(0xFF06B6D4);
-  static const _violet = Color(0xFF8B5CF6);
-  static const _pearl = Color(0xFFF1F5F9);
-  static const _muted = Color(0xFF94A3B8);
 
   @override
   void initState() {
@@ -53,8 +46,9 @@ class _LoginScreenState extends State<LoginScreen> {
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A3E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: AppColors.bgDialog,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: Icon(icono, color: colorIcono, size: 56),
         title: Text(
           titulo,
@@ -84,10 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(
               textoBoton,
@@ -104,11 +95,12 @@ class _LoginScreenState extends State<LoginScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A3E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: AppColors.bgDialog,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: const Icon(
           Icons.notifications_active_outlined,
-          color: Color(0xFF6C63FF),
+          color: AppColors.accentPurple,
           size: 60,
         ),
         title: const Text(
@@ -149,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? Icons.notifications_active_rounded
                     : Icons.notifications_off_rounded,
                 colorIcono:
-                    granted ? const Color(0xFF6C63FF) : Colors.blueGrey,
+                    granted ? AppColors.accentPurple : Colors.blueGrey,
                 titulo: granted
                     ? 'Notificaciones activadas'
                     : 'Notificaciones desactivadas',
@@ -159,15 +151,13 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6C63FF),
+              backgroundColor: AppColors.accentPurple,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: const Text(
               'Activar',
@@ -184,13 +174,10 @@ class _LoginScreenState extends State<LoginScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A3E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon: const Icon(
-          Icons.block_outlined,
-          color: Colors.redAccent,
-          size: 60,
-        ),
+        backgroundColor: AppColors.bgDialog,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Icons.block_outlined, color: Colors.redAccent, size: 60),
         title: const Text(
           'Cuenta desactivada',
           textAlign: TextAlign.center,
@@ -216,10 +203,8 @@ class _LoginScreenState extends State<LoginScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: const Text(
               'Entendido',
@@ -231,7 +216,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ── DIÁLOGO FECHA DE NACIMIENTO (Google) ──────────────────────────────────
   Future<String?> _mostrarDialogoFechaNacimiento(String primerNombre) async {
     DateTime? fechaSeleccionada;
 
@@ -243,40 +227,37 @@ class _LoginScreenState extends State<LoginScreen> {
         builder: (ctx, setDlg) => WillPopScope(
           onWillPop: () async => false,
           child: Dialog(
-            backgroundColor: _bgCard,
+            backgroundColor: AppColors.bgCard,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
-              side: BorderSide(color: _cyan.withOpacity(0.3), width: 1.5),
+              side: BorderSide(
+                  color: AppColors.accentCyan.withOpacity(0.3), width: 1.5),
             ),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ícono
                   Container(
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _cyan.withOpacity(0.12),
+                      color: AppColors.accentCyan.withOpacity(0.12),
                       border: Border.all(
-                        color: _cyan.withOpacity(0.35),
+                        color: AppColors.accentCyan.withOpacity(0.35),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: _cyan.withOpacity(0.2),
+                          color: AppColors.accentCyan.withOpacity(0.2),
                           blurRadius: 20,
                           spreadRadius: 2,
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.cake_outlined,
-                      color: _cyan,
-                      size: 28,
-                    ),
+                    child: const Icon(Icons.cake_outlined,
+                        color: AppColors.accentCyan, size: 28),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -285,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: GoogleFonts.poppins(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: _pearl,
+                      color: AppColors.textPearl,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -295,13 +276,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       fontSize: 12,
-                      color: _muted,
+                      color: AppColors.textMuted,
                       height: 1.5,
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // selector de fecha
                   GestureDetector(
                     onTap: () async {
                       final picked = await showDatePicker(
@@ -313,17 +292,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         builder: (context, child) => Theme(
                           data: Theme.of(context).copyWith(
                             colorScheme: const ColorScheme.dark(
-                              primary: _cyan,
+                              primary: AppColors.accentCyan,
                               onPrimary: Colors.white,
-                              surface: _bgCard,
-                              onSurface: _pearl,
+                              surface: AppColors.bgCard,
+                              onSurface: AppColors.textPearl,
                             ),
                             textButtonTheme: TextButtonThemeData(
                               style: TextButton.styleFrom(
-                                foregroundColor: _cyan,
+                                foregroundColor: AppColors.accentCyan,
                               ),
                             ),
-                            dialogBackgroundColor: _bg,
+                            dialogBackgroundColor: AppColors.bgPrimary,
                           ),
                           child: child!,
                         ),
@@ -335,15 +314,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+                          horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        color: _bg,
+                        color: AppColors.bgPrimary,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: fechaSeleccionada != null
-                              ? _cyan.withOpacity(0.6)
+                              ? AppColors.accentCyan.withOpacity(0.6)
                               : Colors.white.withOpacity(0.1),
                           width: 1.5,
                         ),
@@ -352,20 +329,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Icon(
                             Icons.calendar_today_rounded,
-                            color: fechaSeleccionada != null ? _cyan : _muted,
+                            color: fechaSeleccionada != null
+                                ? AppColors.accentCyan
+                                : AppColors.textMuted,
                             size: 18,
                           ),
                           const SizedBox(width: 10),
                           Text(
                             fechaSeleccionada != null
                                 ? '${fechaSeleccionada!.day.toString().padLeft(2, '0')}/'
-                                  '${fechaSeleccionada!.month.toString().padLeft(2, '0')}/'
-                                  '${fechaSeleccionada!.year}'
+                                    '${fechaSeleccionada!.month.toString().padLeft(2, '0')}/'
+                                    '${fechaSeleccionada!.year}'
                                 : 'Seleccionar fecha',
                             style: GoogleFonts.poppins(
                               color: fechaSeleccionada != null
-                                  ? _pearl
-                                  : _muted,
+                                  ? AppColors.textPearl
+                                  : AppColors.textMuted,
                               fontSize: 14,
                               fontWeight: fechaSeleccionada != null
                                   ? FontWeight.w600
@@ -377,8 +356,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // botón confirmar
                   GestureDetector(
                     onTap: fechaSeleccionada == null
                         ? null
@@ -395,7 +372,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: BoxDecoration(
                         gradient: fechaSeleccionada != null
                             ? const LinearGradient(
-                                colors: [_violet, _cyan],
+                                colors: [
+                                  AppColors.accentViolet,
+                                  AppColors.accentCyan
+                                ],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
                               )
@@ -407,7 +387,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         boxShadow: fechaSeleccionada != null
                             ? [
                                 BoxShadow(
-                                  color: _violet.withOpacity(0.35),
+                                  color:
+                                      AppColors.accentViolet.withOpacity(0.35),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                 ),
@@ -420,7 +401,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: GoogleFonts.poppins(
                           color: fechaSeleccionada != null
                               ? Colors.white
-                              : _muted,
+                              : AppColors.textMuted,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -436,7 +417,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ── LOGIN CON CORREO ──────────────────────────────────────────────────────
   Future<void> iniciarSesion() async {
     final gmail = emailController.text.trim();
     final contrasena = passwordController.text.trim();
@@ -498,7 +478,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // ── LOGIN CON GOOGLE ──────────────────────────────────────────────────────
   Future<void> signInWithGoogle() async {
     final auth = context.read<AuthProvider>();
     final resultado = await auth.loginConGoogle();
@@ -565,7 +544,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         return Scaffold(
-          backgroundColor: const Color(0xFF0D0D2B),
+          backgroundColor: AppColors.bgDark,
           body: Builder(
             builder: (scaffoldContext) => LoginBody(
               emailController: emailController,

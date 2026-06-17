@@ -51,12 +51,10 @@ class ParentProvider extends ChangeNotifier {
       final datos = await FirestoreService.obtenerPadre(userId)
           .timeout(const Duration(seconds: 8));
       if (datos != null) {
-        // Prioridad: clave con underscore (real de crearPadre) → sin underscore (retrocompatibilidad)
         nombre          = (datos['primer_nombre']    ?? datos['primernombre']    ?? nombreFallback).toString();
         segundoNombre   = (datos['segundo_nombre']   ?? datos['segundonombre']   ?? '').toString();
         primerApellido  = (datos['primer_apellido']  ?? datos['primerapellido']  ?? '').toString();
         segundoApellido = (datos['segundo_apellido'] ?? datos['segundoapellido'] ?? '').toString();
-        // ✅ FIX: 'fecha_nacimiento' con underscore es el campo real en Firestore
         fechaNacimiento = (datos['fecha_nacimiento'] ?? datos['fechanacimiento'] ?? '').toString();
         correoActual    = (datos['gmail']            ?? emailFallback).toString();
         datosYaCargados = true;
@@ -80,20 +78,17 @@ class ParentProvider extends ChangeNotifier {
     isSaving = true;
     notifyListeners();
     try {
-      // ✅ Claves con underscore — consistentes con crearPadre en firestore_service.dart
       final datosFS = <String, dynamic>{
         'primer_nombre': primerNombre,
         if (segundoNombreVal   != null) 'segundo_nombre':   segundoNombreVal,
         if (primerApellidoVal  != null) 'primer_apellido':  primerApellidoVal,
         if (segundoApellidoVal != null) 'segundo_apellido': segundoApellidoVal,
-        // ✅ FIX: era 'fechanacimiento' (sin underscore) — corregido a 'fecha_nacimiento'
         if (fechaNacimientoVal != null && fechaNacimientoVal.isNotEmpty)
           'fecha_nacimiento': fechaNacimientoVal,
       };
       await FirestoreService.actualizarPadre(userId, datosFS)
           .timeout(const Duration(seconds: 10));
 
-      // Cambio de contraseña
       if (nuevaContrasena != null && nuevaContrasena.isNotEmpty) {
         final respPass = await _authService.actualizarContrasena(nuevaContrasena);
         isSaving = false;
@@ -101,7 +96,6 @@ class ParentProvider extends ChangeNotifier {
         return respPass;
       }
 
-      // Actualizar estado local
       nombre = primerNombre;
       if (segundoNombreVal   != null) segundoNombre   = segundoNombreVal;
       if (primerApellidoVal  != null) primerApellido  = primerApellidoVal;

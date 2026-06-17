@@ -1,17 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../utils/app_colors.dart';
 
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary = Color(0xFF0F172A);
-const _bgCard = Color(0xFF1E293B);
-const _accentCyan = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl = Color(0xFFF1F5F9);
-const _textMuted = Color(0xFF94A3B8);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WIDGET PURAMENTE VISUAL — sin lógica de negocio
-// ─────────────────────────────────────────────────────────────────────────────
 class RoleSelectionBody extends StatelessWidget {
   final String? animalActual;
   final Animation<double> scaleAnimation;
@@ -20,7 +10,7 @@ class RoleSelectionBody extends StatelessWidget {
   final AnimationController animationController;
 
   static const String _iconPadre = 'assets/images/icons/padre.png';
-  static const String _iconNino = 'assets/images/icons/nino.png';
+  static const String _iconNino  = 'assets/images/icons/nino.png';
 
   const RoleSelectionBody({
     super.key,
@@ -34,7 +24,7 @@ class RoleSelectionBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -42,11 +32,7 @@ class RoleSelectionBody extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E293B),
-              Color(0xFF0F172A),
-            ],
+            colors: [AppColors.bgPrimary, AppColors.bgCard, AppColors.bgPrimary],
           ),
         ),
         child: SafeArea(
@@ -54,35 +40,25 @@ class RoleSelectionBody extends StatelessWidget {
             child: Column(
               children: [
                 const SizedBox(height: 44),
-
-                // ── LOGO ──────────────────────────────────────────────────
                 _LogoBadge(),
-
                 const SizedBox(height: 20),
-
-                // ── TÍTULO ────────────────────────────────────────────────
                 Text(
                   '¿Quién eres?',
                   style: GoogleFonts.poppins(
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
-                    color: _textPearl,
+                    color: AppColors.textPearl,
                   ),
                 ),
-
                 const SizedBox(height: 6),
-
                 Text(
                   'Selecciona tu rol para continuar',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: _textMuted,
+                    color: AppColors.textMuted,
                   ),
                 ),
-
                 const SizedBox(height: 28),
-
-                // ── CARD PRINCIPAL ────────────────────────────────────────
                 _MainCard(
                   animalActual: animalActual,
                   scaleAnimation: scaleAnimation,
@@ -92,7 +68,6 @@ class RoleSelectionBody extends StatelessWidget {
                   iconPadre: _iconPadre,
                   iconNino: _iconNino,
                 ),
-
                 const SizedBox(height: 40),
               ],
             ),
@@ -103,9 +78,6 @@ class RoleSelectionBody extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LOGO BADGE
-// ─────────────────────────────────────────────────────────────────────────────
 class _LogoBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -117,7 +89,7 @@ class _LogoBadge extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: _accentCyan.withOpacity(0.15),
+                color: AppColors.accentCyan.withOpacity(0.15),
                 blurRadius: 24,
                 spreadRadius: 4,
               ),
@@ -132,11 +104,11 @@ class _LogoBadge extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Text(
-          'SERENTY',
+          'SERENITY',
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: _textMuted,
+            color: AppColors.textMuted,
             letterSpacing: 2.0,
           ),
         ),
@@ -145,9 +117,6 @@ class _LogoBadge extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CARD PRINCIPAL
-// ─────────────────────────────────────────────────────────────────────────────
 class _MainCard extends StatelessWidget {
   final String? animalActual;
   final Animation<double> scaleAnimation;
@@ -173,21 +142,20 @@ class _MainCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
         decoration: BoxDecoration(
-          color: _bgCard,
+          color: AppColors.bgCard,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(
-            color: _accentCyan.withOpacity(0.25),
+            color: AppColors.accentCyan.withOpacity(0.25),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: _accentCyan.withOpacity(0.12),
+              color: AppColors.accentCyan.withOpacity(0.12),
               blurRadius: 30,
               spreadRadius: 2,
-              offset: const Offset(0, 0),
             ),
             BoxShadow(
-              color: _accentViolet.withOpacity(0.1),
+              color: AppColors.accentViolet.withOpacity(0.1),
               blurRadius: 20,
               spreadRadius: 1,
               offset: const Offset(0, 4),
@@ -201,10 +169,7 @@ class _MainCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // ── MASCOTA ──────────────────────────────────────────────────
             _MascotaSection(animalActual: animalActual),
-
-            // ── DIVISOR ──────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
@@ -213,17 +178,14 @@ class _MainCard extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       Colors.transparent,
-                      _accentCyan.withOpacity(0.3),
+                      AppColors.accentCyan.withOpacity(0.3),
                       Colors.transparent,
                     ],
                   ),
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // ── BOTONES DE ROL ────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               child: Column(
@@ -259,9 +221,6 @@ class _MainCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SECCIÓN MASCOTA
-// ─────────────────────────────────────────────────────────────────────────────
 class _MascotaSection extends StatelessWidget {
   final String? animalActual;
   const _MascotaSection({required this.animalActual});
@@ -280,8 +239,8 @@ class _MascotaSection extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  _accentCyan.withOpacity(0.08),
-                  _accentViolet.withOpacity(0.06),
+                  AppColors.accentCyan.withOpacity(0.08),
+                  AppColors.accentViolet.withOpacity(0.06),
                   Colors.transparent,
                 ],
               ),
@@ -303,9 +262,6 @@ class _MascotaSection extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BOTÓN DE ROL — equilibrado visualmente
-// ─────────────────────────────────────────────────────────────────────────────
 class _RoleButton extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -332,30 +288,30 @@ class _RoleButton extends StatelessWidget {
     final gradient = isPrimary
         ? LinearGradient(
             colors: [
-              _accentViolet.withOpacity(0.28),
-              _accentCyan.withOpacity(0.18),
+              AppColors.accentViolet.withOpacity(0.28),
+              AppColors.accentCyan.withOpacity(0.18),
             ],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           )
         : LinearGradient(
             colors: [
-              _accentCyan.withOpacity(0.18),
-              _accentViolet.withOpacity(0.12),
+              AppColors.accentCyan.withOpacity(0.18),
+              AppColors.accentViolet.withOpacity(0.12),
             ],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           );
 
     final borderColor = isPrimary
-        ? _accentViolet.withOpacity(0.55)
-        : _accentCyan.withOpacity(0.55);
+        ? AppColors.accentViolet.withOpacity(0.55)
+        : AppColors.accentCyan.withOpacity(0.55);
 
     final glowColor = isPrimary
-        ? _accentViolet.withOpacity(0.2)
-        : _accentCyan.withOpacity(0.18);
+        ? AppColors.accentViolet.withOpacity(0.2)
+        : AppColors.accentCyan.withOpacity(0.18);
 
-    final accentColor = isPrimary ? _accentViolet : _accentCyan;
+    final accentColor = isPrimary ? AppColors.accentViolet : AppColors.accentCyan;
 
     return GestureDetector(
       onTapDown: (_) => animationController.forward(),
@@ -374,17 +330,12 @@ class _RoleButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(40),
             border: Border.all(color: borderColor, width: 1.5),
             boxShadow: [
-              BoxShadow(
-                color: glowColor,
-                blurRadius: 16,
-                spreadRadius: 1,
-              ),
+              BoxShadow(color: glowColor, blurRadius: 16, spreadRadius: 1),
             ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              // ── Avatar circular ─────────────────────────────────────────
               Container(
                 width: 48,
                 height: 48,
@@ -409,18 +360,13 @@ class _RoleButton extends StatelessWidget {
                     child: Image.asset(
                       assetPath,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Text(
-                        fallbackEmoji,
-                        style: const TextStyle(fontSize: 22),
-                      ),
+                      errorBuilder: (_, __, ___) =>
+                          Text(fallbackEmoji, style: const TextStyle(fontSize: 22)),
                     ),
                   ),
                 ),
               ),
-
               const SizedBox(width: 16),
-
-              // ── Título + subtítulo ──────────────────────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,37 +377,28 @@ class _RoleButton extends StatelessWidget {
                       style: GoogleFonts.poppins(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: _textPearl,
+                        color: AppColors.textPearl,
                       ),
                     ),
                     Text(
                       subtitle,
                       style: GoogleFonts.poppins(
                         fontSize: 11,
-                        color: _textMuted,
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-
-              // ── Flecha ──────────────────────────────────────────────────
               Container(
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: accentColor.withOpacity(0.15),
-                  border: Border.all(
-                    color: accentColor.withOpacity(0.4),
-                    width: 1,
-                  ),
+                  border: Border.all(color: accentColor.withOpacity(0.4), width: 1),
                 ),
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  color: accentColor,
-                  size: 20,
-                ),
+                child: Icon(Icons.chevron_right_rounded, color: accentColor, size: 20),
               ),
             ],
           ),

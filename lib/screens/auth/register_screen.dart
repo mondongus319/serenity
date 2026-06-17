@@ -5,6 +5,7 @@ import 'verify_email_screen.dart';
 import 'login_screen.dart';
 import '../../../widgets/auth/register_body.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/app_colors.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -48,10 +49,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A3E),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        backgroundColor: AppColors.bgDialog,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: Icon(icono, color: colorIcono, size: 56),
         title: Text(
           titulo,
@@ -81,10 +80,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(
               textoBoton,
@@ -96,7 +93,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ── DIÁLOGO DE TÉRMINOS — sin cambios visuales ────────────────────────────
   Future<void> mostrarDialogoTerminos() async {
     final aceptado = await showDialog<bool>(
       context: context,
@@ -105,11 +101,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       builder: (BuildContext context) => WillPopScope(
         onWillPop: () async => false,
         child: Dialog(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: AppColors.bgCard,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
             side: BorderSide(
-              color: const Color(0xFF06B6D4).withOpacity(0.3),
+              color: AppColors.accentCyan.withOpacity(0.3),
               width: 1.5,
             ),
           ),
@@ -119,12 +115,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF06B6D4).withOpacity(0.08),
+                  color: AppColors.accentCyan.withOpacity(0.08),
                   blurRadius: 40,
                   spreadRadius: 2,
                 ),
                 BoxShadow(
-                  color: const Color(0xFF8B5CF6).withOpacity(0.06),
+                  color: AppColors.accentViolet.withOpacity(0.06),
                   blurRadius: 30,
                   spreadRadius: 1,
                 ),
@@ -141,12 +137,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF06B6D4).withOpacity(0.15),
+                          color: AppColors.accentCyan.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
                           Icons.description_outlined,
-                          color: Color(0xFF06B6D4),
+                          color: AppColors.accentCyan,
                           size: 20,
                         ),
                       ),
@@ -157,7 +153,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFFF1F5F9),
+                            color: AppColors.textPearl,
                           ),
                         ),
                       ),
@@ -169,8 +165,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF8B5CF6).withOpacity(0.5),
-                          const Color(0xFF06B6D4).withOpacity(0.5),
+                          AppColors.accentViolet.withOpacity(0.5),
+                          AppColors.accentCyan.withOpacity(0.5),
                           Colors.transparent,
                         ],
                       ),
@@ -181,7 +177,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     'Para continuar con el registro, debes leer y aceptar nuestros términos',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
-                      color: const Color(0xFF94A3B8),
+                      color: AppColors.textMuted,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -189,10 +185,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 260,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
+                      color: AppColors.bgPrimary,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: const Color(0xFF06B6D4).withOpacity(0.15),
+                        color: AppColors.accentCyan.withOpacity(0.15),
                         width: 1,
                       ),
                     ),
@@ -213,7 +209,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           height: 1.6,
-                          color: const Color(0xFF94A3B8),
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ),
@@ -238,11 +234,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  Icons.close_rounded,
-                                  color: Colors.redAccent,
-                                  size: 16,
-                                ),
+                                const Icon(Icons.close_rounded,
+                                    color: Colors.redAccent, size: 16),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Rechazar',
@@ -265,14 +258,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             height: 46,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF8B5CF6), Color(0xFF06B6D4)],
+                                colors: [
+                                  AppColors.accentViolet,
+                                  AppColors.accentCyan
+                                ],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
                               ),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF8B5CF6).withOpacity(0.35),
+                                  color:
+                                      AppColors.accentViolet.withOpacity(0.35),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -282,11 +279,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(
-                                  Icons.check_rounded,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
+                                const Icon(Icons.check_rounded,
+                                    color: Colors.white, size: 16),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Aceptar',
@@ -330,7 +324,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // ── REGISTRO ──────────────────────────────────────────────────────────────
   Future<void> registrarUsuario() async {
     if (!terminosAceptados) {
       await _mostrarDialogoMensaje(
@@ -429,7 +422,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // ── SELECTOR DE FECHA ─────────────────────────────────────────────────────
   Future<void> seleccionarFecha() async {
     DateTime? fechaSeleccionada = await showDatePicker(
       context: context,
@@ -439,18 +431,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF06B6D4),
+            primary: AppColors.accentCyan,
             onPrimary: Colors.white,
-            secondary: Color(0xFF8B5CF6),
-            surface: Color(0xFF1E293B),
-            onSurface: Color(0xFFF1F5F9),
+            secondary: AppColors.accentViolet,
+            surface: AppColors.bgCard,
+            onSurface: AppColors.textPearl,
           ),
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF06B6D4),
+              foregroundColor: AppColors.accentCyan,
             ),
           ),
-          dialogBackgroundColor: const Color(0xFF1E293B),
+          dialogBackgroundColor: AppColors.bgCard,
         ),
         child: child!,
       ),

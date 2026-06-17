@@ -9,6 +9,7 @@ import '/servicces/notification_service.dart';
 import 'package:geolocator/geolocator.dart';
 import '/screens/parent/parent_main_screen.dart';
 import '../../widgets/auth/role_selection_body.dart';
+import '../../utils/app_colors.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   final String email;
@@ -49,10 +50,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A3E),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        backgroundColor: AppColors.bgDialog,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: Icon(icono, color: colorIcono, size: 56),
         title: Text(
           titulo,
@@ -82,10 +82,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(
               textoBoton,
@@ -170,8 +168,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
   Future<void> _onTapPadres() async {
     try {
-      // Obtener deviceId y FCM token en paralelo
-      // eagerError: false → si uno falla, el otro sigue y no cancela el flujo
       final results = await Future.wait(
         [
           DeviceIdService.getInstallationId(),
@@ -183,7 +179,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
       final String deviceId = results.length > 0 ? results[0] : '';
       final String fcmToken = results.length > 1 ? results[1] : '';
 
-      // Guardar sesión con deviceToken
       try {
         await FirestoreService.guardarSesion(
           idUsuario: widget.userId,
@@ -192,8 +187,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
           deviceToken: fcmToken,
         );
       } catch (e) {
-        // No bloqueamos el flujo si guardarSesion falla,
-        // el padre igual puede continuar
         debugPrint('guardarSesion error: $e');
       }
 
@@ -208,8 +201,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
           icono: Icons.location_off_outlined,
           colorIcono: Colors.redAccent,
           titulo: 'Ubicación requerida',
-          mensaje:
-              'No puedes continuar sin conceder permisos de ubicación',
+          mensaje: 'No puedes continuar sin conceder permisos de ubicación',
         );
         return;
       }
@@ -221,7 +213,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
           position.longitude,
         );
       } catch (e) {
-        // La ubicación se guardará en el siguiente ciclo, no bloqueamos
         debugPrint('guardarUbicacionPadre error: $e');
       }
 

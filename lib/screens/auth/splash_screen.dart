@@ -9,23 +9,15 @@ import '../../servicces/child_state_service.dart';
 import '../child/child_home_screen.dart';
 import 'login_screen.dart';
 import '../parent/parent_main_screen.dart';
+import '../../utils/app_colors.dart';
 
-
-// ─── Paleta de la app ────────────────────────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textMuted    = Color(0xFF94A3B8);
-
-
-class _Star {
+class Star {
   final double x;
   final double y;
   final double size;
   final double speed;
   final double phase;
-
-  const _Star({
+  const Star({
     required this.x,
     required this.y,
     required this.size,
@@ -34,7 +26,6 @@ class _Star {
   });
 }
 
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -42,33 +33,25 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   static const Duration _totalDuration = Duration(milliseconds: 2800);
-  late final List<_Star> _stars;
+  late final List<Star> _stars;
 
   @override
   void initState() {
     super.initState();
-
     final rng = math.Random(42);
-    _stars = List.generate(18, (_) {
-      return _Star(
-        x:     rng.nextDouble(),
-        y:     rng.nextDouble(),
-        size:  rng.nextDouble() * 5 + 3,
-        speed: rng.nextDouble() * 0.6 + 0.4,
-        phase: rng.nextDouble() * math.pi * 2,
-      );
-    });
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: _totalDuration,
-    )..repeat();
-
+    _stars = List.generate(18, (_) => Star(
+          x: rng.nextDouble(),
+          y: rng.nextDouble(),
+          size: rng.nextDouble() * 5 + 3,
+          speed: rng.nextDouble() * 0.6 + 0.4,
+          phase: rng.nextDouble() * math.pi * 2,
+        ));
+    _controller = AnimationController(vsync: this, duration: _totalDuration)
+      ..repeat();
     _boot();
   }
 
@@ -99,20 +82,18 @@ class _SplashScreenState extends State<SplashScreen>
     try {
       await NotificationService.initLocalNotifications();
       NotificationService.initForegroundHandler();
-
       final yaSePreguntoPermiso =
           await NotificationService.hasAskedPermission();
       if (!yaSePreguntoPermiso) {
         await NotificationService.requestPermission();
         await NotificationService.markPermissionAsked();
       }
-
       fcmToken = await NotificationService.getToken();
     } catch (e) {
       debugPrint('NotificationService error: $e');
     }
 
-    // ─── 1. SESIÓN DE NIÑO ─────────────────────────────────────────────
+    // 1. SESIÓN DE NIÑO
     try {
       final ninoGuardado = await ChildStateService.getNinoGuardado();
       if (ninoGuardado != null) {
@@ -125,16 +106,15 @@ class _SplashScreenState extends State<SplashScreen>
             return null;
           },
         );
-
         if (ninoEnFirestore != null && ninoEnFirestore['activo'] == true) {
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => ChildHomeScreen(
-                ninoId:      ninoGuardado['idNino']!,
-                nombreNino:  ninoGuardado['nombreNino']!,
-                padreId:     ninoGuardado['idPadre']!,
+                ninoId: ninoGuardado['idNino']!,
+                nombreNino: ninoGuardado['nombreNino']!,
+                padreId: ninoGuardado['idPadre']!,
                 nombrePadre: ninoGuardado['nombrePadre']!,
                 parentEmail: ninoGuardado['parentEmail'] ?? '',
               ),
@@ -152,7 +132,7 @@ class _SplashScreenState extends State<SplashScreen>
       } catch (_) {}
     }
 
-    // ─── 2. SESIÓN DE PADRE ────────────────────────────────────────────
+    // 2. SESIÓN DE PADRE
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && user.emailVerified) {
@@ -163,35 +143,32 @@ class _SplashScreenState extends State<SplashScreen>
             return null;
           },
         );
-
         if (!mounted) return;
-
         if (datos != null && datos['activo'] != false) {
-          final email    = datos['gmail']         ?? user.email ?? '';
-          final userName = datos['primer_nombre'] ?? datos['primernombre'] ?? 'Usuario';
-          final userId   = user.uid;
-
+          final email = datos['gmail'] ?? user.email ?? '';
+          final userName =
+              datos['primer_nombre'] ?? datos['primernombre'] ?? 'Usuario';
+          final userId = user.uid;
           if (fcmToken.isNotEmpty) {
             try {
               await FirestoreService.guardarSesion(
-                idUsuario:   userId,
+                idUsuario: userId,
                 tipoUsuario: 'padre',
-                deviceId:    deviceId,
+                deviceId: deviceId,
                 deviceToken: fcmToken,
               );
             } catch (e) {
               debugPrint('guardarSesion error: $e');
             }
           }
-
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => ParentMainScreen(
                 parentEmail: email,
-                userName:    userName,
-                userId:      userId,
+                userName: userName,
+                userId: userId,
               ),
             ),
           );
@@ -202,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
       debugPrint('Sesión padre error: $e');
     }
 
-    // ─── 3. FALLBACK → Login ───────────────────────────────────────────
+    // 3. FALLBACK — Login
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -213,18 +190,16 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, _) {
             final t = _controller.value;
-
             final logoOpacity =
                 _segment(t, 0.0, 0.35, curve: Curves.easeOut);
-            final logoScale = _lerp(0.82, 1.0, logoOpacity);
+            final logoScale = _lerpD(0.82, 1.0, logoOpacity);
             final nameOpacity =
                 _segment(t, 0.30, 0.60, curve: Curves.easeOut);
             final subtitleOpacity =
@@ -232,20 +207,22 @@ class _SplashScreenState extends State<SplashScreen>
 
             return Stack(
               children: [
+                // Fondo gradiente
                 Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Color(0xFF0F172A),
-                        Color(0xFF1E293B),
-                        Color(0xFF0F172A),
+                        AppColors.bgPrimary,
+                        AppColors.bgCard,
+                        AppColors.bgPrimary,
                       ],
                     ),
                   ),
                 ),
 
+                // Orbe violeta superior izquierdo
                 Positioned(
                   top: -size.height * 0.12,
                   left: -size.width * 0.2,
@@ -256,14 +233,15 @@ class _SplashScreenState extends State<SplashScreen>
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          _accentViolet.withOpacity(0.18),
-                          _accentViolet.withOpacity(0.0),
+                          AppColors.accentViolet.withOpacity(0.18),
+                          AppColors.accentViolet.withOpacity(0.0),
                         ],
                       ),
                     ),
                   ),
                 ),
 
+                // Orbe cyan inferior derecho
                 Positioned(
                   bottom: -size.height * 0.10,
                   right: -size.width * 0.2,
@@ -274,42 +252,42 @@ class _SplashScreenState extends State<SplashScreen>
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          _accentCyan.withOpacity(0.14),
-                          _accentCyan.withOpacity(0.0),
+                          AppColors.accentCyan.withOpacity(0.14),
+                          AppColors.accentCyan.withOpacity(0.0),
                         ],
                       ),
                     ),
                   ),
                 ),
 
+                // Estrellas animadas
                 ..._stars.map((star) {
-                  final floatY = math.sin(
-                        t * math.pi * 2 * star.speed + star.phase,
-                      ) *
-                      8.0;
-                  final pulse = 0.3 +
-                      0.5 *
-                          math
-                              .sin(t * math.pi * 2 * star.speed +
-                                  star.phase +
-                                  math.pi / 2)
-                              .abs();
-
+                  final floatY =
+                      math.sin(t * math.pi * 2 * star.speed + star.phase) *
+                          8.0;
+                  final pulse = (0.3 +
+                          0.5 *
+                              math
+                                  .sin(t * math.pi * 2 * star.speed +
+                                      star.phase +
+                                      math.pi / 2)
+                                  .abs())
+                      .clamp(0.0, 1.0);
                   final isCyan = star.phase < math.pi;
                   final starColor = isCyan
-                      ? _accentCyan.withOpacity(0.25)
-                      : _accentViolet.withOpacity(0.20);
-
+                      ? AppColors.accentCyan.withOpacity(0.25)
+                      : AppColors.accentViolet.withOpacity(0.20);
                   return Positioned(
                     left: star.x * size.width,
                     top: star.y * size.height + floatY,
                     child: Opacity(
-                      opacity: pulse.clamp(0.0, 1.0),
-                      child: _StarShape(size: star.size, color: starColor),
+                      opacity: pulse,
+                      child: StarShape(size: star.size, color: starColor),
                     ),
                   );
                 }),
 
+                // Contenido central
                 Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -318,12 +296,10 @@ class _SplashScreenState extends State<SplashScreen>
                         opacity: logoOpacity.clamp(0.0, 1.0),
                         child: Transform.scale(
                           scale: logoScale,
-                          child: const _SerenityLogo(size: 100),
+                          child: const SerenityLogo(size: 100),
                         ),
                       ),
-
                       const SizedBox(height: 28),
-
                       Opacity(
                         opacity: nameOpacity.clamp(0.0, 1.0),
                         child: Text(
@@ -333,17 +309,17 @@ class _SplashScreenState extends State<SplashScreen>
                             fontWeight: FontWeight.w700,
                             foreground: Paint()
                               ..shader = const LinearGradient(
-                                colors: [_accentViolet, _accentCyan],
+                                colors: [
+                                  AppColors.accentViolet,
+                                  AppColors.accentCyan,
+                                ],
                               ).createShader(
-                                const Rect.fromLTWH(0, 0, 200, 50),
-                              ),
+                                  const Rect.fromLTWH(0, 0, 200, 50)),
                             letterSpacing: 2.0,
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 8),
-
                       Opacity(
                         opacity: subtitleOpacity.clamp(0.0, 1.0),
                         child: Text(
@@ -351,7 +327,7 @@ class _SplashScreenState extends State<SplashScreen>
                           style: GoogleFonts.poppins(
                             fontSize: 13,
                             fontWeight: FontWeight.w400,
-                            color: _textMuted,
+                            color: AppColors.textMuted,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -360,6 +336,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
 
+                // Spinner inferior
                 Positioned(
                   bottom: 48,
                   left: 0,
@@ -373,7 +350,7 @@ class _SplashScreenState extends State<SplashScreen>
                         child: CircularProgressIndicator(
                           strokeWidth: 2.0,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            _accentCyan.withOpacity(0.6),
+                            AppColors.accentCyan.withOpacity(0.6),
                           ),
                         ),
                       ),
@@ -381,6 +358,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
 
+                // Versión
                 Positioned(
                   bottom: 20,
                   left: 0,
@@ -392,7 +370,7 @@ class _SplashScreenState extends State<SplashScreen>
                         'v1.0',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
-                          color: _textMuted.withOpacity(0.4),
+                          color: AppColors.textMuted.withOpacity(0.4),
                           letterSpacing: 1.2,
                         ),
                       ),
@@ -408,10 +386,12 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
+double _lerpD(num a, num b, double t) => a + (b - a) * t;
 
-class _SerenityLogo extends StatelessWidget {
+// ─── Logo Serenity ───────────────────────────────────────────────────────────
+class SerenityLogo extends StatelessWidget {
   final double size;
-  const _SerenityLogo({required this.size});
+  const SerenityLogo({super.key, required this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -423,17 +403,17 @@ class _SerenityLogo extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_accentViolet, _accentCyan],
+          colors: [AppColors.accentViolet, AppColors.accentCyan],
         ),
         boxShadow: [
           BoxShadow(
-            color: _accentViolet.withOpacity(0.45),
+            color: AppColors.accentViolet.withOpacity(0.45),
             blurRadius: size * 0.40,
             spreadRadius: size * 0.04,
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: _accentCyan.withOpacity(0.25),
+            color: AppColors.accentCyan.withOpacity(0.25),
             blurRadius: size * 0.50,
             spreadRadius: 0,
             offset: const Offset(0, 10),
@@ -475,38 +455,35 @@ class _SerenityLogo extends StatelessWidget {
   }
 }
 
-
-class _StarShape extends StatelessWidget {
+// ─── Forma de estrella ───────────────────────────────────────────────────────
+class StarShape extends StatelessWidget {
   final double size;
   final Color color;
-  const _StarShape({required this.size, required this.color});
+  const StarShape({super.key, required this.size, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
       size: Size(size, size),
-      painter: _StarPainter(color: color),
+      painter: StarPainter(color: color),
     );
   }
 }
 
-
-class _StarPainter extends CustomPainter {
+class StarPainter extends CustomPainter {
   final Color color;
-  const _StarPainter({required this.color});
+  const StarPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-
     final cx = size.width / 2;
     final cy = size.height / 2;
     final outerR = size.width / 2;
     final innerR = outerR * 0.42;
     const points = 5;
-
     final path = Path();
     for (int i = 0; i < points * 2; i++) {
       final angle = (math.pi / points) * i - math.pi / 2;
@@ -524,9 +501,5 @@ class _StarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_StarPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(StarPainter oldDelegate) => oldDelegate.color != color;
 }
-
-
-double _lerp(num a, num b, double t) => a + (b - a) * t;

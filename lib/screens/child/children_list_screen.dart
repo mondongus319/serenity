@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart'; // ← agregar
-import 'package:permission_handler/permission_handler.dart'; // ← agregar
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'child_registration_screen.dart';
 import 'child_home_screen.dart';
 import '../../servicces/firestore_service.dart';
 import '../../servicces/location_service.dart';
 import '../../servicces/child_state_service.dart';
-import '../../providers/child_provider.dart';
+import '../../providers/parent_provider.dart';
 import '../../../../widgets/auth/password_dialog.dart';
 import '../../../../widgets/child/children_list_body.dart';
 import '../auth/role_selection_screen.dart';
@@ -93,23 +93,17 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChildProvider>().cargarNinos(widget.padreId);
+      context.read<ParentProvider>().cargarNinos(widget.padreId);
     });
   }
 
   Future<void> agregarNuevoNino() async {
-    // ✅ CAMBIO: ya no pedimos ubicación aquí.
-    //    El padre ya concedió permisos en RoleSelectionScreen al entrar.
-    //    Solo verificamos silenciosamente que el permiso sigue activo.
-    //    Si no lo está, mostramos un mensaje claro sin trabarse.
     final tienePermiso = await LocationService.tienePermisos();
     final gpsActivo = await LocationService.gpsActivo();
 
     if (!tienePermiso || !gpsActivo) {
       if (!mounted) return;
-      // ✅ Mostramos un bottom sheet informativo en vez de bloquear el flujo
       await _mostrarAvisoUbicacion(tienePermiso: tienePermiso);
-      // Volvemos a verificar tras el aviso — si el usuario activó, continuamos
       final tienePermisoAhora = await LocationService.tienePermisos();
       final gpsActivoAhora = await LocationService.gpsActivo();
       if (!tienePermisoAhora || !gpsActivoAhora) return;
@@ -125,10 +119,9 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
       ),
     );
     if (!mounted) return;
-    context.read<ChildProvider>().cargarNinos(widget.padreId);
+    context.read<ParentProvider>().cargarNinos(widget.padreId);
   }
 
-  // ✅ NUEVO: aviso no bloqueante con instrucción clara
   Future<void> _mostrarAvisoUbicacion({required bool tienePermiso}) async {
     if (!mounted) return;
     await showModalBottomSheet(
@@ -218,7 +211,6 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
   }
 
   Future<void> seleccionarNino(Map<String, dynamic> nino) async {
-    // ✅ FIX: 'id' en minúscula — listarNinosPadre retorna {'id': d.id, ...}
     final ninoId = (nino['id'] ?? nino['ID'] ?? '').toString();
     final nombreNino = (nino['nombre'] ?? nino['Nombre'] ?? '').toString();
 
@@ -245,7 +237,7 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
     final valido =
         await FirestoreService.validarPasswordNino(ninoId, password);
     if (!mounted) return;
-    Navigator.pop(context); // cierra loading
+    Navigator.pop(context);
 
     if (valido) {
       await ChildStateService.saveNinoRegistrado(
@@ -293,12 +285,12 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ChildProvider>(
-      builder: (context, child, _) {
+    return Consumer<ParentProvider>(
+      builder: (context, parent, _) {
         return ChildrenListBody(
           nombrePadre: widget.nombrePadre,
-          ninos: child.ninos,
-          isLoading: child.isLoadingNinos,
+          ninos: parent.ninos,
+          isLoading: parent.isLoadingNinos,
           onBack: () => Navigator.pop(context),
           onCambiarRol: cambiarRol,
           onAgregarNino: agregarNuevoNino,

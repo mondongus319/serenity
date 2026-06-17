@@ -1,18 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../utils/app_colors.dart';
 
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _bgField      = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WIDGET PURAMENTE VISUAL — sin lógica de negocio
-// ─────────────────────────────────────────────────────────────────────────────
 class RegisterBody extends StatelessWidget {
   final TextEditingController primerNombreController;
   final TextEditingController segundoNombreController;
@@ -54,7 +43,7 @@ class RegisterBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
@@ -62,19 +51,16 @@ class RegisterBody extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E293B),
-              Color(0xFF0F172A),
+              AppColors.bgPrimary,
+              AppColors.bgCard,
+              AppColors.bgPrimary,
             ],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // ── HEADER ────────────────────────────────────────────────────
               _RegisterHeader(onBack: onBack),
-
-              // ── CONTENIDO ─────────────────────────────────────────────────
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
@@ -114,9 +100,6 @@ class RegisterBody extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HEADER CON BOTÓN ATRÁS
-// ─────────────────────────────────────────────────────────────────────────────
 class _RegisterHeader extends StatelessWidget {
   final VoidCallback onBack;
   const _RegisterHeader({required this.onBack});
@@ -134,14 +117,14 @@ class _RegisterHeader extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _bgCard,
+                color: AppColors.bgCard,
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.4),
+                  color: AppColors.accentCyan.withOpacity(0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentCyan.withOpacity(0.15),
+                    color: AppColors.accentCyan.withOpacity(0.15),
                     blurRadius: 12,
                     spreadRadius: 1,
                   ),
@@ -149,7 +132,7 @@ class _RegisterHeader extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.arrow_back_ios_new_rounded,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
                 size: 18,
               ),
             ),
@@ -160,7 +143,7 @@ class _RegisterHeader extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: _textPearl,
+              color: AppColors.textPearl,
             ),
           ),
         ],
@@ -169,9 +152,6 @@ class _RegisterHeader extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LOGO + SUBTÍTULO
-// ─────────────────────────────────────────────────────────────────────────────
 class _HeaderLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -184,12 +164,12 @@ class _HeaderLogo extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: _accentCyan.withOpacity(0.18),
+                color: AppColors.accentCyan.withOpacity(0.18),
                 blurRadius: 36,
                 spreadRadius: 6,
               ),
               BoxShadow(
-                color: _accentViolet.withOpacity(0.12),
+                color: AppColors.accentViolet.withOpacity(0.12),
                 blurRadius: 50,
                 spreadRadius: 2,
               ),
@@ -204,30 +184,24 @@ class _HeaderLogo extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'SERENTY',
+          'SERENITY',
           style: GoogleFonts.poppins(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: _textPearl,
+            color: AppColors.textPearl,
             letterSpacing: 3.0,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           'Crea tu cuenta',
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: _textMuted,
-          ),
+          style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textMuted),
         ),
       ],
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CARD PRINCIPAL DE REGISTRO
-// ─────────────────────────────────────────────────────────────────────────────
 class _RegisterCard extends StatelessWidget {
   final TextEditingController primerNombreController;
   final TextEditingController segundoNombreController;
@@ -268,12 +242,9 @@ class _RegisterCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.07),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.4),
@@ -281,7 +252,7 @@ class _RegisterCard extends StatelessWidget {
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: _accentCyan.withOpacity(0.04),
+            color: AppColors.accentCyan.withOpacity(0.04),
             blurRadius: 40,
             offset: const Offset(0, 4),
           ),
@@ -291,18 +262,17 @@ class _RegisterCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Encabezado sección ─────────────────────────────────────────
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: _accentCyan.withOpacity(0.15),
+                  color: AppColors.accentCyan.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.person_outline_rounded,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 20,
                 ),
               ),
@@ -312,15 +282,12 @@ class _RegisterCard extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: _textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 24),
-
-          // ── Nombres ───────────────────────────────────────────────────
           Row(
             children: [
               Expanded(
@@ -342,10 +309,7 @@ class _RegisterCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // ── Apellidos ─────────────────────────────────────────────────
           Row(
             children: [
               Expanded(
@@ -367,19 +331,13 @@ class _RegisterCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // ── Fecha ─────────────────────────────────────────────────────
           _CyanDateField(
             controller: fechaNacimientoController,
             label: 'Fecha de Nacimiento *',
             onTap: onTapFecha,
           ),
-
           const SizedBox(height: 16),
-
-          // ── Email ─────────────────────────────────────────────────────
           _CyanRegisterField(
             controller: gmailController,
             label: 'Correo electrónico *',
@@ -387,10 +345,7 @@ class _RegisterCard extends StatelessWidget {
             prefixIcon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
           ),
-
           const SizedBox(height: 16),
-
-          // ── Contraseña ────────────────────────────────────────────────
           _CyanRegisterField(
             controller: contrasenaController,
             label: 'Contraseña *',
@@ -400,10 +355,7 @@ class _RegisterCard extends StatelessWidget {
             suffixText: obscureContrasena ? 'mostrar' : 'ocultar',
             onSuffixTap: onToggleContrasena,
           ),
-
           const SizedBox(height: 16),
-
-          // ── Confirmar contraseña ──────────────────────────────────────
           _CyanRegisterField(
             controller: confirmarContrasenaController,
             label: 'Confirmar Contraseña *',
@@ -413,23 +365,14 @@ class _RegisterCard extends StatelessWidget {
             suffixText: obscureConfirmar ? 'mostrar' : 'ocultar',
             onSuffixTap: onToggleConfirmar,
           ),
-
           const SizedBox(height: 28),
-
-          // ── Botón registrar ───────────────────────────────────────────
-          _CyanGradientButton(
-            isLoading: isLoading,
-            onPressed: onRegistrar,
-          ),
+          _CyanGradientButton(isLoading: isLoading, onPressed: onRegistrar),
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INPUT FIELD — acento Cian
-// ─────────────────────────────────────────────────────────────────────────────
 class _CyanRegisterField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -461,16 +404,16 @@ class _CyanRegisterField extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 11,
             fontWeight: FontWeight.w500,
-            color: _accentCyan,
+            color: AppColors.accentCyan,
           ),
         ),
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: _bgField,
+            color: AppColors.bgField,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _accentCyan.withOpacity(0.2),
+              color: AppColors.accentCyan.withOpacity(0.2),
               width: 1,
             ),
           ),
@@ -478,14 +421,16 @@ class _CyanRegisterField extends StatelessWidget {
             controller: controller,
             obscureText: obscureText,
             keyboardType: keyboardType,
-            style: GoogleFonts.poppins(color: _textPearl, fontSize: 13),
+            style:
+                GoogleFonts.poppins(color: AppColors.textPearl, fontSize: 13),
             decoration: InputDecoration(
               hintText: hintText,
               hintStyle: GoogleFonts.poppins(
-                color: _textMuted.withOpacity(0.5),
+                color: AppColors.textMuted.withOpacity(0.5),
                 fontSize: 12,
               ),
-              prefixIcon: Icon(prefixIcon, color: _accentCyan, size: 18),
+              prefixIcon:
+                  Icon(prefixIcon, color: AppColors.accentCyan, size: 18),
               suffixIcon: suffixText != null
                   ? GestureDetector(
                       onTap: onSuffixTap,
@@ -497,7 +442,7 @@ class _CyanRegisterField extends StatelessWidget {
                           child: Text(
                             suffixText!,
                             style: GoogleFonts.poppins(
-                              color: _accentCyan,
+                              color: AppColors.accentCyan,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -509,8 +454,8 @@ class _CyanRegisterField extends StatelessWidget {
               suffixIconConstraints:
                   const BoxConstraints(minWidth: 0, minHeight: 0),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 13),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
             ),
           ),
         ),
@@ -519,9 +464,6 @@ class _CyanRegisterField extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DATE FIELD — acento Cian
-// ─────────────────────────────────────────────────────────────────────────────
 class _CyanDateField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -543,7 +485,7 @@ class _CyanDateField extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 11,
             fontWeight: FontWeight.w500,
-            color: _accentCyan,
+            color: AppColors.accentCyan,
           ),
         ),
         const SizedBox(height: 6),
@@ -551,10 +493,10 @@ class _CyanDateField extends StatelessWidget {
           onTap: onTap,
           child: Container(
             decoration: BoxDecoration(
-              color: _bgField,
+              color: AppColors.bgField,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _accentCyan.withOpacity(0.2),
+                color: AppColors.accentCyan.withOpacity(0.2),
                 width: 1,
               ),
             ),
@@ -562,26 +504,27 @@ class _CyanDateField extends StatelessWidget {
               controller: controller,
               readOnly: true,
               onTap: () => onTap(),
-              style: GoogleFonts.poppins(color: _textPearl, fontSize: 13),
+              style: GoogleFonts.poppins(
+                  color: AppColors.textPearl, fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'DD/MM/AAAA',
                 hintStyle: GoogleFonts.poppins(
-                  color: _textMuted.withOpacity(0.5),
+                  color: AppColors.textMuted.withOpacity(0.5),
                   fontSize: 12,
                 ),
                 prefixIcon: const Icon(
                   Icons.calendar_today_outlined,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 18,
                 ),
                 suffixIcon: const Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 20,
                 ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 13),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
               ),
             ),
           ),
@@ -591,9 +534,6 @@ class _CyanDateField extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BOTÓN DEGRADADO — Violeta → Cian
-// ─────────────────────────────────────────────────────────────────────────────
 class _CyanGradientButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onPressed;
@@ -612,19 +552,19 @@ class _CyanGradientButton extends StatelessWidget {
         height: 52,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [_accentViolet, _accentCyan],
+            colors: [AppColors.accentViolet, AppColors.accentCyan],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: _accentViolet.withOpacity(0.35),
+              color: AppColors.accentViolet.withOpacity(0.35),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
             BoxShadow(
-              color: _accentCyan.withOpacity(0.2),
+              color: AppColors.accentCyan.withOpacity(0.2),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),

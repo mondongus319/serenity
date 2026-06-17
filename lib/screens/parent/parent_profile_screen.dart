@@ -7,13 +7,7 @@ import '../../servicces/auth_service.dart';
 import '../../providers/parent_provider.dart';
 import 'cambiar_correo_screen.dart';
 import '../../../../widgets/parent/parent_profile_body.dart';
-
-const bgPrimary = Color(0xFF0F172A);
-const bgCard = Color(0xFF1E293B);
-const accentCyan = Color(0xFF06B6D4);
-const accentViolet = Color(0xFF8B5CF6);
-const textPearl = Color(0xFFF1F5F9);
-const textMuted = Color(0xFF94A3B8);
+import '../../utils/app_colors.dart';
 
 class ParentProfileScreen extends StatefulWidget {
   final String parentEmail;
@@ -56,7 +50,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     required String titulo,
     required String mensaje,
     IconData icono = Icons.info_outline_rounded,
-    Color colorIcono = accentCyan,
+    Color colorIcono = AppColors.accentCyan,
     String textoBoton = 'Entendido',
   }) async {
     if (!mounted) return;
@@ -65,7 +59,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
       context: context,
       barrierDismissible: true,
       builder: (ctx) => Dialog(
-        backgroundColor: bgCard,
+        backgroundColor: AppColors.bgCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: colorIcono.withOpacity(0.25), width: 1),
@@ -94,7 +88,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                 style: GoogleFonts.poppins(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
-                  color: textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
               const SizedBox(height: 10),
@@ -103,7 +97,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
-                  color: textMuted,
+                  color: AppColors.textMuted,
                   height: 1.6,
                 ),
               ),
@@ -113,8 +107,10 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                 child: DialogButton(
                   label: textoBoton,
                   onTap: () => Navigator.pop(ctx),
-                  isPrimary: colorIcono == accentCyan || colorIcono == Colors.green,
-                  isDestructive: colorIcono == Colors.redAccent || colorIcono == Colors.red,
+                  isPrimary: colorIcono == AppColors.accentCyan ||
+                      colorIcono == Colors.green,
+                  isDestructive: colorIcono == Colors.redAccent ||
+                      colorIcono == Colors.red,
                 ),
               ),
             ],
@@ -124,9 +120,8 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     );
   }
 
-  // ── CERRAR SESIÓN ─────────────────────────────────────────────────────────
   Future<void> cerrarSesion() async {
-    await widget.onGuardarTiempo(); // ← guarda tiempo antes de salir
+    await widget.onGuardarTiempo();
     if (!mounted) return;
     context.read<ParentProvider>().reset();
     Navigator.of(context).pushAndRemoveUntil(
@@ -135,10 +130,9 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     );
   }
 
-  // ── CAMBIAR ROL ───────────────────────────────────────────────────────────
   Future<void> _cambiarRol() async {
     final parent = context.read<ParentProvider>();
-    await widget.onGuardarTiempo(); // ← guarda tiempo antes de cambiar rol
+    await widget.onGuardarTiempo();
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -152,7 +146,6 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     );
   }
 
-  // ── EDITAR NOMBRES ────────────────────────────────────────────────────────
   Future<void> editarNombres() async {
     final parent = context.read<ParentProvider>();
     final c1 = TextEditingController(text: parent.nombre);
@@ -213,7 +206,9 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     if (!mounted) return;
 
     await _mostrarDialogoMensaje(
-      titulo: res['success'] == true ? 'Datos actualizados' : 'No se pudo actualizar',
+      titulo: res['success'] == true
+          ? 'Datos actualizados'
+          : 'No se pudo actualizar',
       mensaje: res['message'] ?? 'Actualizado',
       icono: res['success'] == true
           ? Icons.check_circle_outline_rounded
@@ -222,7 +217,6 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     );
   }
 
-  // ── EDITAR FECHA ──────────────────────────────────────────────────────────
   Future<void> editarFecha() async {
     final parent = context.read<ParentProvider>();
     DateTime inicial = DateTime.now().subtract(const Duration(days: 365 * 18));
@@ -241,10 +235,10 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: accentCyan,
+            primary: AppColors.accentCyan,
             onPrimary: Colors.white,
-            surface: bgCard,
-            onSurface: textPearl,
+            surface: AppColors.bgCard,
+            onSurface: AppColors.textPearl,
           ),
         ),
         child: child!,
@@ -267,7 +261,9 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     if (!mounted) return;
 
     await _mostrarDialogoMensaje(
-      titulo: res['success'] == true ? 'Fecha actualizada' : 'No se pudo actualizar',
+      titulo: res['success'] == true
+          ? 'Fecha actualizada'
+          : 'No se pudo actualizar',
       mensaje: res['message'] ?? 'Actualizado',
       icono: res['success'] == true
           ? Icons.check_circle_outline_rounded
@@ -276,7 +272,6 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     );
   }
 
-  // ── EDITAR CONTRASEÑA ─────────────────────────────────────────────────────
   Future<void> editarContrasena() async {
     final parent = context.read<ParentProvider>();
     final c1 = TextEditingController();
@@ -291,13 +286,24 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DarkField(controller: c1, label: 'Nueva contraseña', obscure: true),
+            DarkField(
+              controller: c1,
+              label: 'Nueva contraseña',
+              obscure: true,
+            ),
             const SizedBox(height: 12),
-            DarkField(controller: c2, label: 'Confirmar contraseña', obscure: true),
+            DarkField(
+              controller: c2,
+              label: 'Confirmar contraseña',
+              obscure: true,
+            ),
             const SizedBox(height: 6),
             Text(
               'Mínimo 4 caracteres.',
-              style: GoogleFonts.poppins(fontSize: 11, color: textMuted),
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: AppColors.textMuted,
+              ),
             ),
           ],
         ),
@@ -343,7 +349,9 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     if (!mounted) return;
 
     await _mostrarDialogoMensaje(
-      titulo: res['success'] == true ? 'Contraseña actualizada' : 'No se pudo actualizar',
+      titulo: res['success'] == true
+          ? 'Contraseña actualizada'
+          : 'No se pudo actualizar',
       mensaje: res['message'] ?? 'Actualizado',
       icono: res['success'] == true
           ? Icons.check_circle_outline_rounded
@@ -352,7 +360,6 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     );
   }
 
-  // ── EDITAR CORREO ─────────────────────────────────────────────────────────
   Future<void> editarCorreo() async {
     final parent = context.read<ParentProvider>();
     final nuevoCorreo = await Navigator.push<String>(
@@ -370,13 +377,12 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     }
   }
 
-  // ── ELIMINAR CUENTA ───────────────────────────────────────────────────────
   Future<void> mostrarDialogoEliminarCuenta() async {
     final confirmar1 = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => Dialog(
-        backgroundColor: bgCard,
+        backgroundColor: AppColors.bgCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: Colors.red.withOpacity(0.3), width: 1),
@@ -391,7 +397,10 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.red.withOpacity(0.12),
-                  border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
                 child: const Icon(
                   Icons.warning_amber_rounded,
@@ -405,18 +414,16 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                 style: GoogleFonts.poppins(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
-                  color: textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
               const SizedBox(height: 10),
               Text(
-                'Esta acción desactivará tu cuenta y la de todos tus niños vinculados. '
-                'No podrás iniciar sesión con esta cuenta nuevamente. '
-                'Esta acción no se puede deshacer.',
+                'Esta acción desactivará tu cuenta y la de todos tus niños vinculados. No podrás iniciar sesión con esta cuenta nuevamente. Esta acción no se puede deshacer.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
-                  color: textMuted,
+                  color: AppColors.textMuted,
                   height: 1.6,
                 ),
               ),
@@ -454,7 +461,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setStateDialog) => Dialog(
-          backgroundColor: bgCard,
+          backgroundColor: AppColors.bgCard,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
             side: BorderSide(color: Colors.red.withOpacity(0.3), width: 1),
@@ -469,7 +476,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                   style: GoogleFonts.poppins(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: textPearl,
+                    color: AppColors.textPearl,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -478,15 +485,18 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: textMuted,
+                    color: AppColors.textMuted,
                   ),
                 ),
                 const SizedBox(height: 16),
                 Container(
                   decoration: BoxDecoration(
-                    color: bgPrimary,
+                    color: AppColors.bgPrimary,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.withOpacity(0.35), width: 1),
+                    border: Border.all(
+                      color: Colors.red.withOpacity(0.35),
+                      width: 1,
+                    ),
                   ),
                   child: TextField(
                     controller: textoController,
@@ -541,7 +551,6 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
 
     if (confirmar2 != true || !mounted) return;
 
-    // ← guarda el tiempo ANTES de desactivar y cerrar sesión
     await widget.onGuardarTiempo();
     if (!mounted) return;
 
@@ -549,7 +558,10 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(
-        child: CircularProgressIndicator(color: accentCyan, strokeWidth: 2.5),
+        child: CircularProgressIndicator(
+          color: AppColors.accentCyan,
+          strokeWidth: 2.5,
+        ),
       ),
     );
 
@@ -558,7 +570,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     await authService.signOut();
 
     if (!mounted) return;
-    Navigator.pop(context); // cierra loading
+    Navigator.pop(context);
 
     if (res['success'] == true) {
       parent.reset();
@@ -594,8 +606,9 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
           parent.segundoApellido,
         ].where((s) => s.isNotEmpty).join(' ');
 
-        final fechaTexto =
-            parent.fechaNacimiento.isEmpty ? 'No registrada' : parent.fechaNacimiento;
+        final fechaTexto = parent.fechaNacimiento.isEmpty
+            ? 'No registrada'
+            : parent.fechaNacimiento;
 
         return ParentProfileBody(
           nombre: parent.nombre,
@@ -617,7 +630,6 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
   }
 }
 
-// ─── DIÁLOGO OSCURO REUTILIZABLE ─────────────────────────────────────────────
 class DarkDialog extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -637,10 +649,13 @@ class DarkDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: bgCard,
+      backgroundColor: AppColors.bgCard,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: accentCyan.withOpacity(0.25), width: 1),
+        side: BorderSide(
+          color: AppColors.accentCyan.withOpacity(0.25),
+          width: 1,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -653,10 +668,10 @@ class DarkDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: accentCyan.withOpacity(0.15),
+                    color: AppColors.accentCyan.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: accentCyan, size: 18),
+                  child: Icon(icon, color: AppColors.accentCyan, size: 18),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -665,7 +680,7 @@ class DarkDialog extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: textPearl,
+                      color: AppColors.textPearl,
                     ),
                   ),
                 ),
@@ -701,7 +716,6 @@ class DarkDialog extends StatelessWidget {
   }
 }
 
-// ─── CAMPO DE TEXTO OSCURO ────────────────────────────────────────────────────
 class DarkField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -723,24 +737,30 @@ class DarkField extends StatelessWidget {
           label,
           style: GoogleFonts.poppins(
             fontSize: 11,
-            color: accentCyan,
+            color: AppColors.accentCyan,
             fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: bgPrimary,
+            color: AppColors.bgPrimary,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.white.withOpacity(0.08)),
           ),
           child: TextField(
             controller: controller,
             obscureText: obscure,
-            style: GoogleFonts.poppins(color: textPearl, fontSize: 13),
+            style: GoogleFonts.poppins(
+              color: AppColors.textPearl,
+              fontSize: 13,
+            ),
             decoration: const InputDecoration(
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
             ),
           ),
         ),
@@ -749,7 +769,6 @@ class DarkField extends StatelessWidget {
   }
 }
 
-// ─── BOTÓN DE DIÁLOGO ─────────────────────────────────────────────────────────
 class DialogButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
@@ -772,14 +791,15 @@ class DialogButton extends StatelessWidget {
       textColor = Colors.redAccent;
       bgColor = Colors.red.withOpacity(0.08);
     } else if (isPrimary) {
-      borderColor = accentCyan.withOpacity(0.5);
-      textColor = accentCyan;
-      bgColor = accentCyan.withOpacity(0.1);
+      borderColor = AppColors.accentCyan.withOpacity(0.5);
+      textColor = AppColors.accentCyan;
+      bgColor = AppColors.accentCyan.withOpacity(0.1);
     } else {
       borderColor = Colors.white.withOpacity(0.1);
-      textColor = textMuted;
+      textColor = AppColors.textMuted;
       bgColor = Colors.white.withOpacity(0.04);
     }
+
     return GestureDetector(
       onTap: onTap,
       child: Container(

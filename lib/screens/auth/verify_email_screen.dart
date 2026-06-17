@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login_screen.dart';
+import '../../utils/app_colors.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
   final String email;
-  final String? contrasena; // necesaria solo para reenviar
+  final String? contrasena;
   const VerifyEmailScreen({super.key, required this.email, this.contrasena});
 
   @override
@@ -19,13 +20,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   int _segundosRestantes = 60;
   Timer? _timer;
   Timer? _pollTimer;
-
-  static const _bgPrimary = Color(0xFF0F172A);
-  static const _bgCard = Color(0xFF1E293B);
-  static const _accentCyan = Color(0xFF06B6D4);
-  static const _accentViolet = Color(0xFF8B5CF6);
-  static const _textPearl = Color(0xFFF1F5F9);
-  static const _textMuted = Color(0xFF94A3B8);
 
   @override
   void initState() {
@@ -47,16 +41,15 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: _bgCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        backgroundColor: AppColors.bgCard,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: Icon(icono, color: colorIcono, size: 56),
         title: Text(
           titulo,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            color: _textPearl,
+            color: AppColors.textPearl,
             fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
@@ -65,7 +58,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           mensaje,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            color: _textMuted,
+            color: AppColors.textMuted,
             fontSize: 14,
             height: 1.5,
           ),
@@ -80,17 +73,13 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(
               textoBoton,
               style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
+                  fontWeight: FontWeight.w700, fontSize: 14),
             ),
           ),
         ],
@@ -114,7 +103,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     });
   }
 
-  // Comprueba automáticamente si el usuario ya hizo clic en el enlace
   void _iniciarPolling() {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
@@ -134,7 +122,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         _irAlLogin();
       }
     } catch (e) {
-      // Polling silencioso: si falla un ciclo simplemente esperamos el siguiente
       debugPrint('_verificarAutomaticamente error: $e');
     }
   }
@@ -190,9 +177,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     setState(() => _isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await user.sendEmailVerification();
-      }
+      if (user != null) await user.sendEmailVerification();
       if (!mounted) return;
       setState(() => _isLoading = false);
 
@@ -202,7 +187,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         titulo: 'Correo reenviado',
         mensaje: 'Correo de verificación reenviado',
       );
-
       _iniciarContador();
     } catch (e) {
       if (!mounted) return;
@@ -355,16 +339,13 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         return false;
       },
       child: Scaffold(
-        backgroundColor: _bgPrimary,
+        backgroundColor: AppColors.bgPrimary,
         body: SafeArea(
           child: Column(
             children: [
-              // Header
               Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 14,
-                ),
+                    horizontal: 20, vertical: 14),
                 child: Row(
                   children: [
                     GestureDetector(
@@ -374,15 +355,15 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         height: 44,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _bgCard,
+                          color: AppColors.bgCard,
                           border: Border.all(
-                            color: _accentCyan.withOpacity(0.4),
+                            color: AppColors.accentCyan.withOpacity(0.4),
                             width: 1.5,
                           ),
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new_rounded,
-                          color: _accentCyan,
+                          color: AppColors.accentCyan,
                           size: 18,
                         ),
                       ),
@@ -393,38 +374,32 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       style: GoogleFonts.poppins(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: _textPearl,
+                        color: AppColors.textPearl,
                       ),
                     ),
                   ],
                 ),
               ),
-
-              // Contenido
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
+                      horizontal: 24, vertical: 12),
                   child: Column(
                     children: [
                       const SizedBox(height: 20),
-
-                      // Ícono
-                      Container(
+                                            Container(
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _bgCard,
+                          color: AppColors.bgCard,
                           border: Border.all(
-                            color: _accentCyan.withOpacity(0.4),
+                            color: AppColors.accentCyan.withOpacity(0.4),
                             width: 1.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: _accentCyan.withOpacity(0.2),
+                              color: AppColors.accentCyan.withOpacity(0.2),
                               blurRadius: 28,
                               spreadRadius: 4,
                             ),
@@ -433,7 +408,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         child: const Icon(
                           Icons.mark_email_unread_outlined,
                           size: 46,
-                          color: _accentCyan,
+                          color: AppColors.accentCyan,
                         ),
                       ),
 
@@ -444,7 +419,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         style: GoogleFonts.poppins(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: _textPearl,
+                          color: AppColors.textPearl,
                         ),
                       ),
 
@@ -455,7 +430,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
-                          color: _textMuted,
+                          color: AppColors.textMuted,
                         ),
                       ),
 
@@ -469,10 +444,10 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: _bgCard,
+                          color: AppColors.bgCard,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: _accentCyan.withOpacity(0.25),
+                            color: AppColors.accentCyan.withOpacity(0.25),
                             width: 1,
                           ),
                         ),
@@ -481,7 +456,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                           children: [
                             const Icon(
                               Icons.email_outlined,
-                              color: _accentCyan,
+                              color: AppColors.accentCyan,
                               size: 18,
                             ),
                             const SizedBox(width: 10),
@@ -493,7 +468,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: _textPearl,
+                                  color: AppColors.textPearl,
                                 ),
                               ),
                             ),
@@ -507,17 +482,17 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: _accentViolet.withOpacity(0.08),
+                          color: AppColors.accentViolet.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: _accentViolet.withOpacity(0.2),
+                            color: AppColors.accentViolet.withOpacity(0.2),
                           ),
                         ),
                         child: Row(
                           children: [
                             const Icon(
                               Icons.info_outline,
-                              color: _accentViolet,
+                              color: AppColors.accentViolet,
                               size: 20,
                             ),
                             const SizedBox(width: 12),
@@ -526,7 +501,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                 'Abre tu correo electrónico y haz clic en el enlace de verificación. Luego presiona "Ya verifiqué".',
                                 style: GoogleFonts.poppins(
                                   fontSize: 12,
-                                  color: _textMuted,
+                                  color: AppColors.textMuted,
                                   height: 1.5,
                                 ),
                               ),
@@ -547,10 +522,10 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                               vertical: 10,
                             ),
                             decoration: BoxDecoration(
-                              color: _accentCyan.withOpacity(0.1),
+                              color: AppColors.accentCyan.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: _accentCyan.withOpacity(0.35),
+                                color: AppColors.accentCyan.withOpacity(0.35),
                               ),
                             ),
                             child: Row(
@@ -558,14 +533,14 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                               children: [
                                 const Icon(
                                   Icons.refresh_rounded,
-                                  color: _accentCyan,
+                                  color: AppColors.accentCyan,
                                   size: 18,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Reenviar correo de verificación',
                                   style: GoogleFonts.poppins(
-                                    color: _accentCyan,
+                                    color: AppColors.accentCyan,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -586,21 +561,21 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                 strokeWidth: 2.5,
                                 backgroundColor:
                                     Colors.white.withOpacity(0.08),
-                                color: _accentCyan,
+                                color: AppColors.accentCyan,
                               ),
                             ),
                             const SizedBox(width: 10),
                             Text(
                               'Reenviar en ',
                               style: GoogleFonts.poppins(
-                                color: _textMuted,
+                                color: AppColors.textMuted,
                                 fontSize: 13,
                               ),
                             ),
                             Text(
                               '$_segundosRestantes s',
                               style: GoogleFonts.poppins(
-                                color: _accentCyan,
+                                color: AppColors.accentCyan,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -618,14 +593,17 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                           height: 52,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [_accentViolet, _accentCyan],
+                              colors: [
+                                AppColors.accentViolet,
+                                AppColors.accentCyan,
+                              ],
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                             ),
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: _accentViolet.withOpacity(0.35),
+                                color: AppColors.accentViolet.withOpacity(0.35),
                                 blurRadius: 16,
                                 offset: const Offset(0, 6),
                               ),

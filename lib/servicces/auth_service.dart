@@ -2,9 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firestore_service.dart';
 
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+
 
   // ─── REGISTRO ─────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> registrarUsuario({
@@ -23,6 +25,7 @@ class AuthService {
       );
       final user = cred.user!;
 
+
       await FirestoreService.crearPadre(
         uid: user.uid,
         primerNombre: primerNombre,
@@ -34,7 +37,9 @@ class AuthService {
         tipoRegistro: 'manual',
       );
 
+
       await user.sendEmailVerification();
+
 
       return {
         'success': true,
@@ -63,6 +68,7 @@ class AuthService {
     }
   }
 
+
   // ─── LOGIN EMAIL/CONTRASEÑA ────────────────────────────────────────────────
   Future<Map<String, dynamic>> loginUsuario({
     required String gmail,
@@ -75,6 +81,7 @@ class AuthService {
       );
       final user = cred.user!;
 
+
       if (!user.emailVerified) {
         await _auth.signOut();
         return {
@@ -86,19 +93,20 @@ class AuthService {
         };
       }
 
+
       final datos = await FirestoreService.obtenerPadre(user.uid);
       if (datos == null) {
         await _auth.signOut();
         return {'success': false, 'message': 'Perfil no encontrado'};
       }
 
+
       if (datos['activo'] == false) {
         await _auth.signOut();
         return {'success': false, 'message': 'Esta cuenta ha sido desactivada'};
       }
 
-      // El spread ...datos trae todos los campos con sus claves reales de Firestore
-      // (primer_nombre, fecha_nacimiento, etc.) — no se necesita clave explícita.
+
       return {
         'success': true,
         'user': {
@@ -130,6 +138,7 @@ class AuthService {
     }
   }
 
+
   // ─── REENVIAR VERIFICACIÓN ────────────────────────────────────────────────
   Future<Map<String, dynamic>> reenviarVerificacion(
       String gmail, String contrasena) async {
@@ -146,6 +155,7 @@ class AuthService {
     }
   }
 
+
   // ─── GOOGLE SIGN-IN ───────────────────────────────────────────────────────
   Future<Map<String, dynamic>> signInWithGoogle() async {
     try {
@@ -153,10 +163,12 @@ class AuthService {
       try { await _googleSignIn.disconnect(); } catch (_) {}
       try { await _auth.signOut(); } catch (_) {}
 
+
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         return {'success': false, 'message': 'Inicio de sesión cancelado'};
       }
+
 
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
@@ -164,10 +176,13 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
+
       final cred = await _auth.signInWithCredential(credential);
       final user = cred.user!;
 
+
       var datos = await FirestoreService.obtenerPadre(user.uid);
+
 
       if (datos == null) {
         final partes = (user.displayName ?? '').split(' ');
@@ -186,8 +201,7 @@ class AuthService {
         return {'success': false, 'message': 'Esta cuenta ha sido desactivada'};
       }
 
-      // ✅ Clave 'primer_nombre' con underscore — consistente con crearPadre.
-      // El spread ...?datos sobreescribirá con el valor real si existe.
+
       return {
         'success': true,
         'user': {
@@ -203,6 +217,7 @@ class AuthService {
     }
   }
 
+
   // ─── ACTUALIZAR CONTRASEÑA ────────────────────────────────────────────────
   Future<Map<String, dynamic>> actualizarContrasena(
       String nuevaContrasena) async {
@@ -213,6 +228,7 @@ class AuthService {
       return {'success': false, 'message': e.message ?? 'Error al actualizar'};
     }
   }
+
 
   // ─── CAMBIAR EMAIL ────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> iniciarCambioEmail(String nuevoEmail) async {
@@ -228,12 +244,34 @@ class AuthService {
     }
   }
 
+
+  // ─── ELIMINAR USUARIO DE FIREBASE AUTH ───────────────────────────────────
+  /// Elimina permanentemente el usuario de Firebase Authentication.
+  /// Esto libera el correo para que pueda registrarse nuevamente.
+  Future<Map<String, dynamic>> eliminarUsuarioAuth() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        return {'success': false, 'message': 'No hay usuario autenticado'};
+      }
+      await user.delete();
+      return {'success': true};
+    } on FirebaseAuthException catch (e) {
+      // requires-recent-login: el usuario necesita re-autenticarse antes de eliminar
+      return {'success': false, 'message': e.message ?? 'Error al eliminar usuario'};
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+
   // ─── SIGN OUT ─────────────────────────────────────────────────────────────
   Future<void> signOut() async {
     try { await _googleSignIn.signOut(); } catch (_) {}
     try { await _googleSignIn.disconnect(); } catch (_) {}
     try { await _auth.signOut(); } catch (_) {}
   }
+
 
   User? getCurrentUser() => _auth.currentUser;
 }

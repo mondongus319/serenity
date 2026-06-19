@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import '../servicces/auth_service.dart';
 import '../servicces/firestore_service.dart';
 
+
 class ParentProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+
 
   // ── HIJOS ─────────────────────────────────────────────────────────────────
   List<dynamic> ninos = [];
   bool isLoadingNinos = false;
+
 
   Future<void> cargarNinos(String userId) async {
     if (isLoadingNinos) return;
@@ -20,6 +23,7 @@ class ParentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+
   // ── PERFIL ────────────────────────────────────────────────────────────────
   String nombre = '';
   String segundoNombre = '';
@@ -30,6 +34,7 @@ class ParentProvider extends ChangeNotifier {
   bool isLoadingPerfil = false;
   bool isSaving = false;
   bool datosYaCargados = false;
+
 
   Future<void> cargarDatos(
     String userId, {
@@ -66,6 +71,7 @@ class ParentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+
   Future<Map<String, dynamic>> guardarEnBD({
     required String userId,
     required String primerNombre,
@@ -89,12 +95,14 @@ class ParentProvider extends ChangeNotifier {
       await FirestoreService.actualizarPadre(userId, datosFS)
           .timeout(const Duration(seconds: 10));
 
+
       if (nuevaContrasena != null && nuevaContrasena.isNotEmpty) {
         final respPass = await _authService.actualizarContrasena(nuevaContrasena);
         isSaving = false;
         notifyListeners();
         return respPass;
       }
+
 
       nombre = primerNombre;
       if (segundoNombreVal   != null) segundoNombre   = segundoNombreVal;
@@ -103,6 +111,7 @@ class ParentProvider extends ChangeNotifier {
       if (fechaNacimientoVal != null && fechaNacimientoVal.isNotEmpty) {
         fechaNacimiento = fechaNacimientoVal;
       }
+
 
       isSaving = false;
       notifyListeners();
@@ -114,6 +123,34 @@ class ParentProvider extends ChangeNotifier {
     }
   }
 
+
+  /// Elimina la cuenta del padre:
+  /// 1. Limpia gmail y marca como eliminado en Firestore
+  /// 2. Pone todos sus niños en activo: false
+  /// 3. Elimina el usuario de Firebase Auth (libera el correo)
+  Future<Map<String, dynamic>> eliminarCuenta(String userId) async {
+    try {
+      // Paso 1: Actualizar Firestore (padre + niños)
+      await FirestoreService.eliminarCuentaPadre(userId)
+          .timeout(const Duration(seconds: 10));
+
+      // Paso 2: Eliminar usuario de Firebase Auth para liberar el correo
+      final resultAuth = await _authService.eliminarUsuarioAuth();
+      if (resultAuth['success'] != true) {
+        // Si falla la eliminación en Auth, igual dejamos Firestore actualizado
+        // El correo podría quedar ocupado en Auth, pero el acceso queda bloqueado
+        // por activo: false en Firestore
+        debugPrint('Advertencia: no se pudo eliminar usuario en Auth: ${resultAuth['message']}');
+      }
+
+      return {'success': true};
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+
+  // Conservado para compatibilidad con otros flujos existentes
   Future<Map<String, dynamic>> desactivarCuenta(String userId) async {
     try {
       await FirestoreService.desactivarPadre(userId)
@@ -124,10 +161,12 @@ class ParentProvider extends ChangeNotifier {
     }
   }
 
+
   void actualizarCorreoLocal(String nuevoCorreo) {
     correoActual = nuevoCorreo;
     notifyListeners();
   }
+
 
   void reset() {
     ninos           = [];

@@ -38,7 +38,6 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
 
   Future<void> _cargarYLanzar() async {
     if (_cargando) return;
-
     _cargando = true;
 
     if (mounted) {
@@ -148,6 +147,7 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         MaterialPageRoute(
           builder: (_) => YoutubeAutoPlayScreen(
             videos: todos,
+            catalogoBusqueda: List<Map<String, dynamic>>.from(catalogo),
             nombreNino: widget.nombreNino,
             ninoId: widget.idNino,
           ),
@@ -158,7 +158,10 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
 
       if (resultado == true) {
         _cargarYLanzar();
+        return;
       }
+
+      Navigator.pop(context);
     } catch (e) {
       _setError('ERROR:\n$e');
       _cargando = false;

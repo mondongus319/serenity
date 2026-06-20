@@ -28,29 +28,33 @@ class FirestoreService {
 
 
   static String? calcularRangoEdad(String fechaNacimiento) {
-    try {
-      final parts = fechaNacimiento.split('-');
-      if (parts.length != 3) return null;
-      final nacimiento = DateTime(
-        int.parse(parts[0]),
-        int.parse(parts[1]),
-        int.parse(parts[2]),
-      );
-      final hoy = DateTime.now();
-      int edad = hoy.year - nacimiento.year;
-      if (hoy.month < nacimiento.month ||
-          (hoy.month == nacimiento.month && hoy.day < nacimiento.day)) {
-        edad--;
+     try {
+        final parts = fechaNacimiento.split('-');
+        if (parts.length != 3) return null;
+
+        final nacimiento = DateTime(
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+          int.parse(parts[2]),
+        );
+
+        final hoy = DateTime.now();
+        int edad = hoy.year - nacimiento.year;
+
+        if (hoy.month < nacimiento.month ||
+            (hoy.month == nacimiento.month && hoy.day < nacimiento.day)) {
+          edad--;
+        }
+
+        if (edad < 0) return null;
+
+        if (edad <= 5) return '3-5';
+        if (edad <= 9) return '6-9';
+        if (edad <= 13) return '10-13';
+        return '14-17';
+      } catch (_) {
+        return null;
       }
-      if (edad < 0) return null;
-      if (edad <= 5) return '3-5';
-      if (edad <= 9) return '6-9';
-      if (edad <= 13) return '10-13';
-      if (edad <= 17) return '14-17';
-      return null;
-    } catch (_) {
-      return null;
-    }
   }
 
 

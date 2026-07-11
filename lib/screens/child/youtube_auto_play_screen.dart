@@ -364,6 +364,7 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
           },
           child: Scaffold(
             backgroundColor: bg,
+            resizeToAvoidBottomInset: false,
             body: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

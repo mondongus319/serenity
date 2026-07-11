@@ -60,88 +60,291 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
     final urlController = TextEditingController();
     final nombreController = TextEditingController();
     bool guardando = false;
+    bool validando = false;
+    bool canalValidado = false;
+    String? errorValidacion;
+    String? previewNombre;
+    String? previewThumbnail;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: _bgCard,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'Agregar canal — $catNombre',
-            style: GoogleFonts.poppins(
-                fontSize: 15, fontWeight: FontWeight.w700, color: _textPearl),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Pega la URL del canal de YouTube',
-                style: GoogleFonts.poppins(fontSize: 12, color: _textMuted),
-              ),
-              const SizedBox(height: 10),
-              _InputField(
-                controller: urlController,
-                hint: 'https://www.youtube.com/@canal',
-              ),
-              const SizedBox(height: 10),
-              _InputField(
-                controller: nombreController,
-                hint: 'Nombre del canal',
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancelar',
-                  style: GoogleFonts.poppins(color: _textMuted)),
-            ),
-            guardando
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                        color: _accentCyan, strokeWidth: 2))
-                : TextButton(
-                    onPressed: () async {
-                      final url = _normalizarUrl(urlController.text.trim());
-                      final nombre = nombreController.text.trim();
-                      if (url.isEmpty || nombre.isEmpty) return;
+        builder: (ctx, setDialogState) {
+          Future<void> validarCanal() async {
+            final url = _normalizarUrl(urlController.text.trim());
+            if (url.isEmpty) return;
 
-                      setDialogState(() => guardando = true);
-                      await FirestoreService.agregarCanalCustom(
-                        padreId:    widget.padreId,
-                        catId:      catId,
-                        channelUrl: url,
-                        nombreCanal: nombre,
-                      );
-                      YoutubeService.limpiarCache();
-                      if (!mounted) return;
-                      Navigator.pop(ctx);
-                      _cargarCanales();
-                    },
-                    child: Text('Agregar',
+            setDialogState(() {
+              validando = true;
+              errorValidacion = null;
+              canalValidado = false;
+              previewNombre = null;
+              previewThumbnail = null;
+            });
+
+            try {
+              final videos = await YoutubeService.obtenerVideosDeCanal(url);
+              if (videos.isEmpty) {
+                setDialogState(() {
+                  validando = false;
+                  errorValidacion =
+                      'No pudimos encontrar videos en ese canal. Verifica el link.';
+                });
+                return;
+              }
+
+              final primerVideo = videos.first;
+              final nombreDetectado = (primerVideo['canal'] as String?) ?? '';
+              final thumbDetectado = (primerVideo['thumbnail'] as String?) ?? '';
+
+              setDialogState(() {
+                validando = false;
+                canalValidado = true;
+                errorValidacion = null;
+                previewNombre = nombreDetectado;
+                previewThumbnail = thumbDetectado;
+                if (nombreController.text.trim().isEmpty &&
+                    nombreDetectado.isNotEmpty) {
+                  nombreController.text = nombreDetectado;
+                }
+              });
+            } catch (e) {
+              setDialogState(() {
+                validando = false;
+                canalValidado = false;
+                errorValidacion =
+                    'Ocurrió un error al verificar el canal. Intenta de nuevo.';
+              });
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: _bgCard,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(
+              'Agregar canal — $catNombre',
+              style: GoogleFonts.poppins(
+                  fontSize: 15, fontWeight: FontWeight.w700, color: _textPearl),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pega la URL del canal de YouTube',
+                    style: GoogleFonts.poppins(fontSize: 12, color: _textMuted),
+                  ),
+                  const SizedBox(height: 10),
+                  _InputField(
+                    controller: urlController,
+                    hint: 'https://www.youtube.com/@canal',
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: validando ? null : validarCanal,
+                      icon: validando
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  color: _accentCyan, strokeWidth: 2),
+                            )
+                          : const Icon(Icons.search_rounded,
+                              color: _accentCyan, size: 16),
+                      label: Text(
+                        'Verificar canal',
                         style: GoogleFonts.poppins(
                             color: _accentCyan,
-                            fontWeight: FontWeight.w600)),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   ),
-          ],
-        ),
+                  if (errorValidacion != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        errorValidacion!,
+                        style: GoogleFonts.poppins(
+                            fontSize: 11, color: Colors.redAccent),
+                      ),
+                    ),
+                  if (canalValidado)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _bgPrimary,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: _accentCyan.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: (previewThumbnail ?? '').isNotEmpty
+                                ? Image.network(
+                                    previewThumbnail!,
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 48,
+                                      height: 48,
+                                      color: Colors.black26,
+                                      child: const Icon(
+                                          Icons.ondemand_video_rounded,
+                                          color: _textMuted, size: 20),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 48,
+                                    height: 48,
+                                    color: Colors.black26,
+                                    child: const Icon(
+                                        Icons.ondemand_video_rounded,
+                                        color: _textMuted, size: 20),
+                                  ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Canal verificado',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 10,
+                                      color: Colors.greenAccent,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  (previewNombre ?? '').isNotEmpty
+                                      ? previewNombre!
+                                      : 'Canal sin nombre detectado',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: _textPearl,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  _InputField(
+                    controller: nombreController,
+                    hint: 'Nombre del canal',
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancelar',
+                    style: GoogleFonts.poppins(color: _textMuted)),
+              ),
+              guardando
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                          color: _accentCyan, strokeWidth: 2))
+                  : TextButton(
+                      onPressed: !canalValidado
+                          ? null
+                          : () async {
+                              final url = _normalizarUrl(
+                                  urlController.text.trim());
+                              final nombre = nombreController.text.trim();
+                              if (url.isEmpty || nombre.isEmpty) return;
+
+                              setDialogState(() => guardando = true);
+                              try {
+                                await FirestoreService.agregarCanalCustom(
+                                  padreId:    widget.padreId,
+                                  catId:      catId,
+                                  channelUrl: url,
+                                  nombreCanal: nombre,
+                                );
+                                YoutubeService.limpiarCache();
+                                if (!mounted) return;
+                                Navigator.pop(ctx);
+                                _cargarCanales();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: Colors.green,
+                                    content: Text(
+                                      'Canal agregado correctamente.',
+                                      style: GoogleFonts.poppins(),
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                setDialogState(() => guardando = false);
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: Colors.redAccent,
+                                    content: Text(
+                                      'No se pudo guardar el canal. Intenta de nuevo.',
+                                      style: GoogleFonts.poppins(),
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                      child: Text('Agregar',
+                          style: GoogleFonts.poppins(
+                              color: !canalValidado
+                                  ? _textMuted
+                                  : _accentCyan,
+                              fontWeight: FontWeight.w600)),
+                    ),
+            ],
+          );
+        },
       ),
     );
   }
 
   String _normalizarUrl(String input) {
+    if (input.isEmpty) return '';
     if (input.startsWith('http')) return input;
     if (input.startsWith('@')) return 'https://www.youtube.com/$input';
+    if (input.startsWith('channel/') ||
+        input.startsWith('c/') ||
+        input.startsWith('user/')) {
+      return 'https://www.youtube.com/$input';
+    }
     return 'https://www.youtube.com/@$input';
   }
 
   Future<void> _eliminarCanal(String docId) async {
-    await FirestoreService.eliminarCanalCustom(docId);
-    YoutubeService.limpiarCache();
-    _cargarCanales();
+    try {
+      await FirestoreService.eliminarCanalCustom(docId);
+      YoutubeService.limpiarCache();
+      _cargarCanales();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text(
+            'No se pudo eliminar el canal. Intenta de nuevo.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+    }
   }
 
   @override

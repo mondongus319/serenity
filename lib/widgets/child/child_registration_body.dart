@@ -2,15 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _bgField      = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
+import '../../utils/app_colors.dart';
 
 class ChildRegistrationBody extends StatelessWidget {
   final TextEditingController nombreController;
@@ -39,15 +31,15 @@ class ChildRegistrationBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_bgPrimary, _bgCard, _bgPrimary],
+            colors: [AppColors.bgPrimary, AppColors.bgCard, AppColors.bgPrimary],
           ),
         ),
         child: SafeArea(
@@ -57,18 +49,20 @@ class ChildRegistrationBody extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 20),
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: codigoGenerado
                       ? _CodigoGeneradoSection(
-                          codigoVinculacion:    codigoVinculacion!,
+                          codigoVinculacion: codigoVinculacion!,
                           esperandoVinculacion: esperandoVinculacion,
                         )
                       : _FormularioSection(
-                          nombreController:          nombreController,
+                          nombreController: nombreController,
                           fechaNacimientoController: fechaNacimientoController,
-                          isLoading:                 isLoading,
-                          onGenerarCodigo:           onGenerarCodigo,
-                          onTapFecha:                onTapFecha,
+                          isLoading: isLoading,
+                          onGenerarCodigo: onGenerarCodigo,
+                          onTapFecha: onTapFecha,
                         ),
                 ),
               ),
@@ -100,14 +94,14 @@ class _RegHeader extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _bgCard,
+                color: AppColors.bgCard,
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.4),
+                  color: AppColors.accentCyan.withOpacity(0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentCyan.withOpacity(0.15),
+                    color: AppColors.accentCyan.withOpacity(0.15),
                     blurRadius: 12,
                     spreadRadius: 1,
                   ),
@@ -115,7 +109,7 @@ class _RegHeader extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.arrow_back_ios_new_rounded,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
                 size: 18,
               ),
             ),
@@ -126,7 +120,7 @@ class _RegHeader extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: _textPearl,
+              color: AppColors.textPearl,
             ),
           ),
         ],
@@ -159,7 +153,7 @@ class _FormularioSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: Colors.white.withOpacity(0.07),
@@ -172,7 +166,7 @@ class _FormularioSection extends StatelessWidget {
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: _accentCyan.withOpacity(0.04),
+            color: AppColors.accentCyan.withOpacity(0.04),
             blurRadius: 30,
             offset: const Offset(0, 4),
           ),
@@ -186,12 +180,12 @@ class _FormularioSection extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: _accentCyan.withOpacity(0.15),
+                  color: AppColors.accentCyan.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.child_care_rounded,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 20,
                 ),
               ),
@@ -201,7 +195,7 @@ class _FormularioSection extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: _textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
             ],
@@ -213,8 +207,8 @@ class _FormularioSection extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  _accentViolet.withOpacity(0.4),
-                  _accentCyan.withOpacity(0.4),
+                  AppColors.accentViolet.withOpacity(0.4),
+                  AppColors.accentCyan.withOpacity(0.4),
                   Colors.transparent,
                 ],
               ),
@@ -240,19 +234,19 @@ class _FormularioSection extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [_accentViolet, _accentCyan],
+                  colors: [AppColors.accentViolet, AppColors.accentCyan],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentViolet.withOpacity(0.35),
+                    color: AppColors.accentViolet.withOpacity(0.35),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
                   BoxShadow(
-                    color: _accentCyan.withOpacity(0.2),
+                    color: AppColors.accentCyan.withOpacity(0.2),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -293,10 +287,10 @@ class _FormularioSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: _accentCyan.withOpacity(0.07),
+              color: AppColors.accentCyan.withOpacity(0.07),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _accentCyan.withOpacity(0.2),
+                color: AppColors.accentCyan.withOpacity(0.2),
                 width: 1,
               ),
             ),
@@ -304,7 +298,7 @@ class _FormularioSection extends StatelessWidget {
               children: [
                 Icon(
                   Icons.info_outline_rounded,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 18,
                 ),
                 const SizedBox(width: 12),
@@ -313,7 +307,7 @@ class _FormularioSection extends StatelessWidget {
                     'Se te pedirá crear una contraseña para proteger este perfil',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
-                      color: _textMuted,
+                      color: AppColors.textMuted,
                     ),
                   ),
                 ),
@@ -339,14 +333,11 @@ class _CodigoGeneradoSection extends StatefulWidget {
   });
 
   @override
-  State<_CodigoGeneradoSection> createState() =>
-      _CodigoGeneradoSectionState();
+  State<_CodigoGeneradoSection> createState() => _CodigoGeneradoSectionState();
 }
 
 class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
     with SingleTickerProviderStateMixin {
-
-  // ✅ Estado para el feedback visual al copiar
   bool _copiado = false;
   late AnimationController _animController;
   late Animation<double> _scaleAnim;
@@ -369,11 +360,9 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
     super.dispose();
   }
 
-  // ✅ Copiar al portapapeles con feedback visual
   Future<void> _copiarCodigo() async {
     await Clipboard.setData(ClipboardData(text: widget.codigoVinculacion));
 
-    // Animación de press
     await _animController.forward();
     await _animController.reverse();
 
@@ -381,17 +370,16 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
 
     setState(() => _copiado = true);
 
-    // Mostrar SnackBar elegante
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: AppColors.bgCard,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: _accentCyan.withOpacity(0.4),
+            color: AppColors.accentCyan.withOpacity(0.4),
             width: 1,
           ),
         ),
@@ -400,12 +388,12 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: _accentCyan.withOpacity(0.15),
+                color: AppColors.accentCyan.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.check_rounded,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
                 size: 16,
               ),
             ),
@@ -413,7 +401,7 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
             Text(
               '¡Código copiado al portapapeles!',
               style: GoogleFonts.poppins(
-                color: _textPearl,
+                color: AppColors.textPearl,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -423,16 +411,16 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
       ),
     );
 
-    // Restaurar ícono después de 3 segundos
     await Future.delayed(const Duration(seconds: 3));
-    if (mounted) setState(() => _copiado = false);
+    if (mounted) {
+      setState(() => _copiado = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // ── Banner de estado ──────────────────────────────────────────
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -486,15 +474,12 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
             ],
           ),
         ),
-
         const SizedBox(height: 20),
-
-        // ── Card principal ────────────────────────────────────────────
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: _bgCard,
+            color: AppColors.bgCard,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: Colors.white.withOpacity(0.07),
@@ -507,7 +492,7 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
                 offset: const Offset(0, 10),
               ),
               BoxShadow(
-                color: _accentCyan.withOpacity(0.06),
+                color: AppColors.accentCyan.withOpacity(0.06),
                 blurRadius: 30,
                 offset: const Offset(0, 4),
               ),
@@ -520,7 +505,7 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
                 style: GoogleFonts.poppins(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: _textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
               const SizedBox(height: 6),
@@ -529,7 +514,7 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 13,
-                  color: _textMuted,
+                  color: AppColors.textMuted,
                 ),
               ),
               const SizedBox(height: 6),
@@ -538,14 +523,13 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
                 height: 3,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [_accentViolet, _accentCyan],
+                    colors: [AppColors.accentViolet, AppColors.accentCyan],
                   ),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // ── QR ───────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -553,12 +537,12 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: _accentCyan.withOpacity(0.2),
+                      color: AppColors.accentCyan.withOpacity(0.2),
                       blurRadius: 20,
                       spreadRadius: 2,
                     ),
                     BoxShadow(
-                      color: _accentViolet.withOpacity(0.1),
+                      color: AppColors.accentViolet.withOpacity(0.1),
                       blurRadius: 30,
                       spreadRadius: 1,
                     ),
@@ -578,51 +562,48 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
                 'Código:',
                 style: GoogleFonts.poppins(
                   fontSize: 12,
-                  color: _textMuted,
+                  color: AppColors.textMuted,
                 ),
               ),
               const SizedBox(height: 10),
 
-              // ✅ NUEVO: Contenedor del código con botón copiar
               ScaleTransition(
                 scale: _scaleAnim,
                 child: GestureDetector(
                   onTap: _copiarCodigo,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 16),
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          _accentViolet.withOpacity(0.15),
-                          _accentCyan.withOpacity(0.1),
+                          AppColors.accentViolet.withOpacity(0.15),
+                          AppColors.accentCyan.withOpacity(0.1),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: _copiado
-                            ? Colors.green.withOpacity(0.6)  // ← verde al copiar
-                            : _accentCyan.withOpacity(0.3),
+                            ? Colors.green.withOpacity(0.6)
+                            : AppColors.accentCyan.withOpacity(0.3),
                         width: 1.5,
                       ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Código
                         Text(
                           widget.codigoVinculacion,
                           style: GoogleFonts.poppins(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 6,
-                            color: _textPearl,
+                            color: AppColors.textPearl,
                           ),
                         ),
-
                         const SizedBox(width: 14),
-
-                        // ✅ Ícono que cambia al copiar
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
                           child: _copiado
@@ -634,8 +615,8 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
                                 )
                               : Icon(
                                   Icons.copy_rounded,
-                                  key: ValueKey('copy'),
-                                  color: _accentCyan.withOpacity(0.8),
+                                  key: const ValueKey('copy'),
+                                  color: AppColors.accentCyan.withOpacity(0.8),
                                   size: 22,
                                 ),
                         ),
@@ -647,7 +628,6 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
 
               const SizedBox(height: 10),
 
-              // ✅ Hint de toque para copiar
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Text(
@@ -657,7 +637,7 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
                     fontSize: 11,
                     color: _copiado
                         ? Colors.green.withOpacity(0.8)
-                        : _textMuted.withOpacity(0.6),
+                        : AppColors.textMuted.withOpacity(0.6),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -667,7 +647,9 @@ class _CodigoGeneradoSectionState extends State<_CodigoGeneradoSection>
 
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -719,7 +701,6 @@ class _RegField extends StatelessWidget {
     required this.controller,
     required this.prefixIcon,
     required this.hintText,
-    // ignore: unused_element_parameter
     this.keyboardType = TextInputType.text,
   });
 
@@ -733,16 +714,16 @@ class _RegField extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 11,
             fontWeight: FontWeight.w500,
-            color: _accentCyan,
+            color: AppColors.accentCyan,
           ),
         ),
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: _bgField,
+            color: AppColors.bgField,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _accentCyan.withOpacity(0.2),
+              color: AppColors.accentCyan.withOpacity(0.2),
               width: 1,
             ),
           ),
@@ -750,19 +731,25 @@ class _RegField extends StatelessWidget {
             controller: controller,
             keyboardType: keyboardType,
             style: GoogleFonts.poppins(
-              color: _textPearl,
+              color: AppColors.textPearl,
               fontSize: 13,
             ),
             decoration: InputDecoration(
               hintText: hintText,
               hintStyle: GoogleFonts.poppins(
-                color: _textMuted.withOpacity(0.5),
+                color: AppColors.textMuted.withOpacity(0.5),
                 fontSize: 12,
               ),
-              prefixIcon: Icon(prefixIcon, color: _accentCyan, size: 18),
+              prefixIcon: Icon(
+                prefixIcon,
+                color: AppColors.accentCyan,
+                size: 18,
+              ),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 13),
+                horizontal: 12,
+                vertical: 13,
+              ),
             ),
           ),
         ),
@@ -795,7 +782,7 @@ class _RegDateField extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 11,
             fontWeight: FontWeight.w500,
-            color: _accentCyan,
+            color: AppColors.accentCyan,
           ),
         ),
         const SizedBox(height: 6),
@@ -803,10 +790,10 @@ class _RegDateField extends StatelessWidget {
           onTap: onTap,
           child: Container(
             decoration: BoxDecoration(
-              color: _bgField,
+              color: AppColors.bgField,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _accentCyan.withOpacity(0.2),
+                color: AppColors.accentCyan.withOpacity(0.2),
                 width: 1,
               ),
             ),
@@ -815,28 +802,30 @@ class _RegDateField extends StatelessWidget {
               readOnly: true,
               onTap: onTap,
               style: GoogleFonts.poppins(
-                color: _textPearl,
+                color: AppColors.textPearl,
                 fontSize: 13,
               ),
               decoration: InputDecoration(
                 hintText: 'DD/MM/AAAA',
                 hintStyle: GoogleFonts.poppins(
-                  color: _textMuted.withOpacity(0.5),
+                  color: AppColors.textMuted.withOpacity(0.5),
                   fontSize: 12,
                 ),
                 prefixIcon: const Icon(
                   Icons.calendar_today_outlined,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 18,
                 ),
                 suffixIcon: const Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 20,
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 13),
+                  horizontal: 12,
+                  vertical: 13,
+                ),
               ),
             ),
           ),

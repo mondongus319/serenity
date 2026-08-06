@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'register_screen.dart';
 import 'verify_email_screen.dart';
 import 'role_selection_screen.dart';
+import 'forgot_password_screen.dart';
 import '../../servicces/notification_service.dart';
 import '../../../widgets/auth/login_body.dart';
 import '../../providers/auth_provider.dart';
@@ -47,8 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bgDialog,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: Icon(icono, color: colorIcono, size: 56),
         title: Text(
           titulo,
@@ -96,8 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bgDialog,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: const Icon(
           Icons.notifications_active_outlined,
           color: AppColors.accentPurple,
@@ -175,8 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bgDialog,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: const Icon(Icons.block_outlined, color: Colors.redAccent, size: 60),
         title: const Text(
           'Cuenta desactivada',
@@ -231,7 +229,9 @@ class _LoginScreenState extends State<LoginScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
               side: BorderSide(
-                  color: AppColors.accentCyan.withOpacity(0.3), width: 1.5),
+                color: AppColors.accentCyan.withOpacity(0.3),
+                width: 1.5,
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -256,8 +256,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.cake_outlined,
-                        color: AppColors.accentCyan, size: 28),
+                    child: const Icon(
+                      Icons.cake_outlined,
+                      color: AppColors.accentCyan,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -271,8 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Para completar tu registro con Google necesitamos '
-                    'tu fecha de nacimiento.',
+                    'Para completar tu registro con Google necesitamos tu fecha de nacimiento.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       fontSize: 12,
@@ -291,7 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         locale: const Locale('es', 'CO'),
                         builder: (context, child) => Theme(
                           data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.dark(
+                            colorScheme: ColorScheme.dark(
                               primary: AppColors.accentCyan,
                               onPrimary: Colors.white,
                               surface: AppColors.bgCard,
@@ -314,7 +316,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.bgPrimary,
                         borderRadius: BorderRadius.circular(12),
@@ -337,9 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(width: 10),
                           Text(
                             fechaSeleccionada != null
-                                ? '${fechaSeleccionada!.day.toString().padLeft(2, '0')}/'
-                                    '${fechaSeleccionada!.month.toString().padLeft(2, '0')}/'
-                                    '${fechaSeleccionada!.year}'
+                                ? '${fechaSeleccionada!.day.toString().padLeft(2, '0')}/${fechaSeleccionada!.month.toString().padLeft(2, '0')}/${fechaSeleccionada!.year}'
                                 : 'Seleccionar fecha',
                             style: GoogleFonts.poppins(
                               color: fechaSeleccionada != null
@@ -374,7 +376,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? const LinearGradient(
                                 colors: [
                                   AppColors.accentViolet,
-                                  AppColors.accentCyan
+                                  AppColors.accentCyan,
                                 ],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
@@ -555,7 +557,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   setState(() => obscurePassword = !obscurePassword),
               onLogin: iniciarSesion,
               onGoogleLogin: signInWithGoogle,
-              onForgotPassword: () {},
+              onForgotPassword: () => Navigator.push(
+                scaffoldContext,
+                MaterialPageRoute(
+                  builder: (_) => const ForgotPasswordScreen(),
+                ),
+              ),
               onRegister: () => Navigator.push(
                 scaffoldContext,
                 MaterialPageRoute(builder: (_) => const RegisterScreen()),

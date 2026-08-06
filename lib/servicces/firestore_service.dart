@@ -3,13 +3,16 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 
+
 class FirestoreService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
+
 
   static String hashPassword(String password) {
     final bytes = utf8.encode(password);
     return sha256.convert(bytes).toString();
   }
+
 
   static const List<Map<String, dynamic>> _catalogoRangos = [
     {'id': '3-5', 'nombre': 'Preescolar', 'edad_min': 3, 'edad_max': 5, 'icono': '🧒', 'color': '#FFB74D', 'orden': 1},
@@ -18,14 +21,17 @@ class FirestoreService {
     {'id': '14-17', 'nombre': 'Adolescente', 'edad_min': 14, 'edad_max': 17, 'icono': '🧑', 'color': '#BA68C8', 'orden': 4},
   ];
 
+
   static List<Map<String, dynamic>> obtenerCatalogoRangosEdad() {
     return List.unmodifiable(_catalogoRangos);
   }
+
 
   static String? calcularRangoEdad(String fechaNacimiento) {
      try {
         final parts = fechaNacimiento.split('-');
         if (parts.length != 3) return null;
+
 
         final nacimiento = DateTime(
           int.parse(parts[0]),
@@ -33,15 +39,19 @@ class FirestoreService {
           int.parse(parts[2]),
         );
 
+
         final hoy = DateTime.now();
         int edad = hoy.year - nacimiento.year;
+
 
         if (hoy.month < nacimiento.month ||
             (hoy.month == nacimiento.month && hoy.day < nacimiento.day)) {
           edad--;
         }
 
+
         if (edad < 0) return null;
+
 
         if (edad <= 5) return '3-5';
         if (edad <= 9) return '6-9';
@@ -52,6 +62,7 @@ class FirestoreService {
       }
   }
 
+
   static Future<void> poblarRangosEdad() async {
     final batch = _db.batch();
     for (final rango in _catalogoRangos) {
@@ -61,10 +72,12 @@ class FirestoreService {
     await batch.commit();
   }
 
+
   static Future<List<Map<String, dynamic>>> obtenerRangosEdad() async {
     final q = await _db.collection('rangos_edad').orderBy('orden').get();
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
+
 
   static Future<Map<String, int>> migrarRangosEdadNinos() async {
     final todos = await _db.collection('ninos').get();
@@ -85,6 +98,7 @@ class FirestoreService {
     await batch.commit();
     return {'actualizados': actualizados, 'sin_rango': sinRango};
   }
+
 
   static Future<void> crearPadre({
     required String uid,
@@ -115,20 +129,24 @@ class FirestoreService {
     });
   }
 
+
   static Future<Map<String, dynamic>?> obtenerPadre(String uid) async {
     final doc = await _db.collection('padres').doc(uid).get();
     if (!doc.exists) return null;
     return {'id': doc.id, ...doc.data()!};
   }
 
+
   static Future<void> actualizarPadre(
       String uid, Map<String, dynamic> datos) async {
     await _db.collection('padres').doc(uid).update(datos);
   }
 
+
   static Future<void> desactivarPadre(String uid) async {
     await _db.collection('padres').doc(uid).update({'activo': false});
   }
+
 
   /// Elimina la cuenta del padre de forma suave:
   /// - Conserva nombres y datos de trazabilidad
@@ -137,6 +155,7 @@ class FirestoreService {
   /// - Pone todos sus niños en activo: false (sin desvincularlos)
   static Future<void> eliminarCuentaPadre(String uid) async {
     final batch = _db.batch();
+
 
     // 1. Actualizar documento del padre
     final padreRef = _db.collection('padres').doc(uid);
@@ -148,18 +167,22 @@ class FirestoreService {
       'fecha_eliminacion': FieldValue.serverTimestamp(),
     });
 
+
     // 2. Poner todos los niños vinculados como inactivos
     final ninosSnap = await _db
         .collection('ninos')
         .where('id_padre', isEqualTo: uid)
         .get();
 
+
     for (final doc in ninosSnap.docs) {
       batch.update(doc.reference, {'activo': false});
     }
 
+
     await batch.commit();
   }
+
 
   static Future<void> guardarUbicacionPadre(
       String uid, double lat, double lng) async {
@@ -170,11 +193,13 @@ class FirestoreService {
     });
   }
 
+
   static String _generarCodigo() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final rand = Random.secure();
     return List.generate(6, (_) => chars[rand.nextInt(chars.length)]).join();
   }
+
 
   static Future<Map<String, dynamic>> crearNino({
     required String nombre,
@@ -196,7 +221,9 @@ class FirestoreService {
       if (intentos > 20) throw Exception('No se pudo generar código único');
     } while (existe);
 
+
     final rangoEdad = calcularRangoEdad(fechaNacimiento);
+
 
     final doc = await _db.collection('ninos').add({
       'nombre': nombre,
@@ -215,8 +242,10 @@ class FirestoreService {
       'creado_en': FieldValue.serverTimestamp(),
     });
 
+
     return {'success': true, 'id': doc.id, 'codigo': codigo};
   }
+
 
   static Future<bool> validarPasswordNino(
       String ninoId, String password) async {
@@ -225,6 +254,7 @@ class FirestoreService {
     final hash = doc.data()!['password_hash'] as String? ?? '';
     return hash == hashPassword(password);
   }
+
 
   static Future<Map<String, dynamic>> vincularNinoPadre({
     required String padreId,
@@ -239,12 +269,15 @@ class FirestoreService {
         .limit(1)
         .get();
 
+
     if (q.docs.isEmpty) {
       return {'success': false, 'message': 'Código inválido o no encontrado'};
     }
 
+
     final doc = q.docs.first;
     final data = doc.data();
+
 
     if (data['activo'] == true && data['id_padre'] != null) {
       return {
@@ -253,14 +286,17 @@ class FirestoreService {
       };
     }
 
+
     await doc.reference.update({
       'activo': true,
       'id_padre': padreId,
       'fecha_vinculacion': FieldValue.serverTimestamp(),
     });
 
+
     return {'success': true, 'id': doc.id, 'nombre': data['nombre']};
   }
+
 
   static Future<List<Map<String, dynamic>>> listarNinosPadre(
       String padreId) async {
@@ -273,14 +309,17 @@ class FirestoreService {
         .toList();
   }
 
+
   static Stream<DocumentSnapshot> streamNino(String ninoId) =>
       _db.collection('ninos').doc(ninoId).snapshots();
+
 
   static Future<Map<String, dynamic>?> obtenerNino(String ninoId) async {
     final doc = await _db.collection('ninos').doc(ninoId).get();
     if (!doc.exists) return null;
     return {'id': doc.id, ...doc.data()!};
   }
+
 
   static Future<void> guardarUbicacionNino(
       String ninoId, double lat, double lng) async {
@@ -290,6 +329,7 @@ class FirestoreService {
       'fecha_ultima_ubicacion': FieldValue.serverTimestamp(),
     });
   }
+
 
   static const Map<String, Map<String, dynamic>> _catalogoCategorias = {
     'cat_1': {'id': 'cat_1', 'nombre': 'Música'},
@@ -304,8 +344,10 @@ class FirestoreService {
     'cat_10': {'id': 'cat_10', 'nombre': 'Experimentos'},
   };
 
+
   static List<Map<String, dynamic>> obtenerTodasLasCategorias() =>
       _catalogoCategorias.values.toList();
+
 
   static Future<List<Map<String, dynamic>>> obtenerCategoriasNino(
       String ninoId) async {
@@ -321,6 +363,7 @@ class FirestoreService {
         .toList();
   }
 
+
   static Future<void> guardarCategoriasNino(
       String ninoId, List<String> categoriaIds) async {
     await _db
@@ -329,12 +372,14 @@ class FirestoreService {
         .set({'categorias_permitidas': categoriaIds}, SetOptions(merge: true));
   }
 
+
   static Future<void> guardarYoutubersNino(
       String ninoId, List<String> youtubersIds) async {
     await _db.collection('ninos').doc(ninoId).set({
       'youtubers_seleccionados': youtubersIds,
     }, SetOptions(merge: true));
   }
+
 
   static Future<List<String>> obtenerYoutubersNino(String ninoId) async {
     final doc = await _db.collection('ninos').doc(ninoId).get();
@@ -343,6 +388,7 @@ class FirestoreService {
     final List ids = (data['youtubers_seleccionados'] as List?) ?? [];
     return ids.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
   }
+
 
   /// Compara un valor de rango de edad guardado en Firestore (que puede
   /// venir como "14-17" o como "14-17 años") contra el código puro
@@ -353,118 +399,168 @@ class FirestoreService {
     return texto == rangoEdad || texto.startsWith(rangoEdad);
   }
 
-  static Future<List<Map<String, dynamic>>> obtenerVideosCatalogo({
-    required String categoriaId,
-    required String rangoEdad,
-  }) async {
-    // Ya no filtramos por arrayContains exacto en Firestore porque el
-    // campo rangos_edad puede venir como "14-17" o "14-17 años".
-    // Filtramos en el cliente de forma tolerante al formato.
-    final q = await _db
-        .collection('videos_catalogo')
-        .where('activo', isEqualTo: true)
-        .get();
 
-    final nombreCategoria =
-        _catalogoCategorias[categoriaId]?['nombre'] as String? ?? '';
+ static Future<List<Map<String, dynamic>>> obtenerVideosCatalogo({
+  required String categoriaId,
+  required String rangoEdad,
+}) async {
+  final clave = '${categoriaId}__$rangoEdad';
 
-    return q.docs
-        .map((d) => d.data())
-        .where((data) {
-          final cats = (data['categorias_info'] as List?) ?? [];
 
-          final coincideEnCategorias = cats.any((c) {
-            final entry = c as Map;
-            return entry['categoria_id'] == categoriaId &&
-                _rangoCoincide(entry['rango_edad'], rangoEdad);
-          });
+  final q = await _db
+      .collection('videos_catalogo')
+      .where('categorias_rango', arrayContains: clave)
+      .where('activo', isEqualTo: true)
+      .get();
 
-          if (coincideEnCategorias) return true;
 
-          // Fallback: si no hay categorias_info o no coincidió ahí,
-          // revisamos el array plano rangos_edad como respaldo,
-          // siempre validando que la categoría también corresponda
-          // (si el documento trae un campo categoria_id a nivel raíz).
-          final rangos = (data['rangos_edad'] as List?) ?? [];
-          final categoriaRaiz = data['categoria_id']?.toString();
-          final coincideRangoPlano =
-              rangos.any((r) => _rangoCoincide(r, rangoEdad));
+  final nombreCategoria = _catalogoCategorias[categoriaId]?['nombre'] as String? ?? '';
 
-          if (coincideRangoPlano &&
-              (categoriaRaiz == null || categoriaRaiz == categoriaId)) {
-            return true;
-          }
 
-          return false;
-        })
-        .map((data) => {
-              'video_id': data['video_id'] ?? '',
-              'titulo': data['titulo'] ?? '',
-              'thumbnail': data['thumbnail'] ?? '',
-              'canal': data['canal'] ?? '',
-              'duracion': data['duracion_segundos'] ?? 0,
-              'categoria': nombreCategoria,
-              'rango': data['rangos_edad'] ?? [],
-            })
-        .where((v) => (v['video_id'] as String).isNotEmpty)
-        .toList();
-  }
+  return q.docs
+      .map((d) => d.data())
+      .map((data) => {
+            'video_id':  data['video_id'] ?? '',
+            'titulo':    data['titulo'] ?? '',
+            'thumbnail': data['thumbnail'] ?? '',
+            'canal':     data['canal'] ?? '',
+            'duracion':  data['duracion_segundos'] ?? 0,
+            'categoria': nombreCategoria,
+            'rango':     rangoEdad,
+          })
+      .where((v) => (v['video_id'] as String).isNotEmpty)
+      .toList();
+}
 
-  static Future<List<Map<String, dynamic>>> obtenerVideosYoutubers(
-      List<String> youtubersIds) async {
-    if (youtubersIds.isEmpty) return [];
+
+ static Future<List<Map<String, dynamic>>> obtenerVideosYoutubers(
+  List<String> youtubersIds,
+) async {
+  if (youtubersIds.isEmpty) return [];
+
+
+  final idsNormalizados = youtubersIds
+      .map((e) => e.toString().trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+
+  if (idsNormalizados.isEmpty) return [];
+
+
+  // FIX: Firestore limita 'whereIn' a un máximo de 10 valores por consulta.
+  // Antes se usaba idsNormalizados.take(10), lo cual descartaba silenciosamente
+  // cualquier youtuber más allá del décimo. Ahora se divide en lotes de 10
+  // y se consulta cada lote, uniendo los resultados sin perder ningún canal.
+  final List<String> idsCompletos = idsNormalizados.toList();
+  const int tamanoLote = 10;
+
+
+  final Map<String, String> nombresCanales = {};
+
+
+  for (int i = 0; i < idsCompletos.length; i += tamanoLote) {
+    final lote = idsCompletos.sublist(
+      i,
+      i + tamanoLote > idsCompletos.length ? idsCompletos.length : i + tamanoLote,
+    );
+
+
+    if (lote.isEmpty) continue;
+
 
     final canalesSnap = await _db
         .collection('canales_youtubers')
-        .where(FieldPath.documentId, whereIn: youtubersIds.take(10).toList())
+        .where(FieldPath.documentId, whereIn: lote)
         .get();
 
-    final Map<String, String> nombresCanales = {
-      for (final d in canalesSnap.docs)
-        d.id: (d.data()['nombre_canal'] ??
-                d.data()['nombrecanal'] ??
-                d.data()['nombre'] ??
-                '')
-            .toString(),
-    };
 
-    final videosSnap = await _db
-        .collection('videos_youtubers')
-        .where('activo', isEqualTo: true)
-        .get();
-
-    final List<Map<String, dynamic>> resultado = [];
-
-    for (final d in videosSnap.docs) {
+    for (final d in canalesSnap.docs) {
       final data = d.data();
-
-      final canalId = (data['id_canal_youtuber'] ??
-              data['canal_youtuber_id'] ??
-              data['id_canal'] ??
-              data['canal_id'] ??
-              '')
-          .toString();
-
-      if (!youtubersIds.contains(canalId)) continue;
-
-      resultado.add({
-        'video_id': data['video_id'] ?? '',
-        'titulo': data['titulo'] ?? '',
-        'thumbnail': data['thumbnail'] ?? '',
-        'canal': data['canal'] ??
-            nombresCanales[canalId] ??
-            '',
-        'duracion': data['duracion_segundos'] ?? 0,
-        'categoria': data['categoria'] ?? 'Youtubers',
-        'rango': data['rangos_edad'] ?? [],
-      });
+      nombresCanales[d.id] = (
+        data['nombre_canal'] ??
+        data['nombrecanal'] ??
+        data['nombre'] ??
+        ''
+      ).toString().trim();
     }
-
-    return resultado
-        .where((v) => (v['video_id'] as String).isNotEmpty)
-        .toList();
   }
 
+
+  final videosSnap = await _db
+      .collection('videos_youtubers')
+      .where('activo', isEqualTo: true)
+      .get();
+
+
+  final List<Map<String, dynamic>> resultado = [];
+  final Set<String> idsAgregados = {};
+
+
+  for (final d in videosSnap.docs) {
+    final data = d.data();
+
+
+    final canalId = (
+      data['id_canal_youtuber'] ??
+      data['idcanalyoutuber'] ??
+      data['canal_youtuber_id'] ??
+      data['canalyoutuberid'] ??
+      data['id_canal'] ??
+      data['idcanal'] ??
+      data['canal_id'] ??
+      data['canalid'] ??
+      ''
+    ).toString().trim();
+
+
+    if (canalId.isEmpty) continue;
+    if (!idsNormalizados.contains(canalId)) continue;
+
+
+    final videoId = (
+      data['video_id'] ??
+      data['videoid'] ??
+      ''
+    ).toString().trim();
+
+
+    if (videoId.isEmpty) continue;
+    if (idsAgregados.contains(videoId)) continue;
+
+
+    idsAgregados.add(videoId);
+
+
+    resultado.add({
+      'video_id': videoId,
+      'titulo': (data['titulo'] ?? '').toString(),
+      'thumbnail': (
+        data['thumbnail'] ??
+        data['imagen_url'] ??
+        data['imagenurl'] ??
+        ''
+      ).toString(),
+      'canal': (
+        data['canal'] ??
+        data['nombre_canal'] ??
+        data['nombrecanal'] ??
+        nombresCanales[canalId] ??
+        'Youtuber'
+      ).toString(),
+      'duracion_segundos': data['duracion_segundos'] ?? data['duracion'] ?? 0,
+      'categoria': (data['categoria'] ?? 'Youtubers').toString(),
+      'rango': (
+        data['rango_edad'] ??
+        data['rangos_edad'] ??
+        ''
+      ).toString(),
+    });
+  }
+
+
+  return resultado;
+}
   static Future<List<Map<String, dynamic>>> obtenerVideosPorCategoria(
       String categoriaId) async {
     final q = await _db
@@ -474,6 +570,7 @@ class FirestoreService {
         .get();
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
+
 
   static const Map<String, Map<String, String>> _catalogoCanales = {
     'cat_1': {
@@ -518,8 +615,10 @@ class FirestoreService {
     },
   };
 
+
   static Map<String, String>? obtenerCanalDefault(String catId) =>
       _catalogoCanales[catId];
+
 
   static Future<List<Map<String, dynamic>>> obtenerCanalesCustom(
       String padreId, String catId) async {
@@ -532,6 +631,7 @@ class FirestoreService {
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
+
   static Future<List<Map<String, dynamic>>> obtenerTodosCanalesCustom(
       String padreId) async {
     final q = await _db
@@ -542,17 +642,20 @@ class FirestoreService {
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
+
   static Future<List<Map<String, dynamic>>> obtenerCanalesYoutubers() async {
     final q = await _db
         .collection('canales_youtubers')
         .where('activo', isEqualTo: true)
         .get();
 
+
     return q.docs.map((d) => {
           'id': d.id,
           ...d.data(),
         }).toList();
   }
+
 
   static Future<void> agregarCanalCustom({
     required String padreId,
@@ -570,9 +673,11 @@ class FirestoreService {
     });
   }
 
+
   static Future<void> eliminarCanalCustom(String docId) async {
     await _db.collection('canales').doc(docId).delete();
   }
+
 
   static Future<void> guardarSesion({
     required String idUsuario,
@@ -586,6 +691,7 @@ class FirestoreService {
         .limit(1)
         .get();
 
+
     final data = <String, dynamic>{
       'id_usuario': idUsuario,
       'tipo_usuario': tipoUsuario,
@@ -593,9 +699,11 @@ class FirestoreService {
       'ultimo_acceso': FieldValue.serverTimestamp(),
     };
 
+
     if (deviceToken.isNotEmpty) {
       data['device_token'] = deviceToken;
     }
+
 
     if (q.docs.isNotEmpty) {
       await q.docs.first.reference.update(data);
@@ -607,6 +715,7 @@ class FirestoreService {
       });
     }
   }
+
 
   static Future<Map<String, dynamic>?> validarSesion({
     required String tipoUsuario,
@@ -621,6 +730,7 @@ class FirestoreService {
     if (q.docs.isEmpty) return null;
     return {'id': q.docs.first.id, ...q.docs.first.data()};
   }
+
 
   static Future<void> registrarTiempoUso({
     required String idUsuario,

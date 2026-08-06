@@ -46,7 +46,7 @@ class RegisterBody extends StatelessWidget {
       backgroundColor: AppColors.bgPrimary,
       body: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -153,6 +153,8 @@ class _RegisterHeader extends StatelessWidget {
 }
 
 class _HeaderLogo extends StatelessWidget {
+  const _HeaderLogo();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -551,7 +553,7 @@ class _CyanGradientButton extends StatelessWidget {
         width: double.infinity,
         height: 52,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [AppColors.accentViolet, AppColors.accentCyan],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,

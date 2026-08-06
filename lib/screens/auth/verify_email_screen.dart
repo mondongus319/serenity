@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login_screen.dart';
 import '../../utils/app_colors.dart';
@@ -8,24 +8,29 @@ import '../../utils/app_colors.dart';
 class VerifyEmailScreen extends StatefulWidget {
   final String email;
   final String? contrasena;
-  const VerifyEmailScreen({super.key, required this.email, this.contrasena});
+
+  const VerifyEmailScreen({
+    super.key,
+    required this.email,
+    this.contrasena,
+  });
 
   @override
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
 }
 
 class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
-  bool _isLoading = false;
-  bool _puedeReenviar = false;
-  int _segundosRestantes = 60;
-  Timer? _timer;
-  Timer? _pollTimer;
+  bool isLoading = false;
+  bool puedeReenviar = false;
+  int segundosRestantes = 60;
+  Timer? timer;
+  Timer? pollTimer;
 
   @override
   void initState() {
     super.initState();
-    _iniciarContador();
-    _iniciarPolling();
+    iniciarContador();
+    iniciarPolling();
   }
 
   Future<void> _mostrarDialogoMensaje({
@@ -42,8 +47,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bgCard,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: Icon(icono, color: colorIcono, size: 56),
         title: Text(
           titulo,
@@ -73,13 +77,14 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(
               textoBoton,
               style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w700, fontSize: 14),
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
             ),
           ),
         ],
@@ -87,46 +92,184 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     );
   }
 
-  void _iniciarContador() {
+  void iniciarContador() {
     setState(() {
-      _segundosRestantes = 60;
-      _puedeReenviar = false;
+      segundosRestantes = 60;
+      puedeReenviar = false;
     });
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_segundosRestantes > 0) {
-        setState(() => _segundosRestantes--);
+
+    timer?.cancel();
+    timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      if (segundosRestantes > 0) {
+        setState(() => segundosRestantes--);
       } else {
-        setState(() => _puedeReenviar = true);
+        setState(() => puedeReenviar = true);
         t.cancel();
       }
     });
   }
 
-  void _iniciarPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
-      await _verificarAutomaticamente();
+  void iniciarPolling() {
+    pollTimer?.cancel();
+    pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      await verificarAutomaticamente();
     });
   }
 
-  Future<void> _verificarAutomaticamente() async {
+  Future<void> verificarAutomaticamente() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
+
       await user.reload();
-      if (FirebaseAuth.instance.currentUser?.emailVerified == true) {
-        _pollTimer?.cancel();
-        _timer?.cancel();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+
+      if (refreshedUser != null && refreshedUser.emailVerified) {
+        pollTimer?.cancel();
+        timer?.cancel();
+
         if (!mounted) return;
-        _irAlLogin();
+        await _mostrarDialogoMensaje(
+          icono: Icons.verified_rounded,
+          colorIcono: Colors.green,
+          titulo: 'Correo verificado',
+          mensaje:
+              'Tu correo ya fue verificado correctamente. Ahora ya puedes iniciar sesión.',
+        );
+
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
       }
-    } catch (e) {
-      debugPrint('_verificarAutomaticamente error: $e');
+    } catch (_) {}
+  }
+
+  Future<User?> _obtenerUsuarioParaReenvio() async {
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      await user.reload();
+      user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.email == widget.email) {
+        return user;
+      }
+    }
+
+    if (widget.contrasena == null || widget.contrasena!.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      final credencial = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: widget.email,
+        password: widget.contrasena!.trim(),
+      );
+
+      final signedUser = credencial.user;
+      if (signedUser != null) {
+        await signedUser.reload();
+      }
+      return FirebaseAuth.instance.currentUser;
+    } on FirebaseAuthException {
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
-  void _irAlLogin() {
+  Future<void> reenviarCorreo() async {
+    if (!puedeReenviar || isLoading) return;
+
+    setState(() => isLoading = true);
+
+    try {
+      final user = await _obtenerUsuarioParaReenvio();
+
+      if (user == null) {
+        setState(() => isLoading = false);
+        await _mostrarDialogoMensaje(
+          icono: Icons.lock_outline_rounded,
+          colorIcono: Colors.orangeAccent,
+          titulo: 'No se pudo reenviar',
+          mensaje:
+              'Por seguridad, vuelve a iniciar el proceso con tu correo y contraseña para reenviar la verificación.',
+        );
+        return;
+      }
+
+      await user.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+
+      if (refreshedUser != null && refreshedUser.emailVerified) {
+        setState(() => isLoading = false);
+        await _mostrarDialogoMensaje(
+          icono: Icons.verified_rounded,
+          colorIcono: Colors.green,
+          titulo: 'Correo ya verificado',
+          mensaje:
+              'Tu correo ya fue verificado. Ahora puedes iniciar sesión.',
+        );
+
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
+      await refreshedUser?.sendEmailVerification();
+
+      setState(() {
+        isLoading = false;
+      });
+
+      iniciarContador();
+
+      await _mostrarDialogoMensaje(
+        icono: Icons.mark_email_read_outlined,
+        colorIcono: AppColors.accentCyan,
+        titulo: 'Correo reenviado',
+        mensaje:
+            'Te enviamos un nuevo correo de verificación. Revisa también la carpeta de spam.',
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() => isLoading = false);
+
+      String mensaje = 'No se pudo reenviar el correo. Intenta nuevamente.';
+      if (e.code == 'too-many-requests') {
+        mensaje =
+            'Has realizado demasiados intentos. Espera un momento antes de reenviar otro correo.';
+      }
+
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'Error al reenviar',
+        mensaje: mensaje,
+      );
+    } catch (_) {
+      setState(() => isLoading = false);
+      await _mostrarDialogoMensaje(
+        icono: Icons.error_outline_rounded,
+        colorIcono: Colors.redAccent,
+        titulo: 'Error al reenviar',
+        mensaje: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      );
+    }
+  }
+
+  Future<void> abrirLogin() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -134,519 +277,181 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     );
   }
 
-  Future<void> _verificarManualmente() async {
-    setState(() => _isLoading = true);
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        setState(() => _isLoading = false);
-        return;
-      }
-      await user.reload();
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      if (FirebaseAuth.instance.currentUser?.emailVerified == true) {
-        _pollTimer?.cancel();
-        _timer?.cancel();
-        _irAlLogin();
-      } else {
-        await _mostrarDialogoMensaje(
-          icono: Icons.mark_email_unread_outlined,
-          colorIcono: Colors.orangeAccent,
-          titulo: 'Correo no verificado',
-          mensaje:
-              'Aún no verificado. Haz clic en el enlace del correo primero.',
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      await _mostrarDialogoMensaje(
-        icono: Icons.wifi_off_rounded,
-        colorIcono: Colors.redAccent,
-        titulo: 'No se pudo verificar',
-        mensaje:
-            'No se pudo verificar. Comprueba tu conexión e intenta de nuevo.',
-      );
-      debugPrint('_verificarManualmente error: $e');
-    }
+  @override
+  void dispose() {
+    timer?.cancel();
+    pollTimer?.cancel();
+    super.dispose();
   }
 
-  Future<void> _reenviarCorreo() async {
-    setState(() => _isLoading = true);
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) await user.sendEmailVerification();
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      await _mostrarDialogoMensaje(
-        icono: Icons.mark_email_read_outlined,
-        colorIcono: Colors.green,
-        titulo: 'Correo reenviado',
-        mensaje: 'Correo de verificación reenviado',
-      );
-      _iniciarContador();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      final mensaje =
-          e is FirebaseAuthException && e.code == 'too-many-requests'
-              ? 'Demasiados intentos. Espera unos minutos antes de reenviar.'
-              : 'No se pudo reenviar el correo. Intenta de nuevo.';
-      await _mostrarDialogoMensaje(
-        icono: Icons.error_outline_rounded,
-        colorIcono: Colors.redAccent,
-        titulo: 'No se pudo reenviar',
-        mensaje: mensaje,
-      );
-      debugPrint('_reenviarCorreo error: $e');
-    }
-  }
-
-  Future<void> _mostrarDialogoVolver() async {
-    final confirmar = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF2C2F45),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: const Color(0xFF7B2FBE).withOpacity(0.4),
-            width: 1,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF7B2FBE).withOpacity(0.15),
-                  border: Border.all(
-                    color: const Color(0xFF7B2FBE).withOpacity(0.4),
-                    width: 1,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgPrimary,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 520),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: AppColors.accentCyan.withOpacity(0.18),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.28),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
                   ),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Color(0xFF9B59E8),
-                  size: 22,
-                ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                '¿Volver al registro?',
-                style: GoogleFonts.poppins(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '¿Deseas volver? Tu cuenta fue creada pero aún no está verificada.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.white54,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(ctx).pop(false),
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                          ),
+                  Container(
+                    width: 82,
+                    height: 82,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [
+                          AppColors.accentViolet,
+                          AppColors.accentCyan,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accentCyan.withOpacity(0.25),
+                          blurRadius: 24,
+                          spreadRadius: 2,
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Cancelar',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white54,
-                            fontSize: 14,
-                          ),
-                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.mark_email_unread_outlined,
+                      color: Colors.white,
+                      size: 38,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    'Verifica tu correo',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: AppColors.textPearl,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Hemos enviado un enlace de verificación a:',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: AppColors.textMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.email,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: AppColors.textPearl,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgPrimary,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.accentCyan.withOpacity(0.12),
+                      ),
+                    ),
+                    child: Text(
+                      'No podrás ingresar como padre hasta verificar tu correo. '
+                      'Si no lo encuentras, revisa spam o correo no deseado.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                        height: 1.5,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(ctx).pop(true),
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF7B2FBE), Color(0xFFE040FB)],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: (puedeReenviar && !isLoading) ? reenviarCorreo : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accentCyan,
+                        disabledBackgroundColor:
+                            AppColors.accentCyan.withOpacity(0.35),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Volver',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              puedeReenviar
+                                  ? 'Reenviar correo de verificación'
+                                  : 'Reenviar en ${segundosRestantes}s',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton(
+                      onPressed: abrirLogin,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: AppColors.textMuted.withOpacity(0.35),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        foregroundColor: AppColors.textPearl,
+                      ),
+                      child: Text(
+                        'Volver al inicio de sesión',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (confirmar == true) {
-      _timer?.cancel();
-      _pollTimer?.cancel();
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pollTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        _mostrarDialogoVolver();
-        return false;
-      },
-      child: Scaffold(
-        backgroundColor: AppColors.bgPrimary,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 14),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: _mostrarDialogoVolver,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.bgCard,
-                          border: Border.all(
-                            color: AppColors.accentCyan.withOpacity(0.4),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          color: AppColors.accentCyan,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'Verificar Email',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPearl,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 12),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-                                            Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.bgCard,
-                          border: Border.all(
-                            color: AppColors.accentCyan.withOpacity(0.4),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.accentCyan.withOpacity(0.2),
-                              blurRadius: 28,
-                              spreadRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.mark_email_unread_outlined,
-                          size: 46,
-                          color: AppColors.accentCyan,
-                        ),
-                      ),
-
-                      const SizedBox(height: 28),
-
-                      Text(
-                        'Verifica tu Email',
-                        style: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPearl,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        'Hemos enviado un enlace de verificación a:',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Email chip
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.bgCard,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: AppColors.accentCyan.withOpacity(0.25),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.email_outlined,
-                              color: AppColors.accentCyan,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                widget.email,
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPearl,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Instrucción
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentViolet.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: AppColors.accentViolet.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.info_outline,
-                              color: AppColors.accentViolet,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Abre tu correo electrónico y haz clic en el enlace de verificación. Luego presiona "Ya verifiqué".',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: AppColors.textMuted,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Reenviar / contador
-                      if (_puedeReenviar)
-                        GestureDetector(
-                          onTap: _isLoading ? null : _reenviarCorreo,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.accentCyan.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: AppColors.accentCyan.withOpacity(0.35),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.refresh_rounded,
-                                  color: AppColors.accentCyan,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Reenviar correo de verificación',
-                                  style: GoogleFonts.poppins(
-                                    color: AppColors.accentCyan,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      else
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                value: _segundosRestantes / 60,
-                                strokeWidth: 2.5,
-                                backgroundColor:
-                                    Colors.white.withOpacity(0.08),
-                                color: AppColors.accentCyan,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Reenviar en ',
-                              style: GoogleFonts.poppins(
-                                color: AppColors.textMuted,
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              '$_segundosRestantes s',
-                              style: GoogleFonts.poppins(
-                                color: AppColors.accentCyan,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                      const SizedBox(height: 32),
-
-                      // Botón "Ya verifiqué"
-                      GestureDetector(
-                        onTap: _isLoading ? null : _verificarManualmente,
-                        child: Container(
-                          width: double.infinity,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                AppColors.accentViolet,
-                                AppColors.accentCyan,
-                              ],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.accentViolet.withOpacity(0.35),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          alignment: Alignment.center,
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.verified_outlined,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Ya verifiqué mi correo',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

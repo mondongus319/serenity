@@ -1,15 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _bgField      = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
+import '../../utils/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -35,15 +27,15 @@ class ParentVerificationBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_bgPrimary, _bgCard, _bgPrimary],
+            colors: [AppColors.bgPrimary, AppColors.bgCard, AppColors.bgPrimary],
           ),
         ),
         child: SafeArea(
@@ -56,7 +48,9 @@ class ParentVerificationBody extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 20),
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: Column(
                     children: [
                       const SizedBox(height: 8),
@@ -72,7 +66,7 @@ class ParentVerificationBody extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: _textPearl,
+                          color: AppColors.textPearl,
                         ),
                       ),
 
@@ -82,7 +76,7 @@ class ParentVerificationBody extends StatelessWidget {
                         'Ingresa o escanea el código del niño',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
-                          color: _textMuted,
+                          color: AppColors.textMuted,
                         ),
                       ),
 
@@ -129,14 +123,14 @@ class _VerifHeader extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _bgCard,
+                color: AppColors.bgCard,
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.4),
+                  color: AppColors.accentCyan.withOpacity(0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentCyan.withOpacity(0.15),
+                    color: AppColors.accentCyan.withOpacity(0.15),
                     blurRadius: 12,
                     spreadRadius: 1,
                   ),
@@ -144,7 +138,7 @@ class _VerifHeader extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.arrow_back_ios_new_rounded,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
                 size: 18,
               ),
             ),
@@ -155,7 +149,7 @@ class _VerifHeader extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: _textPearl,
+              color: AppColors.textPearl,
             ),
           ),
         ],
@@ -175,19 +169,19 @@ class _FamilyIcon extends StatelessWidget {
       height: 96,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: _bgCard,
+        color: AppColors.bgCard,
         border: Border.all(
-          color: _accentCyan.withOpacity(0.4),
+          color: AppColors.accentCyan.withOpacity(0.4),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: _accentCyan.withOpacity(0.2),
+            color: AppColors.accentCyan.withOpacity(0.2),
             blurRadius: 28,
             spreadRadius: 4,
           ),
           BoxShadow(
-            color: _accentViolet.withOpacity(0.1),
+            color: AppColors.accentViolet.withOpacity(0.1),
             blurRadius: 40,
             spreadRadius: 2,
           ),
@@ -196,7 +190,7 @@ class _FamilyIcon extends StatelessWidget {
       child: const Icon(
         Icons.family_restroom_rounded,
         size: 46,
-        color: _accentCyan,
+        color: AppColors.accentCyan,
       ),
     );
   }
@@ -224,7 +218,7 @@ class _VerifCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: Colors.white.withOpacity(0.07),
@@ -237,7 +231,7 @@ class _VerifCard extends StatelessWidget {
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: _accentCyan.withOpacity(0.04),
+            color: AppColors.accentCyan.withOpacity(0.04),
             blurRadius: 30,
             offset: const Offset(0, 4),
           ),
@@ -252,12 +246,12 @@ class _VerifCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: _accentCyan.withOpacity(0.15),
+                  color: AppColors.accentCyan.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.vpn_key_outlined,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 16,
                 ),
               ),
@@ -267,7 +261,7 @@ class _VerifCard extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: _textMuted,
+                  color: AppColors.textMuted,
                 ),
               ),
             ],
@@ -278,10 +272,10 @@ class _VerifCard extends StatelessWidget {
           // ── Campo código ────────────────────────────────────────────
           Container(
             decoration: BoxDecoration(
-              color: _bgField,
+              color: AppColors.bgField,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: _accentCyan.withOpacity(0.25),
+                color: AppColors.accentCyan.withOpacity(0.25),
                 width: 1,
               ),
             ),
@@ -292,19 +286,21 @@ class _VerifCard extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: _textPearl,
+                color: AppColors.textPearl,
                 letterSpacing: 8,
               ),
               decoration: InputDecoration(
                 hintText: 'ABC123',
                 hintStyle: GoogleFonts.poppins(
                   fontSize: 26,
-                  color: _textMuted.withOpacity(0.3),
+                  color: AppColors.textMuted.withOpacity(0.3),
                   letterSpacing: 6,
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 18),
+                  horizontal: 16,
+                  vertical: 18,
+                ),
               ),
             ),
           ),
@@ -319,19 +315,19 @@ class _VerifCard extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [_accentViolet, _accentCyan],
+                  colors: [AppColors.accentViolet, AppColors.accentCyan],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentViolet.withOpacity(0.35),
+                    color: AppColors.accentViolet.withOpacity(0.35),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
                   BoxShadow(
-                    color: _accentCyan.withOpacity(0.2),
+                    color: AppColors.accentCyan.withOpacity(0.2),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -381,7 +377,7 @@ class _VerifCard extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        _textMuted.withOpacity(0.3),
+                        AppColors.textMuted.withOpacity(0.3),
                       ],
                     ),
                   ),
@@ -392,7 +388,7 @@ class _VerifCard extends StatelessWidget {
                 child: Text(
                   'O',
                   style: GoogleFonts.poppins(
-                    color: _textMuted,
+                    color: AppColors.textMuted,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -404,7 +400,7 @@ class _VerifCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        _textMuted.withOpacity(0.3),
+                        AppColors.textMuted.withOpacity(0.3),
                         Colors.transparent,
                       ],
                     ),
@@ -423,10 +419,10 @@ class _VerifCard extends StatelessWidget {
               width: double.infinity,
               height: 52,
               decoration: BoxDecoration(
-                color: _accentCyan.withOpacity(0.08),
+                color: AppColors.accentCyan.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.4),
+                  color: AppColors.accentCyan.withOpacity(0.4),
                   width: 1.5,
                 ),
               ),
@@ -435,14 +431,14 @@ class _VerifCard extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.qr_code_scanner_rounded,
-                    color: _accentCyan,
+                    color: AppColors.accentCyan,
                     size: 20,
                   ),
                   const SizedBox(width: 10),
                   Text(
                     'Escanear Código QR',
                     style: GoogleFonts.poppins(
-                      color: _accentCyan,
+                      color: AppColors.accentCyan,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),

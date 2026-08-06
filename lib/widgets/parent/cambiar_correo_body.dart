@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _bgField      = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
+import '../../utils/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -46,15 +38,15 @@ class CambiarCorreoBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_bgPrimary, _bgCard, _bgPrimary],
+            colors: [AppColors.bgPrimary, AppColors.bgCard, AppColors.bgPrimary],
           ),
         ),
         child: SafeArea(
@@ -67,7 +59,9 @@ class CambiarCorreoBody extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 20),
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: Column(
                     children: [
                       const SizedBox(height: 8),
@@ -79,7 +73,7 @@ class CambiarCorreoBody extends StatelessWidget {
 
                       // ── Título y subtítulo ──────────────────────────
                       _TitleSection(
-                        paso:        paso,
+                        paso: paso,
                         nuevoCorreo: nuevoCorreo,
                       ),
 
@@ -93,21 +87,21 @@ class CambiarCorreoBody extends StatelessWidget {
                       // ── Contador / reenviar ─────────────────────────
                       if (paso == 2)
                         _ResendSection(
-                          puedeReenviar:      puedeReenviar,
-                          segundosRestantes:  segundosRestantes,
-                          isLoading:          isLoading,
-                          onReenviar:         onReenviarCodigo,
+                          puedeReenviar: puedeReenviar,
+                          segundosRestantes: segundosRestantes,
+                          isLoading: isLoading,
+                          onReenviar: onReenviarCodigo,
                         ),
 
                       const SizedBox(height: 16),
 
                       // ── Card formulario ─────────────────────────────
                       _FormCard(
-                        paso:             paso,
-                        correoActual:     correoActual,
+                        paso: paso,
+                        correoActual: correoActual,
                         correoController: correoController,
                         codigoController: codigoController,
-                        isLoading:        isLoading,
+                        isLoading: isLoading,
                         onAction: paso == 1
                             ? onEnviarCodigo
                             : onVerificarYCambiar,
@@ -146,14 +140,14 @@ class _CorreoHeader extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _bgCard,
+                color: AppColors.bgCard,
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.4),
+                  color: AppColors.accentCyan.withOpacity(0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentCyan.withOpacity(0.15),
+                    color: AppColors.accentCyan.withOpacity(0.15),
                     blurRadius: 12,
                     spreadRadius: 1,
                   ),
@@ -161,7 +155,7 @@ class _CorreoHeader extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.arrow_back_ios_new_rounded,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
                 size: 18,
               ),
             ),
@@ -174,7 +168,7 @@ class _CorreoHeader extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: _textPearl,
+              color: AppColors.textPearl,
             ),
           ),
         ],
@@ -197,19 +191,19 @@ class _EmailIcon extends StatelessWidget {
       height: 100,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: _bgCard,
+        color: AppColors.bgCard,
         border: Border.all(
-          color: _accentCyan.withOpacity(0.3),
+          color: AppColors.accentCyan.withOpacity(0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: _accentCyan.withOpacity(0.15),
+            color: AppColors.accentCyan.withOpacity(0.15),
             blurRadius: 28,
             spreadRadius: 4,
           ),
           BoxShadow(
-            color: _accentViolet.withOpacity(0.1),
+            color: AppColors.accentViolet.withOpacity(0.1),
             blurRadius: 40,
             spreadRadius: 2,
           ),
@@ -220,7 +214,7 @@ class _EmailIcon extends StatelessWidget {
             ? Icons.mark_email_unread_outlined
             : Icons.verified_outlined,
         size: 46,
-        color: _accentCyan,
+        color: AppColors.accentCyan,
       ),
     );
   }
@@ -247,7 +241,7 @@ class _TitleSection extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.w800,
-            color: _textPearl,
+            color: AppColors.textPearl,
           ),
         ),
 
@@ -260,22 +254,23 @@ class _TitleSection extends StatelessWidget {
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
             fontSize: 13,
-            color: _textMuted,
+            color: AppColors.textMuted,
             height: 1.5,
           ),
         ),
 
-        // ── Badge con el correo destino (solo paso 2) ─────────────────
         if (paso == 2 && nuevoCorreo.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 10),
+              horizontal: 16,
+              vertical: 10,
+            ),
             decoration: BoxDecoration(
-              color: _accentCyan.withOpacity(0.1),
+              color: AppColors.accentCyan.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _accentCyan.withOpacity(0.3),
+                color: AppColors.accentCyan.withOpacity(0.3),
                 width: 1,
               ),
             ),
@@ -284,7 +279,7 @@ class _TitleSection extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.email_outlined,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 16,
                 ),
                 const SizedBox(width: 8),
@@ -293,7 +288,7 @@ class _TitleSection extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: _accentCyan,
+                    color: AppColors.accentCyan,
                   ),
                 ),
               ],
@@ -346,22 +341,22 @@ class _StepDot extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: active
             ? const LinearGradient(
-                colors: [_accentViolet, _accentCyan],
+                colors: [AppColors.accentViolet, AppColors.accentCyan],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
             : null,
-        color: active ? null : _bgCard,
+        color: active ? null : AppColors.bgCard,
         border: Border.all(
           color: active
               ? Colors.transparent
-              : _textMuted.withOpacity(0.3),
+              : AppColors.textMuted.withOpacity(0.3),
           width: 1.5,
         ),
         boxShadow: active
             ? [
                 BoxShadow(
-                  color: _accentViolet.withOpacity(0.3),
+                  color: AppColors.accentViolet.withOpacity(0.3),
                   blurRadius: 10,
                   spreadRadius: 1,
                 ),
@@ -376,7 +371,7 @@ class _StepDot extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: active ? Colors.white : _textMuted,
+                color: active ? Colors.white : AppColors.textMuted,
               ),
             ),
     );
@@ -396,10 +391,10 @@ class _StepLine extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: isActive
             ? const LinearGradient(
-                colors: [_accentViolet, _accentCyan],
+                colors: [AppColors.accentViolet, AppColors.accentCyan],
               )
             : null,
-        color: isActive ? null : _textMuted.withOpacity(0.2),
+        color: isActive ? null : AppColors.textMuted.withOpacity(0.2),
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -429,12 +424,14 @@ class _ResendSection extends StatelessWidget {
         onTap: isLoading ? null : onReenviar,
         child: Container(
           padding: const EdgeInsets.symmetric(
-              horizontal: 20, vertical: 10),
+            horizontal: 20,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(
-            color: _accentCyan.withOpacity(0.1),
+            color: AppColors.accentCyan.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _accentCyan.withOpacity(0.3),
+              color: AppColors.accentCyan.withOpacity(0.3),
               width: 1,
             ),
           ),
@@ -443,14 +440,14 @@ class _ResendSection extends StatelessWidget {
             children: [
               const Icon(
                 Icons.refresh_rounded,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
                 size: 18,
               ),
               const SizedBox(width: 8),
               Text(
                 'Reenviar código',
                 style: GoogleFonts.poppins(
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -466,21 +463,21 @@ class _ResendSection extends StatelessWidget {
       children: [
         Icon(
           Icons.timer_outlined,
-          color: _textMuted.withOpacity(0.6),
+          color: AppColors.textMuted.withOpacity(0.6),
           size: 15,
         ),
         const SizedBox(width: 6),
         Text(
           'Reenviar en ',
           style: GoogleFonts.poppins(
-            color: _textMuted,
+            color: AppColors.textMuted,
             fontSize: 13,
           ),
         ),
         Text(
           '$segundosRestantes s',
           style: GoogleFonts.poppins(
-            color: _accentCyan,
+            color: AppColors.accentCyan,
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
@@ -516,7 +513,7 @@ class _FormCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: Colors.white.withOpacity(0.07),
@@ -529,7 +526,7 @@ class _FormCard extends StatelessWidget {
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: _accentCyan.withOpacity(0.04),
+            color: AppColors.accentCyan.withOpacity(0.04),
             blurRadius: 30,
             offset: const Offset(0, 4),
           ),
@@ -539,24 +536,25 @@ class _FormCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (paso == 1) ...[
-            // ── Correo actual (solo lectura) ─────────────────────────
             Text(
               'Correo actual',
               style: GoogleFonts.poppins(
                 fontSize: 11,
-                color: _textMuted,
+                color: AppColors.textMuted,
               ),
             ),
             const SizedBox(height: 6),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
+                horizontal: 14,
+                vertical: 12,
+              ),
               decoration: BoxDecoration(
-                color: _bgField,
+                color: AppColors.bgField,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: _textMuted.withOpacity(0.15),
+                  color: AppColors.textMuted.withOpacity(0.15),
                   width: 1,
                 ),
               ),
@@ -564,7 +562,7 @@ class _FormCard extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.lock_outline_rounded,
-                    color: _textMuted.withOpacity(0.5),
+                    color: AppColors.textMuted.withOpacity(0.5),
                     size: 15,
                   ),
                   const SizedBox(width: 8),
@@ -572,7 +570,7 @@ class _FormCard extends StatelessWidget {
                     correoActual,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: _textMuted,
+                      color: AppColors.textMuted,
                     ),
                   ),
                 ],
@@ -581,22 +579,21 @@ class _FormCard extends StatelessWidget {
 
             const SizedBox(height: 18),
 
-            // ── Nuevo correo ─────────────────────────────────────────
             Text(
               'Nuevo correo electrónico',
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
               ),
             ),
             const SizedBox(height: 6),
             Container(
               decoration: BoxDecoration(
-                color: _bgField,
+                color: AppColors.bgField,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.2),
+                  color: AppColors.accentCyan.withOpacity(0.2),
                   width: 1,
                 ),
               ),
@@ -604,45 +601,46 @@ class _FormCard extends StatelessWidget {
                 controller: correoController,
                 keyboardType: TextInputType.emailAddress,
                 style: GoogleFonts.poppins(
-                  color: _textPearl,
+                  color: AppColors.textPearl,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: 'correo@ejemplo.com',
                   hintStyle: GoogleFonts.poppins(
-                    color: _textMuted.withOpacity(0.5),
+                    color: AppColors.textMuted.withOpacity(0.5),
                     fontSize: 12,
                   ),
                   prefixIcon: const Icon(
                     Icons.alternate_email_rounded,
-                    color: _accentCyan,
+                    color: AppColors.accentCyan,
                     size: 18,
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 13),
+                    horizontal: 12,
+                    vertical: 13,
+                  ),
                 ),
               ),
             ),
           ],
 
           if (paso == 2) ...[
-            // ── Campo código ─────────────────────────────────────────
             Text(
               'Código de verificación',
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
               ),
             ),
             const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
-                color: _bgField,
+                color: AppColors.bgField,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.2),
+                  color: AppColors.accentCyan.withOpacity(0.2),
                   width: 1,
                 ),
               ),
@@ -655,19 +653,20 @@ class _FormCard extends StatelessWidget {
                   fontSize: 30,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 10,
-                  color: _textPearl,
+                  color: AppColors.textPearl,
                 ),
                 decoration: InputDecoration(
                   hintText: '• • • • • •',
                   hintStyle: GoogleFonts.poppins(
-                    color: _textMuted.withOpacity(0.4),
+                    color: AppColors.textMuted.withOpacity(0.4),
                     fontSize: 22,
                     letterSpacing: 8,
                   ),
                   counterText: '',
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                      vertical: 18),
+                    vertical: 18,
+                  ),
                 ),
               ),
             ),
@@ -675,7 +674,6 @@ class _FormCard extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // ── Botón acción ─────────────────────────────────────────
           GestureDetector(
             onTap: isLoading ? null : onAction,
             child: Container(
@@ -685,15 +683,18 @@ class _FormCard extends StatelessWidget {
                 gradient: isLoading
                     ? null
                     : const LinearGradient(
-                        colors: [_accentViolet, _accentCyan],
+                        colors: [
+                          AppColors.accentViolet,
+                          AppColors.accentCyan,
+                        ],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),
-                color: isLoading ? _bgField : null,
+                color: isLoading ? AppColors.bgField : null,
                 borderRadius: BorderRadius.circular(14),
                 border: isLoading
                     ? Border.all(
-                        color: _textMuted.withOpacity(0.2),
+                        color: AppColors.textMuted.withOpacity(0.2),
                         width: 1,
                       )
                     : null,
@@ -701,12 +702,12 @@ class _FormCard extends StatelessWidget {
                     ? null
                     : [
                         BoxShadow(
-                          color: _accentViolet.withOpacity(0.35),
+                          color: AppColors.accentViolet.withOpacity(0.35),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
                         BoxShadow(
-                          color: _accentCyan.withOpacity(0.2),
+                          color: AppColors.accentCyan.withOpacity(0.2),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -718,7 +719,7 @@ class _FormCard extends StatelessWidget {
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                        color: _accentCyan,
+                        color: AppColors.accentCyan,
                         strokeWidth: 2.5,
                       ),
                     )

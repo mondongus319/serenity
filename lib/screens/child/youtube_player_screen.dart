@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../../utils/app_colors.dart';
 
 class YoutubePlayerScreen extends StatefulWidget {
   final String videoId;
@@ -18,11 +19,6 @@ class YoutubePlayerScreen extends StatefulWidget {
 
 class _YoutubePlayerScreenState extends State<YoutubePlayerScreen> {
   late YoutubePlayerController controller;
-
-  static const bgPrimary = Color(0xFF0F172A);
-  static const bgCard    = Color(0xFF1E293B);
-  static const accentCyan = Color(0xFF06B6D4);
-  static const textPearl  = Color(0xFFF1F5F9);
 
   @override
   void initState() {
@@ -54,20 +50,22 @@ class _YoutubePlayerScreenState extends State<YoutubePlayerScreen> {
       player: YoutubePlayer(
         controller: controller,
         showVideoProgressIndicator: true,
-        progressIndicatorColor: accentCyan,
+        progressIndicatorColor: AppColors.accentCyan,
         progressColors: const ProgressBarColors(
-          playedColor: accentCyan,
-          handleColor: accentCyan,
+          playedColor: AppColors.accentCyan,
+          handleColor: AppColors.accentCyan,
         ),
       ),
       builder: (context, player) => Scaffold(
-        backgroundColor: bgPrimary,
+        backgroundColor: AppColors.bgPrimary,
         appBar: AppBar(
-          backgroundColor: bgCard,
+          backgroundColor: AppColors.bgCard,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: accentCyan),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: AppColors.accentCyan,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
@@ -77,7 +75,7 @@ class _YoutubePlayerScreenState extends State<YoutubePlayerScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: textPearl,
+              color: AppColors.textPearl,
             ),
           ),
         ),

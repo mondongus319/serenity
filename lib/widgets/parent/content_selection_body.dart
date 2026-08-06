@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
+import '../../utils/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -39,11 +32,11 @@ class ContentSelectionBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
 
       // ── BOTONES FIJOS ───────────────────────────────────────────────
       bottomNavigationBar: _BottomBar(
-        isSaving:  isSaving,
+        isSaving: isSaving,
         onGuardar: onGuardar,
         onCanales: onCanales,
       ),
@@ -51,11 +44,11 @@ class ContentSelectionBody extends StatelessWidget {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_bgPrimary, _bgCard, _bgPrimary],
+            colors: [AppColors.bgPrimary, AppColors.bgCard, AppColors.bgPrimary],
           ),
         ),
         child: SafeArea(
@@ -74,14 +67,14 @@ class ContentSelectionBody extends StatelessWidget {
                 child: isLoading
                     ? const Center(
                         child: CircularProgressIndicator(
-                          color: _accentCyan,
+                          color: AppColors.accentCyan,
                           strokeWidth: 2.5,
                         ),
                       )
                     : _CategoryGrid(
-                        categorias:    categorias,
+                        categorias: categorias,
                         seleccionadas: seleccionadas,
-                        onToggle:      onToggle,
+                        onToggle: onToggle,
                       ),
               ),
             ],
@@ -106,7 +99,6 @@ class _ContentHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Botón volver
           GestureDetector(
             onTap: onBack,
             child: Container(
@@ -114,14 +106,14 @@ class _ContentHeader extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _bgCard,
+                color: AppColors.bgCard,
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.4),
+                  color: AppColors.accentCyan.withOpacity(0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentCyan.withOpacity(0.15),
+                    color: AppColors.accentCyan.withOpacity(0.15),
                     blurRadius: 12,
                     spreadRadius: 1,
                   ),
@@ -129,19 +121,18 @@ class _ContentHeader extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.arrow_back_ios_new_rounded,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
                 size: 18,
               ),
             ),
           ),
 
-          // Logo con glow
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: _accentCyan.withOpacity(0.15),
+                  color: AppColors.accentCyan.withOpacity(0.15),
                   blurRadius: 20,
                   spreadRadius: 3,
                 ),
@@ -155,7 +146,6 @@ class _ContentHeader extends StatelessWidget {
             ),
           ),
 
-          // Espaciador
           const SizedBox(width: 44),
         ],
       ),
@@ -179,7 +169,7 @@ class _TitleSection extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: _textMuted,
+            color: AppColors.textMuted,
             letterSpacing: 1.8,
           ),
         ),
@@ -189,7 +179,7 @@ class _TitleSection extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.w800,
-            color: _textPearl,
+            color: AppColors.textPearl,
           ),
         ),
         const SizedBox(height: 4),
@@ -197,17 +187,16 @@ class _TitleSection extends StatelessWidget {
           'Selecciona las categorías permitidas',
           style: GoogleFonts.poppins(
             fontSize: 12,
-            color: _textMuted,
+            color: AppColors.textMuted,
           ),
         ),
         const SizedBox(height: 10),
-        // Línea decorativa
         Container(
           width: 40,
           height: 3,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [_accentViolet, _accentCyan],
+              colors: [AppColors.accentViolet, AppColors.accentCyan],
             ),
             borderRadius: BorderRadius.circular(2),
           ),
@@ -236,24 +225,24 @@ class _CategoryGrid extends StatelessWidget {
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:   2,
+        crossAxisCount: 2,
         crossAxisSpacing: 14,
-        mainAxisSpacing:  14,
+        mainAxisSpacing: 14,
         childAspectRatio: 1.05,
       ),
       itemCount: categorias.length,
       itemBuilder: (context, index) {
-        final cat         = categorias[index];
-        final id          = cat['id'].toString();
-        final isSelected  = seleccionadas.contains(id);
-        final color       = cat['color'] as Color;
+        final cat = categorias[index];
+        final id = cat['id'].toString();
+        final isSelected = seleccionadas.contains(id);
+        final color = cat['color'] as Color;
 
         return CategoryCard(
-          cat:         cat,
-          id:          id,
-          isSelected:  isSelected,
-          color:       color,
-          onToggle:    onToggle,
+          cat: cat,
+          id: id,
+          isSelected: isSelected,
+          color: color,
+          onToggle: onToggle,
         );
       },
     );
@@ -287,7 +276,7 @@ class CategoryCard extends StatelessWidget {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOut,
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.14) : _bgCard,
+          color: isSelected ? color.withOpacity(0.14) : AppColors.bgCard,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
@@ -307,7 +296,6 @@ class CategoryCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // ── Check de selección ──────────────────────────────────
             if (isSelected)
               Positioned(
                 top: 10,
@@ -334,12 +322,10 @@ class CategoryCard extends StatelessWidget {
                 ),
               ),
 
-            // ── Ícono + Nombre ───────────────────────────────────────
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Ícono con fondo
                   Container(
                     width: 56,
                     height: 56,
@@ -360,7 +346,6 @@ class CategoryCard extends StatelessWidget {
 
                   const SizedBox(height: 10),
 
-                  // Nombre
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Text(
@@ -369,7 +354,9 @@ class CategoryCard extends StatelessWidget {
                       style: GoogleFonts.poppins(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: isSelected ? _textPearl : _textMuted,
+                        color: isSelected
+                            ? AppColors.textPearl
+                            : AppColors.textMuted,
                         height: 1.3,
                       ),
                     ),
@@ -403,9 +390,12 @@ class _BottomBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         border: Border(
-          top: BorderSide(color: _accentCyan.withOpacity(0.15), width: 1),
+          top: BorderSide(
+            color: AppColors.accentCyan.withOpacity(0.15),
+            width: 1,
+          ),
         ),
         boxShadow: [
           BoxShadow(
@@ -418,29 +408,33 @@ class _BottomBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Botón Gestionar Canales
           GestureDetector(
             onTap: onCanales,
             child: Container(
               width: double.infinity,
               height: 46,
               decoration: BoxDecoration(
-                color: _accentViolet.withOpacity(0.12),
+                color: AppColors.accentViolet.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                    color: _accentViolet.withOpacity(0.35), width: 1.5),
+                  color: AppColors.accentViolet.withOpacity(0.35),
+                  width: 1.5,
+                ),
               ),
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.subscriptions_outlined,
-                      color: _accentViolet, size: 18),
+                  const Icon(
+                    Icons.subscriptions_outlined,
+                    color: AppColors.accentViolet,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Gestionar canales de YouTube',
                     style: GoogleFonts.poppins(
-                      color: _accentViolet,
+                      color: AppColors.accentViolet,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -452,7 +446,6 @@ class _BottomBar extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          // Botón Guardar
           GestureDetector(
             onTap: isSaving ? null : onGuardar,
             child: Container(
@@ -462,21 +455,23 @@ class _BottomBar extends StatelessWidget {
                 gradient: isSaving
                     ? null
                     : const LinearGradient(
-                        colors: [_accentViolet, _accentCyan],
+                        colors: [AppColors.accentViolet, AppColors.accentCyan],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),
-                color: isSaving ? _bgCard : null,
+                color: isSaving ? AppColors.bgCard : null,
                 borderRadius: BorderRadius.circular(14),
                 border: isSaving
                     ? Border.all(
-                        color: _textMuted.withOpacity(0.2), width: 1)
+                        color: AppColors.textMuted.withOpacity(0.2),
+                        width: 1,
+                      )
                     : null,
                 boxShadow: isSaving
                     ? null
                     : [
                         BoxShadow(
-                          color: _accentViolet.withOpacity(0.35),
+                          color: AppColors.accentViolet.withOpacity(0.35),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -488,13 +483,18 @@ class _BottomBar extends StatelessWidget {
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                          color: _accentCyan, strokeWidth: 2.5),
+                        color: AppColors.accentCyan,
+                        strokeWidth: 2.5,
+                      ),
                     )
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.save_rounded,
-                            color: Colors.white, size: 20),
+                        const Icon(
+                          Icons.save_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Guardar selección',

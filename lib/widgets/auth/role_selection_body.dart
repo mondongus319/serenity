@@ -10,7 +10,7 @@ class RoleSelectionBody extends StatelessWidget {
   final AnimationController animationController;
 
   static const String _iconPadre = 'assets/images/icons/padre.png';
-  static const String _iconNino  = 'assets/images/icons/nino.png';
+  static const String _iconNino = 'assets/images/icons/nino.png';
 
   const RoleSelectionBody({
     super.key,
@@ -28,7 +28,7 @@ class RoleSelectionBody extends StatelessWidget {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -40,7 +40,7 @@ class RoleSelectionBody extends StatelessWidget {
             child: Column(
               children: [
                 const SizedBox(height: 44),
-                _LogoBadge(),
+                const _LogoBadge(),
                 const SizedBox(height: 20),
                 Text(
                   '¿Quién eres?',
@@ -79,6 +79,8 @@ class RoleSelectionBody extends StatelessWidget {
 }
 
 class _LogoBadge extends StatelessWidget {
+  const _LogoBadge();
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -360,8 +362,10 @@ class _RoleButton extends StatelessWidget {
                     child: Image.asset(
                       assetPath,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) =>
-                          Text(fallbackEmoji, style: const TextStyle(fontSize: 22)),
+                      errorBuilder: (_, __, ___) => Text(
+                        fallbackEmoji,
+                        style: const TextStyle(fontSize: 22),
+                      ),
                     ),
                   ),
                 ),

@@ -31,7 +31,7 @@ class LoginBody extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -379,7 +379,7 @@ class _CyanGradientButton extends StatelessWidget {
         width: double.infinity,
         height: 52,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [AppColors.accentViolet, AppColors.accentCyan],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
@@ -429,6 +429,8 @@ class _CyanGradientButton extends StatelessWidget {
 }
 
 class _OrDivider extends StatelessWidget {
+  const _OrDivider();
+
   @override
   Widget build(BuildContext context) {
     return Row(

@@ -1,14 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-
-const bgPrimary    = Color(0xFF0F172A);
-const bgCard       = Color(0xFF1E293B);
-const bgField      = Color(0xFF0F172A);
-const accentCyan   = Color(0xFF06B6D4);
-const accentViolet = Color(0xFF8B5CF6);
-const textPearl    = Color(0xFFF1F5F9);
-const textMuted    = Color(0xFF94A3B8);
+import 'package:provider/provider.dart';
+import '../../providers/theme_provider.dart';
+import '../../utils/app_colors.dart';
 
 
 class ParentHomeBody extends StatelessWidget {
@@ -18,6 +12,7 @@ class ParentHomeBody extends StatelessWidget {
   final VoidCallback onSwitchProfile;
   final VoidCallback onAddChild;
   final void Function(dynamic nino) onTapChild;
+
 
   const ParentHomeBody({
     super.key,
@@ -29,44 +24,49 @@ class ParentHomeBody extends StatelessWidget {
     required this.onTapChild,
   });
 
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgPrimary,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A)],
-          ),
+    context.watch<ThemeProvider>();
+
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.bgPrimary,
+            AppColors.bgCard.withOpacity(AppColors.modoOscuro ? 0.35 : 0.65),
+            AppColors.bgPrimary,
+          ],
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              HomeHeader(
-                userName:       userName,
-                onSwitchProfile: onSwitchProfile,
-              ),
-              const SizedBox(height: 28),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: ChildrenCard(
-                    ninos:      ninos,
-                    isLoading:  isLoading,
-                    userName:   userName,
-                    onAddChild: onAddChild,
-                    onTapChild: onTapChild,
-                  ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            HomeHeader(
+              userName: userName,
+              onSwitchProfile: onSwitchProfile,
+            ),
+            const SizedBox(height: 28),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ChildrenCard(
+                  ninos: ninos,
+                  isLoading: isLoading,
+                  userName: userName,
+                  onAddChild: onAddChild,
+                  onTapChild: onTapChild,
                 ),
               ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
@@ -74,27 +74,37 @@ class ParentHomeBody extends StatelessWidget {
 }
 
 
-// ─── HEADER ───────────────────────────────────────────────────────────────────
 class HomeHeader extends StatelessWidget {
   final String userName;
   final VoidCallback onSwitchProfile;
 
+
   const HomeHeader({
+    super.key,
     required this.userName,
     required this.onSwitchProfile,
   });
 
+
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Espaciador izquierdo para mantener el logo centrado
-          const SizedBox(width: 44),
-
-          // Logo centrado
+          HeaderIconButton(
+            icon: themeProvider.modoOscuro
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded,
+            tooltip: themeProvider.modoOscuro
+                ? 'Cambiar a modo claro'
+                : 'Cambiar a modo oscuro',
+            onTap: () => context.read<ThemeProvider>().alternarModo(),
+          ),
           Column(
             children: [
               Container(
@@ -102,7 +112,7 @@ class HomeHeader extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: accentCyan.withOpacity(0.15),
+                      color: AppColors.accentCyan.withOpacity(0.15),
                       blurRadius: 20,
                     ),
                   ],
@@ -112,6 +122,7 @@ class HomeHeader extends StatelessWidget {
                   width: 52,
                   height: 52,
                   fit: BoxFit.contain,
+                  gaplessPlayback: true,
                 ),
               ),
               const SizedBox(height: 4),
@@ -120,18 +131,16 @@ class HomeHeader extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: textMuted,
+                  color: AppColors.textMuted,
                   letterSpacing: 2.5,
                 ),
               ),
             ],
           ),
-
-          // Botón cambiar perfil
           HeaderIconButton(
-            icon:    Icons.switch_account_outlined,
+            icon: Icons.switch_account_outlined,
             tooltip: 'Cambiar perfil',
-            onTap:   onSwitchProfile,
+            onTap: onSwitchProfile,
           ),
         ],
       ),
@@ -145,11 +154,14 @@ class HeaderIconButton extends StatelessWidget {
   final String tooltip;
   final VoidCallback onTap;
 
+
   const HeaderIconButton({
+    super.key,
     required this.icon,
     required this.tooltip,
     required this.onTap,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -162,17 +174,27 @@ class HeaderIconButton extends StatelessWidget {
           height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: bgCard,
-            border: Border.all(color: accentCyan.withOpacity(0.4), width: 1.5),
+            color: AppColors.bgCard,
+            border: Border.all(
+              color: AppColors.accentCyan.withOpacity(
+                AppColors.modoOscuro ? 0.40 : 0.28,
+              ),
+              width: 1.3,
+            ),
             boxShadow: [
               BoxShadow(
-                color: accentCyan.withOpacity(0.15),
+                color: AppColors.shadowAccent,
                 blurRadius: 12,
                 spreadRadius: 1,
               ),
+              BoxShadow(
+                color: AppColors.shadowSecondary,
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
-          child: Icon(icon, color: accentCyan, size: 20),
+          child: Icon(icon, color: AppColors.accentCyan, size: 20),
         ),
       ),
     );
@@ -180,7 +202,6 @@ class HeaderIconButton extends StatelessWidget {
 }
 
 
-// ─── CARD PRINCIPAL DE NIÑOS ──────────────────────────────────────────────────
 class ChildrenCard extends StatelessWidget {
   final List<dynamic> ninos;
   final bool isLoading;
@@ -188,7 +209,9 @@ class ChildrenCard extends StatelessWidget {
   final VoidCallback onAddChild;
   final void Function(dynamic nino) onTapChild;
 
+
   const ChildrenCard({
+    super.key,
     required this.ninos,
     required this.isLoading,
     required this.userName,
@@ -196,23 +219,27 @@ class ChildrenCard extends StatelessWidget {
     required this.onTapChild,
   });
 
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
+        border: Border.all(
+          color: AppColors.borderSoft,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 30,
+            color: AppColors.shadowPrimary,
+            blurRadius: 24,
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: accentCyan.withOpacity(0.04),
-            blurRadius: 40,
+            color: AppColors.shadowAccent,
+            blurRadius: 28,
             offset: const Offset(0, 4),
           ),
         ],
@@ -221,18 +248,17 @@ class ChildrenCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Título card
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: accentCyan.withOpacity(0.15),
+                  color: AppColors.accentCyan.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.people_alt_outlined,
-                  color: accentCyan,
+                  color: AppColors.accentCyan,
                   size: 20,
                 ),
               ),
@@ -245,49 +271,49 @@ class ChildrenCard extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: textPearl,
+                      color: AppColors.textPearl,
                     ),
                   ),
                   Text(
                     'Hola, $userName',
-                    style: GoogleFonts.poppins(fontSize: 12, color: textMuted),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 20),
-
-          // Botón agregar
           AddChildButton(onTap: onAddChild),
           const SizedBox(height: 16),
-
-          // Divisor
           Container(
             height: 1,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  accentCyan.withOpacity(0.2),
+                  AppColors.accentCyan.withOpacity(0.2),
                   Colors.transparent,
                 ],
               ),
             ),
           ),
           const SizedBox(height: 12),
-
-          // Lista de niños
           Expanded(
             child: isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                      color: accentCyan,
+                      color: AppColors.accentCyan,
                       strokeWidth: 2.5,
                     ),
                   )
                 : ninos.isEmpty
-                    ? const EmptyState()
+                    // ✅ FIX: se quita "const" para que este widget se
+                    // reconstruya en cada rebuild y lea los colores
+                    // actualizados de AppColors al cambiar el tema.
+                    ? EmptyState()
                     : ListView.builder(
                         itemCount: ninos.length,
                         itemBuilder: (context, index) {
@@ -295,9 +321,10 @@ class ChildrenCard extends StatelessWidget {
                           return DarkChildTile(
                             nombre: nino['Nombre'] ?? nino['nombre'] ?? '',
                             fechaNacimiento: nino['Fechanacimiento'] ??
-                                nino['fechanacimiento'] ?? '',
+                                nino['fechanacimiento'] ??
+                                '',
                             activo: nino['id_padre'] != null,
-                            onTap:  () => onTapChild(nino),
+                            onTap: () => onTapChild(nino),
                           );
                         },
                       ),
@@ -309,10 +336,15 @@ class ChildrenCard extends StatelessWidget {
 }
 
 
-// ─── BOTÓN AGREGAR NIÑO ───────────────────────────────────────────────────────
 class AddChildButton extends StatelessWidget {
   final VoidCallback onTap;
-  const AddChildButton({required this.onTap});
+
+
+  const AddChildButton({
+    super.key,
+    required this.onTap,
+  });
+
 
   @override
   Widget build(BuildContext context) {
@@ -323,19 +355,19 @@ class AddChildButton extends StatelessWidget {
         height: 56,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [accentViolet, accentCyan],
+            colors: [AppColors.accentViolet, AppColors.accentCyan],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: accentViolet.withOpacity(0.35),
+              color: AppColors.accentViolet.withOpacity(0.30),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
             BoxShadow(
-              color: accentCyan.withOpacity(0.2),
+              color: AppColors.accentCyan.withOpacity(0.18),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -348,7 +380,7 @@ class AddChildButton extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withOpacity(0.20),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.add, color: Colors.white, size: 18),
@@ -370,9 +402,9 @@ class AddChildButton extends StatelessWidget {
 }
 
 
-// ─── ESTADO VACÍO ─────────────────────────────────────────────────────────────
 class EmptyState extends StatelessWidget {
-  const EmptyState();
+  const EmptyState({super.key});
+
 
   @override
   Widget build(BuildContext context) {
@@ -385,29 +417,32 @@ class EmptyState extends StatelessWidget {
             height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: bgField,
+              color: AppColors.bgField,
               border: Border.all(
-                color: accentCyan.withOpacity(0.15),
+                color: AppColors.accentCyan.withOpacity(0.15),
                 width: 1.5,
               ),
             ),
             child: Icon(
               Icons.child_care_rounded,
               size: 36,
-              color: accentCyan.withOpacity(0.3),
+              color: AppColors.accentCyan.withOpacity(0.35),
             ),
           ),
           const SizedBox(height: 14),
           Text(
             'No hay niños vinculados aún',
-            style: GoogleFonts.poppins(fontSize: 13, color: textMuted),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Toca el botón para agregar uno',
             style: GoogleFonts.poppins(
               fontSize: 11,
-              color: textMuted.withOpacity(0.6),
+              color: AppColors.textSoft,
             ),
           ),
         ],
@@ -417,12 +452,12 @@ class EmptyState extends StatelessWidget {
 }
 
 
-// ─── TILE DE NIÑO VINCULADO ───────────────────────────────────────────────────
 class DarkChildTile extends StatelessWidget {
   final String nombre;
   final String fechaNacimiento;
   final bool activo;
   final VoidCallback onTap;
+
 
   const DarkChildTile({
     super.key,
@@ -432,6 +467,7 @@ class DarkChildTile extends StatelessWidget {
     required this.onTap,
   });
 
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -440,26 +476,30 @@ class DarkChildTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: bgField,
+          color: AppColors.bgField,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: accentCyan.withOpacity(0.12), width: 1),
+          border: Border.all(
+            color: AppColors.accentCyan.withOpacity(
+              AppColors.modoOscuro ? 0.12 : 0.10,
+            ),
+            width: 1,
+          ),
         ),
         child: Row(
           children: [
-            // Avatar con inicial
             Container(
               width: 42,
               height: 42,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
-                  colors: [accentViolet, accentCyan],
+                  colors: [AppColors.accentViolet, AppColors.accentCyan],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: accentViolet.withOpacity(0.3),
+                    color: AppColors.accentViolet.withOpacity(0.28),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -476,8 +516,6 @@ class DarkChildTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-
-            // Nombre y fecha
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,7 +525,7 @@ class DarkChildTile extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: textPearl,
+                      color: AppColors.textPearl,
                     ),
                   ),
                   if (fechaNacimiento.isNotEmpty)
@@ -495,26 +533,20 @@ class DarkChildTile extends StatelessWidget {
                       fechaNacimiento,
                       style: GoogleFonts.poppins(
                         fontSize: 11,
-                        color: textMuted,
+                        color: AppColors.textMuted,
                       ),
                     ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-
-            // Badge estado
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: activo
-                    ? Colors.green.withOpacity(0.12)
-                    : Colors.orange.withOpacity(0.12),
+                color: activo ? AppColors.successBg : AppColors.warningBg,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: activo
-                      ? Colors.green.withOpacity(0.35)
-                      : Colors.orange.withOpacity(0.35),
+                  color: activo ? AppColors.successBorder : AppColors.warningBorder,
                   width: 1,
                 ),
               ),
@@ -523,16 +555,14 @@ class DarkChildTile extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: activo ? Colors.greenAccent : Colors.orangeAccent,
+                  color: activo ? AppColors.successText : AppColors.warningText,
                 ),
               ),
             ),
             const SizedBox(width: 8),
-
-            // Flecha
             Icon(
               Icons.chevron_right_rounded,
-              color: accentCyan.withOpacity(0.4),
+              color: AppColors.accentCyan.withOpacity(0.40),
               size: 20,
             ),
           ],

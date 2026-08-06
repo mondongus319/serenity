@@ -1,18 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'parent_home_screen.dart';
 import 'parent_terms_screen.dart';
 import 'sobre_nosotros_screen.dart';
 import 'parent_profile_screen.dart';
 import '../../servicces/firestore_service.dart';
 import '../../servicces/location_service.dart';
+import '../../providers/theme_provider.dart';
 import '../../utils/app_colors.dart';
+
 
 class ParentMainScreen extends StatefulWidget {
   final String parentEmail;
   final String userName;
   final String userId;
+
 
   const ParentMainScreen({
     super.key,
@@ -21,81 +25,64 @@ class ParentMainScreen extends StatefulWidget {
     required this.userId,
   });
 
+
   @override
   State<ParentMainScreen> createState() => _ParentMainScreenState();
 }
 
-class _ParentMainScreenState extends State<ParentMainScreen> {
-  int _currentIndex = 0;
-  bool _switching = false;
-  late final List<Widget> _screens;
 
-  // ── Tiempo de uso ────────────────────────────────────────────────────────
-  final Stopwatch _stopwatch = Stopwatch();
+class _ParentMainScreenState extends State<ParentMainScreen> {
+  int currentIndex = 0;
+  bool switching = false;
+
+
+  final Stopwatch stopwatch = Stopwatch();
+
 
   @override
   void initState() {
     super.initState();
-    _stopwatch.start();
-
-    _screens = [
-      RepaintBoundary(
-        child: ParentHomeScreen(
-          parentEmail: widget.parentEmail,
-          userName: widget.userName,
-          userId: widget.userId,
-        ),
-      ),
-      RepaintBoundary(
-        child: ParentTermsScreen(
-          parentEmail: widget.parentEmail,
-          userName: widget.userName,
-          userId: widget.userId,
-        ),
-      ),
-      RepaintBoundary(
-        child: SobreNosotrosScreen(
-          parentEmail: widget.parentEmail,
-          userName: widget.userName,
-          userId: widget.userId,
-        ),
-      ),
-      RepaintBoundary(
-        child: ParentProfileScreen(
-          parentEmail: widget.parentEmail,
-          userName: widget.userName,
-          userId: widget.userId,
-          onGuardarTiempo:
-              _guardarTiempo, // callback para guardar tiempo antes de cerrar sesión
-        ),
-      ),
-    ];
-    _enviarUbicacionUnaVez();
+    stopwatch.start();
+    enviarUbicacionUnaVez();
   }
+
 
   @override
   void dispose() {
-    if (_stopwatch.isRunning) {
-      _stopwatch.stop();
-      final segundos = _stopwatch.elapsed.inSeconds;
-      _stopwatch.reset();
-      if (segundos > 0) {
-        FirestoreService.registrarTiempoUso(
-          idUsuario: widget.userId,
-          tipo: 'padre',
-          duracionSegundos: segundos,
-        ).catchError((_) {});
-      }
+    if (stopwatch.isRunning) {
+      stopwatch.stop();
     }
+
+
+    final segundos = stopwatch.elapsed.inSeconds;
+    stopwatch.reset();
+
+
+    if (segundos > 0) {
+      FirestoreService.registrarTiempoUso(
+        idUsuario: widget.userId,
+        tipo: 'padre',
+        duracionSegundos: segundos,
+      ).catchError((_) {});
+    }
+
+
     super.dispose();
   }
 
-  Future<void> _guardarTiempo() async {
-    if (!_stopwatch.isRunning && _stopwatch.elapsed.inSeconds <= 0) return;
-    _stopwatch.stop();
-    final segundos = _stopwatch.elapsed.inSeconds;
-    _stopwatch.reset();
+
+  Future<void> guardarTiempo() async {
+    if (!stopwatch.isRunning && stopwatch.elapsed.inSeconds == 0) return;
+
+
+    stopwatch.stop();
+    final segundos = stopwatch.elapsed.inSeconds;
+    stopwatch.reset();
+
+
     if (segundos <= 0) return;
+
+
     try {
       await FirestoreService.registrarTiempoUso(
         idUsuario: widget.userId,
@@ -105,10 +92,13 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
     } catch (_) {}
   }
 
-  Future<void> _enviarUbicacionUnaVez() async {
+
+  Future<void> enviarUbicacionUnaVez() async {
     try {
       final position = await LocationService.obtenerUbicacionSilenciosa();
       if (position == null || !mounted) return;
+
+
       await FirestoreService.guardarUbicacionPadre(
         widget.userId,
         position.latitude,
@@ -117,30 +107,72 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
     } catch (_) {}
   }
 
-  void _onTabTap(int index) {
-    if (_switching || index == _currentIndex) return;
-    _switching = true;
-    setState(() => _currentIndex = index);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _switching = false);
+
+  void onTabTap(int index) {
+    if (switching || index == currentIndex) return;
+
+
+    switching = true;
+    setState(() => currentIndex = index);
+
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      switching = false;
+    });
   }
+
 
   @override
   Widget build(BuildContext context) {
+    // ✅ FIX: nos suscribimos a ThemeProvider para que este Scaffold y el
+    // DarkBottomNav se reconstruyan al alternar el tema claro/oscuro.
+    context.watch<ThemeProvider>();
+
+
+    final screens = [
+      ParentHomeScreen(
+        parentEmail: widget.parentEmail,
+        userName: widget.userName,
+        userId: widget.userId,
+      ),
+      ParentTermsScreen(
+        parentEmail: widget.parentEmail,
+        userName: widget.userName,
+        userId: widget.userId,
+      ),
+      SobreNosotrosScreen(
+        parentEmail: widget.parentEmail,
+        userName: widget.userName,
+        userId: widget.userId,
+      ),
+      ParentProfileScreen(
+        parentEmail: widget.parentEmail,
+        userName: widget.userName,
+        userId: widget.userId,
+        onGuardarTiempo: guardarTiempo,
+      ),
+    ];
+
+
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar:
-          DarkBottomNav(currentIndex: _currentIndex, onTap: _onTabTap),
+      body: IndexedStack(
+        index: currentIndex,
+        children: screens,
+      ),
+      bottomNavigationBar: DarkBottomNav(
+        currentIndex: currentIndex,
+        onTap: onTabTap,
+      ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BOTTOM NAV
-// ─────────────────────────────────────────────────────────────────────────────
+
 class DarkBottomNav extends StatelessWidget {
   final int currentIndex;
   final void Function(int) onTap;
+
 
   const DarkBottomNav({
     super.key,
@@ -148,12 +180,14 @@ class DarkBottomNav extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _items = [
-    _NavItem(icon: Icons.child_care_rounded, label: 'Mis Niños'),
-    _NavItem(icon: Icons.description_outlined, label: 'Términos'),
-    _NavItem(icon: Icons.info_outline_rounded, label: 'Nosotros'),
-    _NavItem(icon: Icons.person_outline_rounded, label: 'Perfil'),
+
+  static const items = [
+    NavItem(icon: Icons.child_care_rounded, label: 'Mis Niños'),
+    NavItem(icon: Icons.description_outlined, label: 'Términos'),
+    NavItem(icon: Icons.info_outline_rounded, label: 'Nosotros'),
+    NavItem(icon: Icons.person_outline_rounded, label: 'Perfil'),
   ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -161,11 +195,14 @@ class DarkBottomNav extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         border: Border(
-          top: BorderSide(color: AppColors.accentCyan.withOpacity(0.2), width: 1),
+          top: BorderSide(
+            color: AppColors.accentCyan.withOpacity(0.2),
+            width: 1,
+          ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: AppColors.shadowPrimary,
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -183,9 +220,9 @@ class DarkBottomNav extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(
-              _items.length,
-              (i) => _NavTabItem(
-                item: _items[i],
+              items.length,
+              (i) => NavTabItem(
+                item: items[i],
                 isSelected: currentIndex == i,
                 onTap: () => onTap(i),
               ),
@@ -197,22 +234,32 @@ class DarkBottomNav extends StatelessWidget {
   }
 }
 
-class _NavItem {
+
+class NavItem {
   final IconData icon;
   final String label;
-  const _NavItem({required this.icon, required this.label});
+
+
+  const NavItem({
+    required this.icon,
+    required this.label,
+  });
 }
 
-class _NavTabItem extends StatelessWidget {
-  final _NavItem item;
+
+class NavTabItem extends StatelessWidget {
+  final NavItem item;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _NavTabItem({
+
+  const NavTabItem({
+    super.key,
     required this.item,
     required this.isSelected,
     required this.onTap,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -238,14 +285,17 @@ class _NavTabItem extends StatelessWidget {
                   color: AppColors.accentCyan.withOpacity(0.3),
                   width: 1,
                 )
-              : Border.all(color: Colors.transparent, width: 1),
+              : Border.all(
+                  color: Colors.transparent,
+                  width: 1,
+                ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
                     color: AppColors.accentViolet.withOpacity(0.12),
                     blurRadius: 12,
                     spreadRadius: 1,
-                  )
+                  ),
                 ]
               : null,
         ),

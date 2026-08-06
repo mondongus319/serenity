@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
-
+import '../../utils/app_colors.dart';
 
 class ParentTermsBody extends StatelessWidget {
   final String userName;
@@ -23,7 +15,7 @@ class ParentTermsBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
         child: Column(
           children: [
@@ -42,12 +34,12 @@ class ParentTermsBody extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: _accentCyan.withOpacity(0.15),
+                      color: AppColors.accentCyan.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.description_outlined,
-                      color: _accentCyan,
+                      color: AppColors.accentCyan,
                       size: 20,
                     ),
                   ),
@@ -60,14 +52,14 @@ class ParentTermsBody extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: _textPearl,
+                          color: AppColors.textPearl,
                         ),
                       ),
                       Text(
                         'Última actualización: Febrero 2026',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
-                          color: _textMuted,
+                          color: AppColors.textMuted,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -85,7 +77,7 @@ class ParentTermsBody extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: _bgCard,
+                    color: AppColors.bgCard,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
                       color: Colors.white.withOpacity(0.07),
@@ -98,7 +90,7 @@ class ParentTermsBody extends StatelessWidget {
                         offset: const Offset(0, 8),
                       ),
                       BoxShadow(
-                        color: _accentCyan.withOpacity(0.04),
+                        color: AppColors.accentCyan.withOpacity(0.04),
                         blurRadius: 30,
                         offset: const Offset(0, 4),
                       ),
@@ -176,7 +168,6 @@ class ParentTermsBody extends StatelessWidget {
   }
 }
 
-
 // ─── HEADER ───────────────────────────────────────────────────────────────────
 class _TermsHeader extends StatelessWidget {
   final VoidCallback onSwitchProfile;
@@ -190,7 +181,6 @@ class _TermsHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Espaciador izquierdo para mantener el logo centrado
           const SizedBox(width: 44),
 
           // Logo centrado
@@ -201,7 +191,7 @@ class _TermsHeader extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: _accentCyan.withOpacity(0.15),
+                      color: AppColors.accentCyan.withOpacity(0.15),
                       blurRadius: 20,
                       spreadRadius: 3,
                     ),
@@ -220,7 +210,7 @@ class _TermsHeader extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: _textMuted,
+                  color: AppColors.textMuted,
                   letterSpacing: 1.5,
                 ),
               ),
@@ -238,7 +228,6 @@ class _TermsHeader extends StatelessWidget {
     );
   }
 }
-
 
 // ─── BOTÓN ÍCONO DEL HEADER ───────────────────────────────────────────────────
 class _HeaderIconButton extends StatelessWidget {
@@ -263,26 +252,25 @@ class _HeaderIconButton extends StatelessWidget {
           height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _bgCard,
+            color: AppColors.bgCard,
             border: Border.all(
-              color: _accentCyan.withOpacity(0.4),
+              color: AppColors.accentCyan.withOpacity(0.4),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: _accentCyan.withOpacity(0.15),
+                color: AppColors.accentCyan.withOpacity(0.15),
                 blurRadius: 12,
                 spreadRadius: 1,
               ),
             ],
           ),
-          child: Icon(icon, color: _accentCyan, size: 20),
+          child: Icon(icon, color: AppColors.accentCyan, size: 20),
         ),
       ),
     );
   }
 }
-
 
 // ─── SECCIÓN DE TÉRMINO ───────────────────────────────────────────────────────
 class _TermsSection extends StatelessWidget {
@@ -310,14 +298,22 @@ class _TermsSection extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: LinearGradient(
                 colors: int.parse(number).isOdd
-                    ? [_accentViolet.withOpacity(0.6), _accentViolet]
-                    : [_accentCyan.withOpacity(0.6), _accentCyan],
+                    ? [
+                        AppColors.accentViolet.withOpacity(0.6),
+                        AppColors.accentViolet,
+                      ]
+                    : [
+                        AppColors.accentCyan.withOpacity(0.6),
+                        AppColors.accentCyan,
+                      ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (int.parse(number).isOdd ? _accentViolet : _accentCyan)
+                  color: (int.parse(number).isOdd
+                          ? AppColors.accentViolet
+                          : AppColors.accentCyan)
                       .withOpacity(0.25),
                   blurRadius: 8,
                   spreadRadius: 1,
@@ -344,7 +340,9 @@ class _TermsSection extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: int.parse(number).isOdd ? _accentViolet : _accentCyan,
+                    color: int.parse(number).isOdd
+                        ? AppColors.accentViolet
+                        : AppColors.accentCyan,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -352,7 +350,7 @@ class _TermsSection extends StatelessWidget {
                   content,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: _textMuted,
+                    color: AppColors.textMuted,
                     height: 1.5,
                   ),
                   textAlign: TextAlign.justify,
@@ -365,7 +363,6 @@ class _TermsSection extends StatelessWidget {
     );
   }
 }
-
 
 // ─── DIVISOR ENTRE SECCIONES ──────────────────────────────────────────────────
 class _TermsDivider extends StatelessWidget {
@@ -380,7 +377,7 @@ class _TermsDivider extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Colors.transparent,
-            _accentCyan.withOpacity(0.15),
+            AppColors.accentCyan.withOpacity(0.15),
             Colors.transparent,
           ],
         ),

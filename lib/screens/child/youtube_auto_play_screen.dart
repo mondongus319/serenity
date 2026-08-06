@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../../servicces/firestore_service.dart';
+import '../../utils/app_colors.dart';
 import 'child_youtubers_gallery_screen.dart';
 
 class YoutubeAutoPlayScreen extends StatefulWidget {
   final List<Map<String, dynamic>> videos;
 
-  /// Lista original de videos_catalogo para el buscador.
-  /// No incluye videos de youtubers, solo catálogo puro.
   final List<Map<String, dynamic>> catalogoBusqueda;
 
   final String nombreNino;
@@ -28,53 +28,52 @@ class YoutubeAutoPlayScreen extends StatefulWidget {
 }
 
 class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
-  static const bg = Color(0xFF0F172A);
-  static const card = Color(0xFF1E293B);
-  static const cyan = Color(0xFF06B6D4);
-  static const pearl = Color(0xFFF1F5F9);
-  static const muted = Color(0xFF94A3B8);
-
   late YoutubePlayerController controller;
+
+  late List<Map<String, dynamic>> _videos;
+  late List<Map<String, dynamic>> _catalogoBusquedaBase;
+
   int indice = 0;
   bool avanzando = false;
   bool mostrarSiguiente = false;
   bool yaInicio = false;
 
-  final Random _random = Random();
-  List<String> _animalAssets = [];
-  String? _animalActual = null;
-  bool _intentandoPrecarga = false;
+  final Random random = Random();
+  List<String> animalAssets = [];
+  String? animalActual;
+  bool intentandoPrecarga = false;
 
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
-  bool _mostrarBuscador = false;
-  List<Map<String, dynamic>> _resultados = [];
-  bool _buscandoActivo = false;
-
-  Map<String, dynamic>? _videoBuscado;
-
-  bool _reproducirVideoBuscado = false;
+  final TextEditingController searchController = TextEditingController();
+  final FocusNode searchFocus = FocusNode();
+  bool mostrarBuscador = false;
+  List<Map<String, dynamic>> resultados = [];
+  bool buscandoActivo = false;
+  Map<String, dynamic>? videoBuscado;
+  bool reproducirVideoBuscado = false;
 
   @override
   void initState() {
     super.initState();
+    _videos = List<Map<String, dynamic>>.from(widget.videos);
+    _catalogoBusquedaBase =
+        List<Map<String, dynamic>>.from(widget.catalogoBusqueda);
     iniciarControlador(indice);
-    _cargarAnimalesYEscoger();
-    _searchController.addListener(_onSearchChanged);
+    cargarAnimalesYEscoger();
+    searchController.addListener(onSearchChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _precacheSiSePuede();
+    precacheSiSePuede();
   }
 
   @override
   void dispose() {
-    _searchController
-      ..removeListener(_onSearchChanged)
+    searchController
+      ..removeListener(onSearchChanged)
       ..dispose();
-    _searchFocus.dispose();
+    searchFocus.dispose();
     controller
       ..removeListener(escucharEstado)
       ..dispose();
@@ -82,14 +81,13 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     super.dispose();
   }
 
-  Future<void> _cargarAnimalesYEscoger() async {
+  Future<void> cargarAnimalesYEscoger() async {
     try {
-      final AssetManifest manifest =
-          await AssetManifest.loadFromAssetBundle(rootBundle);
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
       final List<String> assets = manifest.listAssets();
 
       final animales = assets
-          .where((p) => p.startsWith('assets/images/animales_con_acciones/'))
+          .where((p) => p.startsWith('assets/images/animales_con_acciones'))
           .where((p) {
         final lower = p.toLowerCase();
         return lower.endsWith('.png') ||
@@ -99,46 +97,56 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
       }).toList();
 
       if (!mounted) return;
-      setState(() => _animalAssets = animales);
-      _escogerAnimalAleatorio();
+
+      setState(() {
+        animalAssets = animales;
+      });
+
+      escogerAnimalAleatorio();
     } catch (_) {}
   }
 
-  void _escogerAnimalAleatorio() {
-    if (_animalAssets.isEmpty) {
-      if (mounted) setState(() => _animalActual = null);
+  void escogerAnimalAleatorio() {
+    if (animalAssets.isEmpty) {
+      if (mounted) {
+        setState(() => animalActual = null);
+      }
       return;
     }
 
-    String elegido = _animalAssets[_random.nextInt(_animalAssets.length)];
-    if (_animalAssets.length > 1) {
-      while (elegido == _animalActual) {
-        elegido = _animalAssets[_random.nextInt(_animalAssets.length)];
+    String elegido = animalAssets[random.nextInt(animalAssets.length)];
+
+    if (animalAssets.length > 1) {
+      while (elegido == animalActual) {
+        elegido = animalAssets[random.nextInt(animalAssets.length)];
       }
     }
 
     if (!mounted) return;
+
     setState(() {
-      _animalActual = elegido;
-      _intentandoPrecarga = true;
+      animalActual = elegido;
+      intentandoPrecarga = true;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _precacheSiSePuede();
+      if (mounted) precacheSiSePuede();
     });
   }
 
-  void _precacheSiSePuede() {
-    if (!_intentandoPrecarga) return;
-    if (_animalActual == null) return;
-    _intentandoPrecarga = false;
-    precacheImage(AssetImage(_animalActual!), context);
+  void precacheSiSePuede() {
+    if (!intentandoPrecarga) return;
+    if (animalActual == null) return;
+
+    intentandoPrecarga = false;
+    precacheImage(AssetImage(animalActual!), context);
   }
 
   void iniciarControlador(int idx) {
     yaInicio = false;
+
     controller = YoutubePlayerController(
-      initialVideoId: _idDeIndice(idx),
+      initialVideoId: idDeIndice(idx),
       flags: const YoutubePlayerFlags(
         autoPlay: true,
         mute: false,
@@ -159,7 +167,7 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
 
     if (v.isReady && !yaInicio) {
       yaInicio = true;
-      Future.microtask(() => controller.play());
+      Future.microtask(controller.play);
     }
 
     if ((v.errorCode == 101 || v.errorCode == 150) && !avanzando) {
@@ -175,77 +183,80 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
   }
 
   Future<void> irAlSiguiente() async {
-    if (!mounted) return;
+    if (!mounted || _videos.isEmpty) return;
 
     setState(() => mostrarSiguiente = true);
+
     await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
+    if (!mounted || _videos.isEmpty) return;
 
-    int siguiente;
-
-    if (_reproducirVideoBuscado) {
-      _reproducirVideoBuscado = false;
-      _videoBuscado = null;
-      siguiente = (indice + 1) % widget.videos.length;
-    } else {
-      siguiente = (indice + 1) % widget.videos.length;
-    }
+    final siguiente = (indice + 1) % _videos.length;
 
     setState(() {
+      if (reproducirVideoBuscado) {
+        reproducirVideoBuscado = false;
+        videoBuscado = null;
+      }
+
       indice = siguiente;
       mostrarSiguiente = false;
       avanzando = false;
       yaInicio = false;
     });
 
-    controller.load(_idDeIndice(siguiente));
-    _escogerAnimalAleatorio();
+    controller.load(idDeIndice(siguiente));
+    escogerAnimalAleatorio();
   }
 
-  void _onSearchChanged() {
-    final query = _searchController.text.trim().toLowerCase();
+  void onSearchChanged() {
+    final query = searchController.text.trim().toLowerCase();
+
     if (query.isEmpty) {
-      setState(() => _resultados = []);
+      setState(() => resultados = []);
       return;
     }
 
-    final filtrados = widget.catalogoBusqueda.where((v) {
+    final filtrados = _catalogoBusquedaBase.where((v) {
       final titulo = (v['titulo'] as String? ?? '').toLowerCase();
       final canal = (v['canal'] as String? ?? '').toLowerCase();
       return titulo.contains(query) || canal.contains(query);
     }).toList();
 
-    setState(() => _resultados = filtrados);
+    setState(() => resultados = filtrados);
   }
 
-  void _abrirBuscador() {
+  void abrirBuscador() {
     setState(() {
-      _mostrarBuscador = true;
-      _buscandoActivo = true;
+      mostrarBuscador = true;
+      buscandoActivo = true;
     });
+
     controller.pause();
+
     Future.delayed(const Duration(milliseconds: 150), () {
-      if (mounted) _searchFocus.requestFocus();
+      if (mounted) searchFocus.requestFocus();
     });
   }
 
-  void _cerrarBuscador() {
-    _searchController.clear();
-    _searchFocus.unfocus();
+  void cerrarBuscador() {
+    searchController.clear();
+    searchFocus.unfocus();
+
     setState(() {
-      _mostrarBuscador = false;
-      _buscandoActivo = false;
-      _resultados = [];
+      mostrarBuscador = false;
+      buscandoActivo = false;
+      resultados = [];
     });
+
     controller.play();
   }
 
-  void _reproducirDesdeBusqueda(Map<String, dynamic> videoElegido) {
-    _cerrarBuscador();
+  void reproducirDesdeBusqueda(Map<String, dynamic> videoElegido) {
+    cerrarBuscador();
 
     setState(() {
-      _videoBuscado = videoElegido;
-      _reproducirVideoBuscado = true;
+      videoBuscado = videoElegido;
+      reproducirVideoBuscado = true;
       mostrarSiguiente = false;
       avanzando = false;
       yaInicio = false;
@@ -255,30 +266,32 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     if (videoId.isNotEmpty) {
       controller.load(videoId);
     }
-    _escogerAnimalAleatorio();
+
+    escogerAnimalAleatorio();
   }
 
-  String _idDeIndice(int i) => widget.videos[i]['video_id'] as String? ?? '';
+  String idDeIndice(int i) => _videos[i]['video_id'] as String? ?? '';
 
-  Map<String, dynamic> get _videoActual =>
-      _reproducirVideoBuscado && _videoBuscado != null
-          ? _videoBuscado!
-          : widget.videos[indice];
+  Map<String, dynamic> get videoActual =>
+      reproducirVideoBuscado && videoBuscado != null
+          ? videoBuscado!
+          : _videos[indice];
 
-  String get titulo => _videoActual['titulo'] as String? ?? 'Video';
-  String get categoria => _videoActual['categoria'] as String? ?? '';
-  String get canal => _videoActual['canal'] as String? ?? '';
+  String get titulo => videoActual['titulo'] as String? ?? 'Video';
+  String get categoria => videoActual['categoria'] as String? ?? '';
+  String get canal => videoActual['canal'] as String? ?? '';
 
-  void _volverAtras() {
+  void volverAtras() {
     if (controller.value.isFullScreen) {
       controller.toggleFullScreenMode();
       return;
     }
+
     controller.pause();
     Navigator.pop(context);
   }
 
-  Future<void> _abrirCanales() async {
+  Future<void> abrirCanales() async {
     controller.pause();
 
     final resultado = await Navigator.push(
@@ -294,11 +307,77 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     if (!mounted) return;
 
     if (resultado == true) {
-      Navigator.pop(context, true);
-      return;
+      await recargarVideosYoutubersSinReset();
     }
 
-    controller.play();
+    if (mounted) controller.play();
+  }
+
+  Future<void> recargarVideosYoutubersSinReset() async {
+    final actual = _videos.isNotEmpty
+        ? Map<String, dynamic>.from(videoActual)
+        : <String, dynamic>{};
+
+    final actualVideoId = (actual['video_id'] ?? '').toString();
+
+    final idsSeleccionados =
+        await FirestoreService.obtenerYoutubersNino(widget.ninoId);
+
+    final nuevosYoutubers = idsSeleccionados.isNotEmpty
+        ? await FirestoreService.obtenerVideosYoutubers(idsSeleccionados)
+        : <Map<String, dynamic>>[];
+
+    final Map<String, Map<String, dynamic>> mapaFinal = {};
+
+    if (actualVideoId.isNotEmpty) {
+      mapaFinal[actualVideoId] = actual;
+    }
+
+    for (final v in _catalogoBusquedaBase) {
+      final id = (v['video_id'] ?? '').toString();
+      if (id.isNotEmpty && !mapaFinal.containsKey(id)) {
+        mapaFinal[id] = Map<String, dynamic>.from(v);
+      }
+    }
+
+    for (final v in nuevosYoutubers) {
+      final id = (v['video_id'] ?? '').toString();
+      if (id.isNotEmpty && !mapaFinal.containsKey(id)) {
+        final video = Map<String, dynamic>.from(v);
+        video['origen'] = 'youtuber';
+        mapaFinal[id] = video;
+      }
+    }
+
+    final nuevaLista = mapaFinal.values.toList();
+
+    if (!mounted) return;
+
+    setState(() {
+      _videos = nuevaLista;
+      if (_videos.isEmpty) {
+        indice = 0;
+        reproducirVideoBuscado = false;
+        videoBuscado = null;
+        mostrarSiguiente = false;
+        avanzando = false;
+        yaInicio = false;
+        return;
+      }
+
+      final idxActual = actualVideoId.isNotEmpty
+          ? _videos.indexWhere(
+              (v) => (v['video_id'] ?? '').toString() == actualVideoId,
+            )
+          : -1;
+
+      indice = idxActual >= 0 ? idxActual : 0;
+      reproducirVideoBuscado = false;
+      videoBuscado = null;
+      mostrarSiguiente = false;
+      avanzando = false;
+      yaInicio = true;
+    });
   }
 
   @override
@@ -318,12 +397,12 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
       player: YoutubePlayer(
         controller: controller,
         showVideoProgressIndicator: true,
-        progressIndicatorColor: cyan,
-        progressColors: const ProgressBarColors(
-          playedColor: Color(0xFF06B6D4),
-          handleColor: Color(0xFF06B6D4),
-          bufferedColor: Color(0xFF334155),
-          backgroundColor: Color(0xFF1E293B),
+        progressIndicatorColor: AppColors.accentCyan,
+        progressColors: ProgressBarColors(
+          playedColor: AppColors.accentCyan,
+          handleColor: AppColors.accentCyan,
+          bufferedColor: const Color(0xFF334155),
+          backgroundColor: AppColors.bgCard,
         ),
         onEnded: (_) {
           if (!avanzando) {
@@ -332,232 +411,253 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
           }
         },
         topActions: const [SizedBox.shrink()],
-        bottomActions: const [
-          CurrentPosition(),
+        bottomActions: [
+          const CurrentPosition(),
           ProgressBar(
             isExpanded: true,
             colors: ProgressBarColors(
-              playedColor: Color(0xFF06B6D4),
-              handleColor: Color(0xFF06B6D4),
-              bufferedColor: Color(0xFF334155),
-              backgroundColor: Color(0xFF1E293B),
+              playedColor: AppColors.accentCyan,
+              handleColor: AppColors.accentCyan,
+              bufferedColor: const Color(0xFF334155),
+              backgroundColor: AppColors.bgCard,
             ),
           ),
-          RemainingDuration(),
-          PlaybackSpeedButton(),
-          FullScreenButton(),
+          const RemainingDuration(),
+          const PlaybackSpeedButton(),
+          const FullScreenButton(),
         ],
       ),
       builder: (context, player) {
         return WillPopScope(
           onWillPop: () async {
-            if (_mostrarBuscador) {
-              _cerrarBuscador();
+            if (mostrarBuscador) {
+              cerrarBuscador();
               return false;
             }
+
             if (controller.value.isFullScreen) {
               controller.toggleFullScreenMode();
               return false;
             }
+
             controller.pause();
             return true;
           },
           child: Scaffold(
-            backgroundColor: bg,
+            backgroundColor: AppColors.bgPrimary,
             resizeToAvoidBottomInset: false,
             body: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Material(color: Colors.black, child: player),
+                  Material(
+                    color: Colors.black,
+                    child: player,
+                  ),
                   Expanded(
                     child: Stack(
                       children: [
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _BotonAccion(
-                                      icono: Icons.arrow_back_ios_new_rounded,
-                                      label: 'Volver',
-                                      onTap: _volverAtras,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: _BotonAccion(
-                                      icono: Icons.grid_view_rounded,
-                                      label: 'Canales',
-                                      onTap: _abrirCanales,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              _BotonAccion(
-                                icono: Icons.search_rounded,
-                                label: 'Buscar en videos',
-                                onTap: _abrirBuscador,
-                                resaltado: _reproducirVideoBuscado,
-                                anchoCompleto: true,
-                              ),
-                              const SizedBox(height: 14),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: [
-                                        if (categoria.isNotEmpty)
-                                          _Chip(label: categoria, color: cyan),
-                                        if (_reproducirVideoBuscado)
-                                          _Chip(
-                                            label: '🔍 Búsqueda',
-                                            color: const Color(0xFF8B5CF6),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  _Chip(
-                                    label:
-                                        '${indice + 1} / ${widget.videos.length}',
-                                    color: muted,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                titulo,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.poppins(
-                                  color: pearl,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              if (canal.isNotEmpty)
+                          child: SingleChildScrollView(
+                            physics: const ClampingScrollPhysics(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Row(
                                   children: [
-                                    const Icon(
-                                      Icons.play_circle_outline_rounded,
-                                      color: muted,
-                                      size: 14,
-                                    ),
-                                    const SizedBox(width: 5),
                                     Expanded(
-                                      child: Text(
-                                        canal,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.poppins(
-                                          color: muted,
-                                          fontSize: 12,
-                                        ),
+                                      child: BotonAccion(
+                                        icono: Icons.arrow_back_ios_new_rounded,
+                                        label: 'Volver',
+                                        onTap: volverAtras,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: BotonAccion(
+                                        icono: Icons.grid_view_rounded,
+                                        label: 'Canales',
+                                        onTap: abrirCanales,
                                       ),
                                     ),
                                   ],
                                 ),
-                              Expanded(
-                                child: _animalActual != null
-                                    ? IgnorePointer(
-                                        child: Center(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
-                                            ),
-                                            child: Image.asset(
-                                              _animalActual!,
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (_, __, ___) =>
-                                                  const SizedBox.shrink(),
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                    : const SizedBox.shrink(),
-                              ),
-                              Row(
-                                children: [
-                                  Text(
-                                    'Sesión',
-                                    style: GoogleFonts.poppins(
-                                      color: muted,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    '${indice + 1} de ${widget.videos.length} videos',
-                                    style: GoogleFonts.poppins(
-                                      color: cyan,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: (indice + 1) / widget.videos.length,
-                                  backgroundColor: card,
-                                  color: cyan,
-                                  minHeight: 5,
+                                const SizedBox(height: 10),
+                                BotonAccion(
+                                  icono: Icons.search_rounded,
+                                  label: 'Buscar en videos',
+                                  onTap: abrirBuscador,
+                                  resaltado: reproducirVideoBuscado,
+                                  anchoCompleto: true,
                                 ),
-                              ),
-                              if (mostrarSiguiente)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 12),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: card,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: cyan.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          color: cyan,
-                                          strokeWidth: 2,
-                                        ),
+                                const SizedBox(height: 14),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          if (categoria.isNotEmpty)
+                                            const SizedBox.shrink(),
+                                          if (categoria.isNotEmpty)
+                                            ChipWidget(
+                                              label: categoria,
+                                              color: AppColors.accentCyan,
+                                            ),
+                                          if (reproducirVideoBuscado)
+                                            const ChipWidget(
+                                              label: 'Búsqueda',
+                                              color: AppColors.accentViolet,
+                                            ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        'Cargando siguiente video...',
-                                        style: GoogleFonts.poppins(
-                                          color: muted,
-                                          fontSize: 12,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    ChipWidget(
+                                      label: _videos.isEmpty
+                                          ? '0/0'
+                                          : '${indice + 1}/${_videos.length}',
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  titulo,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                    color: AppColors.textPearl,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                if (canal.isNotEmpty)
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.play_circle_outline_rounded,
+                                        color: AppColors.textMuted,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Expanded(
+                                        child: Text(
+                                          canal,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.poppins(
+                                            color: AppColors.textMuted,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
+                                SizedBox(
+                                  height: 280,
+                                  child: animalActual != null
+                                      ? IgnorePointer(
+                                          child: Center(
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                vertical: 12,
+                                              ),
+                                              child: Image.asset(
+                                                animalActual!,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (_, __, ___) =>
+                                                    const SizedBox.shrink(),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : const SizedBox.shrink(),
                                 ),
-                            ],
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Sesión',
+                                      style: GoogleFonts.poppins(
+                                        color: AppColors.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      _videos.isEmpty
+                                          ? '0 de 0 videos'
+                                          : '${indice + 1} de ${_videos.length} videos',
+                                      style: GoogleFonts.poppins(
+                                        color: AppColors.accentCyan,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: _videos.isEmpty
+                                        ? 0
+                                        : (indice + 1) / _videos.length,
+                                    backgroundColor: AppColors.bgCard,
+                                    color: AppColors.accentCyan,
+                                    minHeight: 5,
+                                  ),
+                                ),
+                                if (mostrarSiguiente)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 12),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.bgCard,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color:
+                                            AppColors.accentCyan.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.accentCyan,
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          'Cargando siguiente video...',
+                                          style: GoogleFonts.poppins(
+                                            color: AppColors.textMuted,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
-                        if (_mostrarBuscador)
-                          _PanelBuscador(
-                            controller: _searchController,
-                            focusNode: _searchFocus,
-                            resultados: _resultados,
-                            onCerrar: _cerrarBuscador,
-                            onElegir: _reproducirDesdeBusqueda,
+                        if (mostrarBuscador)
+                          PanelBuscador(
+                            controller: searchController,
+                            focusNode: searchFocus,
+                            resultados: resultados,
+                            onCerrar: cerrarBuscador,
+                            onElegir: reproducirDesdeBusqueda,
                           ),
                       ],
                     ),
@@ -572,14 +672,15 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
   }
 }
 
-class _BotonAccion extends StatelessWidget {
+class BotonAccion extends StatelessWidget {
   final IconData icono;
   final String label;
   final VoidCallback onTap;
   final bool resaltado;
   final bool anchoCompleto;
 
-  const _BotonAccion({
+  const BotonAccion({
+    super.key,
     required this.icono,
     required this.label,
     required this.onTap,
@@ -589,10 +690,7 @@ class _BotonAccion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const cyan = Color(0xFF06B6D4);
-    const card = Color(0xFF1E293B);
-    const pearl = Color(0xFFF1F5F9);
-    final color = resaltado ? const Color(0xFF8B5CF6) : cyan;
+    final color = resaltado ? AppColors.accentViolet : AppColors.accentCyan;
 
     return GestureDetector(
       onTap: onTap,
@@ -600,9 +698,12 @@ class _BotonAccion extends StatelessWidget {
         width: anchoCompleto ? double.infinity : null,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: card,
+          color: AppColors.bgCard,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.30), width: 1.2),
+          border: Border.all(
+            color: color.withOpacity(0.30),
+            width: 1.2,
+          ),
           boxShadow: [
             BoxShadow(
               color: color.withOpacity(0.10),
@@ -612,8 +713,7 @@ class _BotonAccion extends StatelessWidget {
           ],
         ),
         child: Row(
-          mainAxisAlignment:
-              anchoCompleto ? MainAxisAlignment.center : MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: anchoCompleto ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Icon(icono, color: color, size: 16),
@@ -623,7 +723,7 @@ class _BotonAccion extends StatelessWidget {
                 label,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  color: pearl,
+                  color: AppColors.textPearl,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -636,14 +736,15 @@ class _BotonAccion extends StatelessWidget {
   }
 }
 
-class _PanelBuscador extends StatelessWidget {
+class PanelBuscador extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final List<Map<String, dynamic>> resultados;
   final VoidCallback onCerrar;
   final void Function(Map<String, dynamic>) onElegir;
 
-  const _PanelBuscador({
+  const PanelBuscador({
+    super.key,
     required this.controller,
     required this.focusNode,
     required this.resultados,
@@ -653,14 +754,8 @@ class _PanelBuscador extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFF0F172A);
-    const card = Color(0xFF1E293B);
-    const cyan = Color(0xFF06B6D4);
-    const pearl = Color(0xFFF1F5F9);
-    const muted = Color(0xFF94A3B8);
-
     return Container(
-      color: bg,
+      color: AppColors.bgPrimary,
       child: Column(
         children: [
           Padding(
@@ -671,10 +766,10 @@ class _PanelBuscador extends StatelessWidget {
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
-                      color: card,
+                      color: AppColors.bgCard,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: cyan.withOpacity(0.35),
+                        color: AppColors.accentCyan.withOpacity(0.35),
                         width: 1.2,
                       ),
                     ),
@@ -684,7 +779,7 @@ class _PanelBuscador extends StatelessWidget {
                           padding: EdgeInsets.only(left: 12, right: 8),
                           child: Icon(
                             Icons.search_rounded,
-                            color: cyan,
+                            color: AppColors.accentCyan,
                             size: 18,
                           ),
                         ),
@@ -693,13 +788,13 @@ class _PanelBuscador extends StatelessWidget {
                             controller: controller,
                             focusNode: focusNode,
                             style: GoogleFonts.poppins(
-                              color: pearl,
+                              color: AppColors.textPearl,
                               fontSize: 13,
                             ),
                             decoration: InputDecoration(
                               hintText: 'Buscar video o canal...',
                               hintStyle: GoogleFonts.poppins(
-                                color: muted,
+                                color: AppColors.textMuted,
                                 fontSize: 13,
                               ),
                               border: InputBorder.none,
@@ -710,11 +805,11 @@ class _PanelBuscador extends StatelessWidget {
                         if (controller.text.isNotEmpty)
                           GestureDetector(
                             onTap: controller.clear,
-                            child: const Padding(
-                              padding: EdgeInsets.only(right: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
                               child: Icon(
                                 Icons.close_rounded,
-                                color: muted,
+                                color: AppColors.textMuted,
                                 size: 18,
                               ),
                             ),
@@ -730,10 +825,10 @@ class _PanelBuscador extends StatelessWidget {
                     height: 44,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: card,
+                      color: AppColors.bgCard,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: cyan.withOpacity(0.20),
+                        color: AppColors.accentCyan.withOpacity(0.20),
                         width: 1,
                       ),
                     ),
@@ -741,7 +836,7 @@ class _PanelBuscador extends StatelessWidget {
                     child: Text(
                       'Cancelar',
                       style: GoogleFonts.poppins(
-                        color: muted,
+                        color: AppColors.textMuted,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -759,15 +854,15 @@ class _PanelBuscador extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.video_library_outlined,
-                          color: muted.withOpacity(0.4),
+                          color: AppColors.textMuted.withOpacity(0.4),
                           size: 48,
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Escribe para buscar\nentre tus videos',
+                          'Escribe para buscar tus videos',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            color: muted,
+                            color: AppColors.textMuted,
                             fontSize: 13,
                             height: 1.6,
                           ),
@@ -782,14 +877,14 @@ class _PanelBuscador extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.search_off_rounded,
-                              color: muted.withOpacity(0.4),
+                              color: AppColors.textMuted.withOpacity(0.4),
                               size: 48,
                             ),
                             const SizedBox(height: 12),
                             Text(
                               'No encontramos ese video',
                               style: GoogleFonts.poppins(
-                                color: muted,
+                                color: AppColors.textMuted,
                                 fontSize: 13,
                               ),
                             ),
@@ -814,10 +909,11 @@ class _PanelBuscador extends StatelessWidget {
                               margin: const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: card,
+                                color: AppColors.bgCard,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: cyan.withOpacity(0.18),
+                                  color:
+                                      AppColors.accentCyan.withOpacity(0.18),
                                   width: 1,
                                 ),
                               ),
@@ -833,10 +929,10 @@ class _PanelBuscador extends StatelessWidget {
                                       errorBuilder: (_, __, ___) => Container(
                                         width: 88,
                                         height: 58,
-                                        color: const Color(0xFF0F172A),
+                                        color: AppColors.bgPrimary,
                                         child: const Icon(
                                           Icons.play_circle_outline,
-                                          color: cyan,
+                                          color: AppColors.accentCyan,
                                           size: 28,
                                         ),
                                       ),
@@ -853,7 +949,7 @@ class _PanelBuscador extends StatelessWidget {
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.poppins(
-                                            color: pearl,
+                                            color: AppColors.textPearl,
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                             height: 1.4,
@@ -866,7 +962,7 @@ class _PanelBuscador extends StatelessWidget {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: GoogleFonts.poppins(
-                                              color: muted,
+                                              color: AppColors.textMuted,
                                               fontSize: 11,
                                             ),
                                           ),
@@ -879,17 +975,19 @@ class _PanelBuscador extends StatelessWidget {
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: cyan.withOpacity(0.10),
+                                              color: AppColors.accentCyan
+                                                  .withOpacity(0.10),
                                               borderRadius:
                                                   BorderRadius.circular(20),
                                               border: Border.all(
-                                                color: cyan.withOpacity(0.25),
+                                                color: AppColors.accentCyan
+                                                    .withOpacity(0.25),
                                               ),
                                             ),
                                             child: Text(
                                               categoriaV,
                                               style: GoogleFonts.poppins(
-                                                color: cyan,
+                                                color: AppColors.accentCyan,
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -902,7 +1000,7 @@ class _PanelBuscador extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   const Icon(
                                     Icons.play_circle_filled_rounded,
-                                    color: cyan,
+                                    color: AppColors.accentCyan,
                                     size: 28,
                                   ),
                                 ],
@@ -918,20 +1016,26 @@ class _PanelBuscador extends StatelessWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
+class ChipWidget extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _Chip({required this.label, required this.color});
+  const ChipWidget({
+    super.key,
+    required this.label,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(
+          color: color.withOpacity(0.35),
+        ),
       ),
       child: Text(
         label,

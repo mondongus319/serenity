@@ -31,8 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => mostrarDialogoTerminos());
+    WidgetsBinding.instance.addPostFrameCallback((_) => mostrarDialogoTerminos());
   }
 
   Future<void> _mostrarDialogoMensaje({
@@ -80,8 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(
               textoBoton,
@@ -174,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Para continuar con el registro, debes leer y aceptar nuestros términos',
+                    'Para continuar con el registro, debes leer y aceptar nuestros términos.',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: AppColors.textMuted,
@@ -194,18 +192,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     child: SingleChildScrollView(
                       child: Text(
-                        'TÉRMINOS Y CONDICIONES DE USO - SERENITY\n'
+                        'TÉRMINOS Y CONDICIONES DE USO - SERENITY\n\n'
                         'Última actualización: Febrero 2026\n\n'
-                        '1. ACEPTACIÓN DE LOS TÉRMINOS\nAl registrarte en Serenity, aceptas estar legalmente vinculado por estos Términos y Condiciones. Si no aceptas estos términos, no podrás utilizar la aplicación.\n\n'
-                        '2. USO DE LA APLICACIÓN\n2.1. Serenity es una aplicación diseñada para el control parental y gestión familiar.\n2.2. Debes ser mayor de 18 años o tener el consentimiento de un padre/tutor legal.\n2.3. Eres responsable de mantener la confidencialidad de tu cuenta.\n\n'
-                        '3. PRIVACIDAD Y DATOS\n3.1. Recopilamos y procesamos datos personales de acuerdo con nuestra Política de Privacidad.\n3.2. Los datos de menores están protegidos según la legislación vigente de protección de datos infantiles.\n3.3. No compartiremos tu información con terceros sin tu consentimiento.\n\n'
-                        '4. RESPONSABILIDADES DEL USUARIO\n4.1. Proporcionar información veraz y actualizada.\n4.2. No utilizar la aplicación para actividades ilegales.\n4.3. Respetar los derechos de otros usuarios.\n4.4. Notificar cualquier uso no autorizado de tu cuenta.\n\n'
-                        '5. CONTENIDO Y CONDUCTA\n5.1. No está permitido contenido ofensivo, discriminatorio o ilegal.\n5.2. Serenity se reserva el derecho de eliminar contenido inapropiado.\n\n'
-                        '6. LIMITACIÓN DE RESPONSABILIDAD\n6.1. Serenity se proporciona "tal cual" sin garantías de ningún tipo.\n6.2. No somos responsables por daños derivados del uso de la aplicación.\n\n'
-                        '7. MODIFICACIONES\n7.1. Nos reservamos el derecho de modificar estos términos en cualquier momento.\n7.2. Los cambios se notificarán a través de la aplicación.\n\n'
-                        '8. TERMINACIÓN\n8.1. Puedes eliminar tu cuenta en cualquier momento.\n8.2. Nos reservamos el derecho de suspender cuentas que violen estos términos.\n\n'
-                        '9. CONTACTO\nPara consultas: soporte@serenity.com\n\n'
-                        'Al hacer clic en "Aceptar", confirmas que has leído, entendido y aceptas estos Términos y Condiciones.',
+                        '1. ACEPTACIÓN DE LOS TÉRMINOS\n'
+                        'Al registrarte en Serenity, aceptas estar legalmente vinculado por estos Términos y Condiciones. Si no aceptas estos términos, no podrás utilizar la aplicación.\n\n'
+                        '2. USO DE LA APLICACIÓN\n'
+                        '2.1. Serenity es una aplicación diseñada para el control parental y gestión familiar.\n'
+                        '2.2. Debes ser mayor de 18 años o tener el consentimiento de un padre/tutor legal.\n'
+                        '2.3. Eres responsable de mantener la confidencialidad de tu cuenta.\n\n'
+                        '3. PRIVACIDAD Y DATOS\n'
+                        '3.1. Recopilamos y procesamos datos personales de acuerdo con nuestra Política de Privacidad.\n'
+                        '3.2. Los datos de menores están protegidos según la legislación vigente de protección de datos infantiles.\n'
+                        '3.3. No compartiremos tu información con terceros sin tu consentimiento.\n\n'
+                        '4. RESPONSABILIDADES DEL USUARIO\n'
+                        '4.1. Proporcionar información veraz y actualizada.\n'
+                        '4.2. No utilizar la aplicación para actividades ilegales.\n'
+                        '4.3. Respetar los derechos de otros usuarios.\n'
+                        '4.4. Notificar cualquier uso no autorizado de tu cuenta.\n\n'
+                        '5. CONTENIDO Y CONDUCTA\n'
+                        '5.1. No está permitido contenido ofensivo, discriminatorio o ilegal.\n'
+                        '5.2. Serenity se reserva el derecho de eliminar contenido inapropiado.\n\n'
+                        '6. LIMITACIÓN DE RESPONSABILIDAD\n'
+                        '6.1. Serenity se proporciona “tal cual” sin garantías de ningún tipo.\n'
+                        '6.2. No somos responsables por daños derivados del uso de la aplicación.\n\n'
+                        '7. MODIFICACIONES\n'
+                        '7.1. Nos reservamos el derecho de modificar estos términos en cualquier momento.\n'
+                        '7.2. Los cambios se notificarán a través de la aplicación.\n\n'
+                        '8. TERMINACIÓN\n'
+                        '8.1. Puedes eliminar tu cuenta en cualquier momento.\n'
+                        '8.2. Nos reservamos el derecho de suspender cuentas que violen estos términos.\n\n'
+                        '9. CONTACTO\n'
+                        'Consultas: soporte@serenity.com\n\n'
+                        'Al hacer clic en Aceptar, confirmas que has leído, entendido y aceptas estos Términos y Condiciones.',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           height: 1.6,
@@ -260,7 +278,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               gradient: const LinearGradient(
                                 colors: [
                                   AppColors.accentViolet,
-                                  AppColors.accentCyan
+                                  AppColors.accentCyan,
                                 ],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
@@ -268,8 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color:
-                                      AppColors.accentViolet.withOpacity(0.35),
+                                  color: AppColors.accentViolet.withOpacity(0.35),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -311,7 +328,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         icono: Icons.gpp_maybe_outlined,
         colorIcono: Colors.redAccent,
         titulo: 'Términos requeridos',
-        mensaje: 'Debes aceptar los términos para registrarte',
+        mensaje: 'Debes aceptar los términos para registrarte.',
         barrierDismissible: false,
       );
       if (!mounted) return;
@@ -330,7 +347,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         icono: Icons.error_outline_rounded,
         colorIcono: Colors.redAccent,
         titulo: 'Acción no permitida',
-        mensaje: 'Debes aceptar los términos y condiciones',
+        mensaje: 'Debes aceptar los términos y condiciones.',
       );
       return;
     }
@@ -354,7 +371,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         icono: Icons.error_outline_rounded,
         colorIcono: Colors.orangeAccent,
         titulo: 'Campos incompletos',
-        mensaje: 'Por favor completa todos los campos obligatorios',
+        mensaje: 'Por favor completa todos los campos obligatorios.',
       );
       return;
     }
@@ -364,7 +381,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         icono: Icons.lock_outline_rounded,
         colorIcono: Colors.redAccent,
         titulo: 'Contraseñas distintas',
-        mensaje: 'Las contraseñas no coinciden',
+        mensaje: 'Las contraseñas no coinciden.',
       );
       return;
     }
@@ -374,14 +391,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         icono: Icons.password_rounded,
         colorIcono: Colors.redAccent,
         titulo: 'Contraseña inválida',
-        mensaje: 'La contraseña debe tener al menos 6 caracteres',
+        mensaje: 'La contraseña debe tener al menos 6 caracteres.',
       );
       return;
     }
 
     final partesFecha = fechaNacimiento.split('/');
-    final fechaParaDB =
-        '${partesFecha[2]}-${partesFecha[1]}-${partesFecha[0]}';
+    final fechaParaDB = '${partesFecha[2]}-${partesFecha[1]}-${partesFecha[0]}';
 
     final auth = context.read<AuthProvider>();
     final resultado = await auth.registrarUsuario(
@@ -401,25 +417,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
         icono: Icons.mark_email_read_outlined,
         colorIcono: Colors.green,
         titulo: 'Registro exitoso',
-        mensaje: resultado['message'] ?? 'Usuario registrado exitosamente',
+        mensaje: resultado['message'] ?? 'Usuario registrado exitosamente.',
       );
+
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => VerifyEmailScreen(
             email: resultado['email'] ?? gmail,
+            contrasena: contrasena,
           ),
         ),
       );
-    } else {
-      await _mostrarDialogoMensaje(
-        icono: Icons.error_outline_rounded,
-        colorIcono: Colors.redAccent,
-        titulo: 'No se pudo registrar',
-        mensaje: resultado['message'] ?? 'Error al registrar usuario',
-      );
+      return;
     }
+
+    if (resultado['pendingVerification'] == true) {
+      await _mostrarDialogoMensaje(
+        icono: Icons.mark_email_unread_outlined,
+        colorIcono: Colors.orangeAccent,
+        titulo: 'Correo pendiente de verificación',
+        mensaje:
+            'Esta cuenta ya había sido creada, pero todavía no ha verificado el correo. Debes verificarlo para poder ingresar.',
+      );
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerifyEmailScreen(
+            email: resultado['email'] ?? gmail,
+            contrasena: resultado['contrasena'] ?? contrasena,
+          ),
+        ),
+      );
+      return;
+    }
+
+    await _mostrarDialogoMensaje(
+      icono: Icons.error_outline_rounded,
+      colorIcono: Colors.redAccent,
+      titulo: 'No se pudo registrar',
+      mensaje: resultado['message'] ?? 'Error al registrar usuario.',
+    );
   }
 
   Future<void> seleccionarFecha() async {
@@ -430,7 +471,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       lastDate: DateTime.now(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme: ColorScheme.dark(
             primary: AppColors.accentCyan,
             onPrimary: Colors.white,
             secondary: AppColors.accentViolet,
@@ -447,6 +488,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: child!,
       ),
     );
+
     if (fechaSeleccionada != null) {
       fechaNacimientoController.text =
           '${fechaSeleccionada.day.toString().padLeft(2, '0')}/'
@@ -471,28 +513,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
-      builder: (context, auth, _) {
-        return RegisterBody(
-          primerNombreController: primerNombreController,
-          segundoNombreController: segundoNombreController,
-          primerApellidoController: primerApellidoController,
-          segundoApellidoController: segundoApellidoController,
-          fechaNacimientoController: fechaNacimientoController,
-          gmailController: gmailController,
-          contrasenaController: contrasenaController,
-          confirmarContrasenaController: confirmarContrasenaController,
-          isLoading: auth.isLoading,
-          obscureContrasena: obscureContrasena,
-          obscureConfirmar: obscureConfirmar,
-          onToggleContrasena: () =>
-              setState(() => obscureContrasena = !obscureContrasena),
-          onToggleConfirmar: () =>
-              setState(() => obscureConfirmar = !obscureConfirmar),
-          onBack: () => Navigator.pop(context),
-          onRegistrar: registrarUsuario,
-          onTapFecha: seleccionarFecha,
-        );
-      },
+      builder: (context, auth, _) => RegisterBody(
+        primerNombreController: primerNombreController,
+        segundoNombreController: segundoNombreController,
+        primerApellidoController: primerApellidoController,
+        segundoApellidoController: segundoApellidoController,
+        fechaNacimientoController: fechaNacimientoController,
+        gmailController: gmailController,
+        contrasenaController: contrasenaController,
+        confirmarContrasenaController: confirmarContrasenaController,
+        isLoading: auth.isLoading,
+        obscureContrasena: obscureContrasena,
+        obscureConfirmar: obscureConfirmar,
+        onToggleContrasena: () =>
+            setState(() => obscureContrasena = !obscureContrasena),
+        onToggleConfirmar: () =>
+            setState(() => obscureConfirmar = !obscureConfirmar),
+        onBack: () => Navigator.pop(context),
+        onRegistrar: registrarUsuario,
+        onTapFecha: seleccionarFecha,
+      ),
     );
   }
 }

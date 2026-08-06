@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _bgField      = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
+import '../../utils/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLASE ESTÁTICA — sin cambios en lógica
@@ -54,8 +46,8 @@ class _PasswordSheet extends StatefulWidget {
 
 class _PasswordSheetState extends State<_PasswordSheet> {
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmController  = TextEditingController();
-  bool _obscureText    = true;
+  final TextEditingController _confirmController = TextEditingController();
+  bool _obscureText = true;
   bool _obscureConfirm = true;
 
   @override
@@ -65,7 +57,6 @@ class _PasswordSheetState extends State<_PasswordSheet> {
     super.dispose();
   }
 
-  // ── LÓGICA SIN CAMBIOS ──────────────────────────────────────────────────
   void _onConfirm() {
     final password = _passwordController.text.trim();
 
@@ -110,25 +101,24 @@ class _PasswordSheetState extends State<_PasswordSheet> {
 
     return Container(
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: const BorderRadius.only(
-          topLeft:  Radius.circular(28),
+          topLeft: Radius.circular(28),
           topRight: Radius.circular(28),
         ),
         border: Border.all(
-          color: _accentCyan.withOpacity(0.15),
+          color: AppColors.accentCyan.withOpacity(0.15),
           width: 1,
         ),
-        // Glow superior sutil
         boxShadow: [
           BoxShadow(
-            color: _accentCyan.withOpacity(0.08),
+            color: AppColors.accentCyan.withOpacity(0.08),
             blurRadius: 40,
             spreadRadius: 2,
             offset: const Offset(0, -4),
           ),
           BoxShadow(
-            color: _accentViolet.withOpacity(0.06),
+            color: AppColors.accentViolet.withOpacity(0.06),
             blurRadius: 30,
             offset: const Offset(0, -2),
           ),
@@ -138,13 +128,12 @@ class _PasswordSheetState extends State<_PasswordSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── HANDLE ──────────────────────────────────────────────────────
           Container(
             width: 40,
             height: 4,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [_accentViolet, _accentCyan],
+                colors: [AppColors.accentViolet, AppColors.accentCyan],
               ),
               borderRadius: BorderRadius.circular(2),
             ),
@@ -152,25 +141,24 @@ class _PasswordSheetState extends State<_PasswordSheet> {
 
           const SizedBox(height: 24),
 
-          // ── ÍCONO ────────────────────────────────────────────────────────
           Container(
             width: 68,
             height: 68,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _bgPrimary,
+              color: AppColors.bgPrimary,
               border: Border.all(
-                color: _accentCyan.withOpacity(0.4),
+                color: AppColors.accentCyan.withOpacity(0.4),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _accentCyan.withOpacity(0.2),
+                  color: AppColors.accentCyan.withOpacity(0.2),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
                 BoxShadow(
-                  color: _accentViolet.withOpacity(0.15),
+                  color: AppColors.accentViolet.withOpacity(0.15),
                   blurRadius: 30,
                   spreadRadius: 1,
                 ),
@@ -179,20 +167,19 @@ class _PasswordSheetState extends State<_PasswordSheet> {
             child: const Icon(
               Icons.lock_rounded,
               size: 30,
-              color: _accentCyan,
+              color: AppColors.accentCyan,
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // ── TÍTULO ───────────────────────────────────────────────────────
           Text(
             widget.title,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: _textPearl,
+              color: AppColors.textPearl,
             ),
           ),
 
@@ -203,14 +190,13 @@ class _PasswordSheetState extends State<_PasswordSheet> {
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 13,
-                color: _textMuted,
+                color: AppColors.textMuted,
               ),
             ),
           ],
 
           const SizedBox(height: 24),
 
-          // ── CAMPO CONTRASEÑA ─────────────────────────────────────────────
           _buildTextField(
             controller: _passwordController,
             label: widget.isCreatingPassword
@@ -221,7 +207,6 @@ class _PasswordSheetState extends State<_PasswordSheet> {
             autofocus: true,
           ),
 
-          // ── CONFIRMAR (solo al crear) ─────────────────────────────────────
           if (widget.isCreatingPassword) ...[
             const SizedBox(height: 14),
             _buildTextField(
@@ -235,10 +220,8 @@ class _PasswordSheetState extends State<_PasswordSheet> {
 
           const SizedBox(height: 28),
 
-          // ── BOTONES ──────────────────────────────────────────────────────
           Row(
             children: [
-              // Cancelar
               Expanded(
                 child: GestureDetector(
                   onTap: () => Navigator.pop(context, null),
@@ -255,7 +238,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
                     child: Text(
                       'Cancelar',
                       style: GoogleFonts.poppins(
-                        color: _textMuted,
+                        color: AppColors.textMuted,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -266,7 +249,6 @@ class _PasswordSheetState extends State<_PasswordSheet> {
 
               const SizedBox(width: 12),
 
-              // Confirmar — degradado Violeta → Cian
               Expanded(
                 flex: 2,
                 child: GestureDetector(
@@ -275,19 +257,22 @@ class _PasswordSheetState extends State<_PasswordSheet> {
                     height: 50,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [_accentViolet, _accentCyan],
+                        colors: [
+                          AppColors.accentViolet,
+                          AppColors.accentCyan,
+                        ],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: _accentViolet.withOpacity(0.35),
+                          color: AppColors.accentViolet.withOpacity(0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
                         BoxShadow(
-                          color: _accentCyan.withOpacity(0.2),
+                          color: AppColors.accentCyan.withOpacity(0.2),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
@@ -325,7 +310,6 @@ class _PasswordSheetState extends State<_PasswordSheet> {
     );
   }
 
-  // ── CAMPO DE TEXTO ─────────────────────────────────────────────────────────
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -335,10 +319,10 @@ class _PasswordSheetState extends State<_PasswordSheet> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: _bgField,
+        color: AppColors.bgField,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: _accentCyan.withOpacity(0.2),
+          color: AppColors.accentCyan.withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -346,16 +330,19 @@ class _PasswordSheetState extends State<_PasswordSheet> {
         controller: controller,
         obscureText: obscure,
         autofocus: autofocus,
-        style: GoogleFonts.poppins(color: _textPearl, fontSize: 15),
+        style: GoogleFonts.poppins(
+          color: AppColors.textPearl,
+          fontSize: 15,
+        ),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: GoogleFonts.poppins(
-            color: _accentCyan.withOpacity(0.7),
+            color: AppColors.accentCyan.withOpacity(0.7),
             fontSize: 13,
           ),
           prefixIcon: const Icon(
             Icons.lock_outline_rounded,
-            color: _accentCyan,
+            color: AppColors.accentCyan,
             size: 20,
           ),
           suffixIcon: IconButton(
@@ -363,14 +350,16 @@ class _PasswordSheetState extends State<_PasswordSheet> {
               obscure
                   ? Icons.visibility_outlined
                   : Icons.visibility_off_outlined,
-              color: _textMuted,
+              color: AppColors.textMuted,
               size: 20,
             ),
             onPressed: onToggle,
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 16),
+            horizontal: 16,
+            vertical: 16,
+          ),
         ),
       ),
     );

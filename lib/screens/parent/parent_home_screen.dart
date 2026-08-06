@@ -35,7 +35,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen>
       provider.cargarNinos(widget.userId);
       provider.cargarDatos(
         widget.userId,
-        emailFallback:  widget.parentEmail,
+        emailFallback: widget.parentEmail,
         nombreFallback: widget.userName,
       );
     });
@@ -44,19 +44,20 @@ class _ParentHomeScreenState extends State<ParentHomeScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+
     return Consumer<ParentProvider>(
       builder: (context, parent, _) {
         return ParentHomeBody(
-          userName:        parent.nombre.isNotEmpty ? parent.nombre : widget.userName,
-          ninos:           parent.ninos,
-          isLoading:       parent.isLoadingNinos,
+          userName: parent.nombre.isNotEmpty ? parent.nombre : widget.userName,
+          ninos: parent.ninos,
+          isLoading: parent.isLoadingNinos,
           onSwitchProfile: () => Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => RoleSelectionScreen(
-                email:    widget.parentEmail,
+                email: widget.parentEmail,
                 userName: widget.userName,
-                userId:   widget.userId,
+                userId: widget.userId,
               ),
             ),
           ),
@@ -65,9 +66,9 @@ class _ParentHomeScreenState extends State<ParentHomeScreen>
               context,
               MaterialPageRoute(
                 builder: (_) => ParentVerificationScreen(
-                  email:    widget.parentEmail,
+                  email: widget.parentEmail,
                   userName: widget.userName,
-                  userId:   widget.userId,
+                  userId: widget.userId,
                 ),
               ),
             );
@@ -78,11 +79,11 @@ class _ParentHomeScreenState extends State<ParentHomeScreen>
             context,
             MaterialPageRoute(
               builder: (_) => ChildDetailScreen(
-                idNino:      nino['id'].toString(),       // ✅ FIX: 'id' en minúscula
-                nombreNino:  nino['nombre'] ?? '',        // ✅ FIX: clave consistente
+                idNino: nino['id'].toString(),
+                nombreNino: nino['nombre'] ?? '',
                 parentEmail: widget.parentEmail,
-                userName:    widget.userName,
-                userId:      widget.userId,
+                userName: widget.userName,
+                userId: widget.userId,
               ),
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../servicces/auth_service.dart';
 import '../../servicces/firestore_service.dart';
+import '../../utils/app_colors.dart';
 
 class CambiarCorreoScreen extends StatefulWidget {
   final String userId;
@@ -29,16 +30,11 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
   String nuevoCorreo = '';
   Timer? _pollTimer;
 
-  static const bgPrimary = Color(0xFF0F172A);
-  static const bgCard = Color(0xFF1E293B);
-  static const accentCyan = Color(0xFF06B6D4);
-  static const textPearl = Color(0xFFF1F5F9);
-
   Future<void> _mostrarDialogoMensaje({
     required String titulo,
     required String mensaje,
     IconData icono = Icons.info_outline_rounded,
-    Color colorIcono = accentCyan,
+    Color colorIcono = AppColors.accentCyan,
     String textoBoton = 'Entendido',
   }) async {
     if (!mounted) return;
@@ -47,7 +43,7 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
       context: context,
       barrierDismissible: true,
       builder: (ctx) => Dialog(
-        backgroundColor: bgCard,
+        backgroundColor: AppColors.bgCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: colorIcono.withOpacity(0.25), width: 1),
@@ -76,7 +72,7 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
-                  color: textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
               const SizedBox(height: 10),
@@ -85,7 +81,7 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
-                  color: const Color(0xFF94A3B8),
+                  color: AppColors.textMuted,
                   height: 1.6,
                 ),
               ),
@@ -99,12 +95,12 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
                     decoration: BoxDecoration(
                       color: colorIcono == Colors.redAccent || colorIcono == Colors.red
                           ? Colors.red.withOpacity(0.08)
-                          : accentCyan.withOpacity(0.10),
+                          : AppColors.accentCyan.withOpacity(0.10),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: colorIcono == Colors.redAccent || colorIcono == Colors.red
                             ? Colors.red.withOpacity(0.5)
-                            : accentCyan.withOpacity(0.5),
+                            : AppColors.accentCyan.withOpacity(0.5),
                         width: 1,
                       ),
                     ),
@@ -114,7 +110,7 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
                       style: GoogleFonts.poppins(
                         color: colorIcono == Colors.redAccent || colorIcono == Colors.red
                             ? Colors.redAccent
-                            : accentCyan,
+                            : AppColors.accentCyan,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -129,7 +125,6 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
     );
   }
 
-  // ── ENVIAR ENLACE ──────────────────────────────────────────────────────────
   Future<void> enviarVerificacion() async {
     final correo = correoController.text.trim();
     if (correo.isEmpty || !correo.contains('@')) {
@@ -164,7 +159,7 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
           titulo: 'Enlace enviado',
           mensaje: resp['message'] ?? 'Enlace de verificación enviado',
           icono: Icons.mark_email_read_outlined,
-          colorIcono: accentCyan,
+          colorIcono: AppColors.accentCyan,
         );
         _iniciarPolling();
       } else {
@@ -187,7 +182,6 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
     }
   }
 
-  // ── POLLING AUTOMÁTICO ────────────────────────────────────────────────────
   void _iniciarPolling() {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
@@ -209,7 +203,6 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
     } catch (_) {}
   }
 
-  // ── VERIFICACIÓN MANUAL (botón "Ya verifiqué") ────────────────────────────
   Future<void> verificarManualmente() async {
     setState(() => verificando = true);
     try {
@@ -248,10 +241,12 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
     }
   }
 
-  // ── ACTUALIZAR FIRESTORE Y SALIR (solo cuando Firebase ya confirmó) ────────
   Future<void> _actualizarFirestoreYSalir() async {
     try {
-      await FirestoreService.actualizarPadre(widget.userId, {'gmail': nuevoCorreo});
+      await FirestoreService.actualizarPadre(
+        widget.userId,
+        {'gmail': nuevoCorreo},
+      );
     } catch (_) {}
     if (!mounted) return;
     await _mostrarDialogoMensaje(
@@ -274,32 +269,30 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
         child: Column(
           children: [
-            // ── HEADER ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(
                 children: [
                   GestureDetector(
-                    // null = volver sin cambio confirmado todavía
                     onTap: () => Navigator.pop(context, null),
                     child: Container(
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: bgCard,
+                        color: AppColors.bgCard,
                         border: Border.all(
-                          color: accentCyan.withOpacity(0.4),
+                          color: AppColors.accentCyan.withOpacity(0.4),
                           width: 1.5,
                         ),
                       ),
                       child: const Icon(
                         Icons.arrow_back_ios_new_rounded,
-                        color: accentCyan,
+                        color: AppColors.accentCyan,
                         size: 18,
                       ),
                     ),
@@ -310,14 +303,12 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
                     style: GoogleFonts.poppins(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: textPearl,
+                      color: AppColors.textPearl,
                     ),
                   ),
                 ],
               ),
             ),
-
-            // ── CONTENIDO ───────────────────────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -343,20 +334,11 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
   }
 }
 
-// ─── FORMULARIO ─────────────────────────────────────────────────────────────
-
 class BuildFormulario extends StatelessWidget {
   final String correoActual;
   final TextEditingController correoController;
   final bool isLoading;
   final VoidCallback onEnviar;
-
-  static const bgCard = Color(0xFF1E293B);
-  static const bgPrimary = Color(0xFF0F172A);
-  static const accentCyan = Color(0xFF06B6D4);
-  static const accentViolet = Color(0xFF8B5CF6);
-  static const textPearl = Color(0xFFF1F5F9);
-  static const textMuted = Color(0xFF94A3B8);
 
   const BuildFormulario({
     super.key,
@@ -372,22 +354,26 @@ class BuildFormulario extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-
-        // Correo actual
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: bgCard,
+            color: AppColors.bgCard,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: accentCyan.withOpacity(0.2), width: 1),
+            border: Border.all(
+              color: AppColors.accentCyan.withOpacity(0.2),
+              width: 1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Correo actual',
-                style: GoogleFonts.poppins(fontSize: 11, color: accentCyan),
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: AppColors.accentCyan,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -395,33 +381,38 @@ class BuildFormulario extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 24),
-
         Text(
           'Nuevo correo electrónico',
           style: GoogleFonts.poppins(
             fontSize: 12,
-            color: accentCyan,
+            color: AppColors.accentCyan,
             fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: bgPrimary,
+            color: AppColors.bgPrimary,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accentCyan.withOpacity(0.25), width: 1),
+            border: Border.all(
+              color: AppColors.accentCyan.withOpacity(0.25),
+              width: 1,
+            ),
           ),
           child: TextField(
             controller: correoController,
             keyboardType: TextInputType.emailAddress,
-            style: GoogleFonts.poppins(color: textPearl, fontSize: 14),
+            style: GoogleFonts.poppins(
+              color: AppColors.textPearl,
+              fontSize: 14,
+            ),
             decoration: InputDecoration(
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
@@ -429,22 +420,28 @@ class BuildFormulario extends StatelessWidget {
                 vertical: 14,
               ),
               hintText: 'nuevo@correo.com',
-              hintStyle: GoogleFonts.poppins(color: textMuted),
+              hintStyle: GoogleFonts.poppins(color: AppColors.textMuted),
             ),
           ),
         ),
         const SizedBox(height: 16),
-
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: accentViolet.withOpacity(0.07),
+            color: AppColors.accentViolet.withOpacity(0.07),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accentViolet.withOpacity(0.2), width: 1),
+            border: Border.all(
+              color: AppColors.accentViolet.withOpacity(0.2),
+              width: 1,
+            ),
           ),
           child: Row(
             children: [
-              const Icon(Icons.info_outline, color: accentViolet, size: 18),
+              const Icon(
+                Icons.info_outline,
+                color: AppColors.accentViolet,
+                size: 18,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -452,7 +449,7 @@ class BuildFormulario extends StatelessWidget {
                   'Debes hacer clic en él para completar el cambio.',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    color: textMuted,
+                    color: AppColors.textMuted,
                     height: 1.5,
                   ),
                 ),
@@ -461,7 +458,6 @@ class BuildFormulario extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 32),
-
         GestureDetector(
           onTap: isLoading ? null : onEnviar,
           child: Container(
@@ -469,12 +465,15 @@ class BuildFormulario extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [accentViolet, accentCyan],
+                colors: [
+                  AppColors.accentViolet,
+                  AppColors.accentCyan,
+                ],
               ),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: accentViolet.withOpacity(0.35),
+                  color: AppColors.accentViolet.withOpacity(0.35),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -505,19 +504,11 @@ class BuildFormulario extends StatelessWidget {
   }
 }
 
-// ─── ENVIADO (PENDIENTE DE VERIFICACIÓN) ────────────────────────────────────
-
 class BuildEnviado extends StatelessWidget {
   final String nuevoCorreo;
   final bool verificando;
   final VoidCallback onVerificar;
   final VoidCallback onVolver;
-
-  static const bgCard = Color(0xFF1E293B);
-  static const accentCyan = Color(0xFF06B6D4);
-  static const accentViolet = Color(0xFF8B5CF6);
-  static const textPearl = Color(0xFFF1F5F9);
-  static const textMuted = Color(0xFF94A3B8);
 
   const BuildEnviado({
     super.key,
@@ -533,17 +524,19 @@ class BuildEnviado extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(height: 40),
-
         Container(
           width: 90,
           height: 90,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: bgCard,
-            border: Border.all(color: accentCyan.withOpacity(0.4), width: 1.5),
+            color: AppColors.bgCard,
+            border: Border.all(
+              color: AppColors.accentCyan.withOpacity(0.4),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: accentCyan.withOpacity(0.2),
+                color: AppColors.accentCyan.withOpacity(0.2),
                 blurRadius: 28,
                 spreadRadius: 4,
               ),
@@ -552,51 +545,56 @@ class BuildEnviado extends StatelessWidget {
           child: const Icon(
             Icons.mark_email_read_outlined,
             size: 42,
-            color: accentCyan,
+            color: AppColors.accentCyan,
           ),
         ),
         const SizedBox(height: 24),
-
         Text(
           '¡Enlace enviado!',
           style: GoogleFonts.poppins(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: textPearl,
+            color: AppColors.textPearl,
           ),
         ),
         const SizedBox(height: 12),
         Text(
           'Hemos enviado un enlace de verificación a',
           textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontSize: 13, color: textMuted),
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: AppColors.textMuted,
+          ),
         ),
         const SizedBox(height: 8),
-
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: bgCard,
+            color: AppColors.bgCard,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accentCyan.withOpacity(0.25), width: 1),
+            border: Border.all(
+              color: AppColors.accentCyan.withOpacity(0.25),
+              width: 1,
+            ),
           ),
           child: Text(
             nuevoCorreo,
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: textPearl,
+              color: AppColors.textPearl,
             ),
           ),
         ),
         const SizedBox(height: 20),
-
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: accentViolet.withOpacity(0.07),
+            color: AppColors.accentViolet.withOpacity(0.07),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accentViolet.withOpacity(0.2)),
+            border: Border.all(
+              color: AppColors.accentViolet.withOpacity(0.2),
+            ),
           ),
           child: Text(
             'Haz clic en el enlace del correo para confirmar el cambio. '
@@ -604,14 +602,12 @@ class BuildEnviado extends StatelessWidget {
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 12,
-              color: textMuted,
+              color: AppColors.textMuted,
               height: 1.5,
             ),
           ),
         ),
         const SizedBox(height: 32),
-
-        // Botón principal: verificar manualmente
         GestureDetector(
           onTap: verificando ? null : onVerificar,
           child: Container(
@@ -619,12 +615,15 @@ class BuildEnviado extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [accentViolet, accentCyan],
+                colors: [
+                  AppColors.accentViolet,
+                  AppColors.accentCyan,
+                ],
               ),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: accentViolet.withOpacity(0.35),
+                  color: AppColors.accentViolet.withOpacity(0.35),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -662,21 +661,21 @@ class BuildEnviado extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
-        // Botón secundario: volver sin confirmar
         GestureDetector(
           onTap: onVolver,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
             decoration: BoxDecoration(
-              color: bgCard,
+              color: AppColors.bgCard,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: accentCyan.withOpacity(0.2)),
+              border: Border.all(
+                color: AppColors.accentCyan.withOpacity(0.2),
+              ),
             ),
             child: Text(
               'Volver al perfil',
               style: GoogleFonts.poppins(
-                color: textMuted,
+                color: AppColors.textMuted,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),

@@ -1,16 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _bgField      = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
-
+import '../../utils/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -20,7 +10,6 @@ class ChildHomeBody extends StatelessWidget {
   final VoidCallback onCerrarSesion;
   final VoidCallback onYoutube;
 
-
   const ChildHomeBody({
     super.key,
     required this.nombreNino,
@@ -28,19 +17,18 @@ class ChildHomeBody extends StatelessWidget {
     required this.onYoutube,
   });
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_bgPrimary, _bgCard, _bgPrimary],
+            colors: [AppColors.bgPrimary, AppColors.bgCard, AppColors.bgPrimary],
           ),
         ),
         child: SafeArea(
@@ -49,13 +37,14 @@ class ChildHomeBody extends StatelessWidget {
               // ── HEADER ──────────────────────────────────────────────────
               _ChildHeader(onCerrarSesion: onCerrarSesion),
 
-
               // ── CONTENIDO ───────────────────────────────────────────────
               Expanded(
                 child: Center(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 28, vertical: 16),
+                      horizontal: 28,
+                      vertical: 16,
+                    ),
                     child: _ChildCard(
                       nombreNino: nombreNino,
                       onYoutube: onYoutube,
@@ -71,14 +60,12 @@ class ChildHomeBody extends StatelessWidget {
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HEADER
 // ─────────────────────────────────────────────────────────────────────────────
 class _ChildHeader extends StatelessWidget {
   final VoidCallback onCerrarSesion;
   const _ChildHeader({required this.onCerrarSesion});
-
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +74,6 @@ class _ChildHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Botón logout
           Tooltip(
             message: 'Cerrar sesión',
             child: GestureDetector(
@@ -97,14 +83,14 @@ class _ChildHeader extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _bgCard,
+                  color: AppColors.bgCard,
                   border: Border.all(
-                    color: _accentCyan.withOpacity(0.4),
+                    color: AppColors.accentCyan.withOpacity(0.4),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: _accentCyan.withOpacity(0.15),
+                      color: AppColors.accentCyan.withOpacity(0.15),
                       blurRadius: 12,
                       spreadRadius: 1,
                     ),
@@ -112,21 +98,19 @@ class _ChildHeader extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.logout_rounded,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 20,
                 ),
               ),
             ),
           ),
 
-
-          // Logo con glow
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: _accentCyan.withOpacity(0.15),
+                  color: AppColors.accentCyan.withOpacity(0.15),
                   blurRadius: 20,
                   spreadRadius: 3,
                 ),
@@ -140,15 +124,12 @@ class _ChildHeader extends StatelessWidget {
             ),
           ),
 
-
-          // Espaciador para centrar el logo
           const SizedBox(width: 44),
         ],
       ),
     );
   }
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CARD PRINCIPAL
@@ -157,12 +138,10 @@ class _ChildCard extends StatelessWidget {
   final String nombreNino;
   final VoidCallback onYoutube;
 
-
   const _ChildCard({
     required this.nombreNino,
     required this.onYoutube,
   });
-
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +149,7 @@ class _ChildCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: Colors.white.withOpacity(0.07),
@@ -183,7 +162,7 @@ class _ChildCard extends StatelessWidget {
             offset: const Offset(0, 12),
           ),
           BoxShadow(
-            color: _accentCyan.withOpacity(0.05),
+            color: AppColors.accentCyan.withOpacity(0.05),
             blurRadius: 40,
             offset: const Offset(0, 4),
           ),
@@ -195,9 +174,7 @@ class _ChildCard extends StatelessWidget {
           // ── Avatar con inicial ───────────────────────────────────────
           _ChildAvatar(nombre: nombreNino),
 
-
           const SizedBox(height: 16),
-
 
           // ── Nombre ──────────────────────────────────────────────────
           Text(
@@ -205,13 +182,11 @@ class _ChildCard extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              color: _textPearl,
+              color: AppColors.textPearl,
             ),
           ),
 
-
           const SizedBox(height: 4),
-
 
           // ── Subtítulo ────────────────────────────────────────────────
           Text(
@@ -219,30 +194,25 @@ class _ChildCard extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: _textMuted,
+              color: AppColors.textMuted,
               letterSpacing: 1.5,
             ),
           ),
 
-
           const SizedBox(height: 6),
 
-
-          // Línea decorativa
           Container(
             width: 40,
             height: 3,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [_accentViolet, _accentCyan],
+                colors: [AppColors.accentViolet, AppColors.accentCyan],
               ),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
 
-
           const SizedBox(height: 28),
-
 
           // ── Botones de apps ──────────────────────────────────────────
           ChildAppButton(
@@ -253,9 +223,7 @@ class _ChildCard extends StatelessWidget {
             enabled: true,
           ),
 
-
           const SizedBox(height: 12),
-
 
           ChildAppButton(
             label: 'Instagram',
@@ -265,9 +233,7 @@ class _ChildCard extends StatelessWidget {
             enabled: false,
           ),
 
-
           const SizedBox(height: 12),
-
 
           ChildAppButton(
             label: 'Facebook',
@@ -282,14 +248,12 @@ class _ChildCard extends StatelessWidget {
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // AVATAR CON INICIAL
 // ─────────────────────────────────────────────────────────────────────────────
 class _ChildAvatar extends StatelessWidget {
   final String nombre;
   const _ChildAvatar({required this.nombre});
-
 
   @override
   Widget build(BuildContext context) {
@@ -299,18 +263,18 @@ class _ChildAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const LinearGradient(
-          colors: [_accentViolet, _accentCyan],
+          colors: [AppColors.accentViolet, AppColors.accentCyan],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: _accentViolet.withOpacity(0.3),
+            color: AppColors.accentViolet.withOpacity(0.3),
             blurRadius: 20,
             spreadRadius: 2,
           ),
           BoxShadow(
-            color: _accentCyan.withOpacity(0.2),
+            color: AppColors.accentCyan.withOpacity(0.2),
             blurRadius: 28,
             spreadRadius: 1,
           ),
@@ -329,7 +293,6 @@ class _ChildAvatar extends StatelessWidget {
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // BOTÓN DE APP — público para reutilización
 // ─────────────────────────────────────────────────────────────────────────────
@@ -340,7 +303,6 @@ class ChildAppButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool enabled;
 
-
   const ChildAppButton({
     super.key,
     required this.label,
@@ -349,7 +311,6 @@ class ChildAppButton extends StatelessWidget {
     required this.onTap,
     this.enabled = true,
   });
-
 
   @override
   Widget build(BuildContext context) {
@@ -362,18 +323,18 @@ class ChildAppButton extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: _bgField,
+            color: AppColors.bgField,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: enabled
-                  ? _accentCyan.withOpacity(0.2)
+                  ? AppColors.accentCyan.withOpacity(0.2)
                   : Colors.white.withOpacity(0.05),
               width: 1,
             ),
             boxShadow: enabled
                 ? [
                     BoxShadow(
-                      color: _accentCyan.withOpacity(0.05),
+                      color: AppColors.accentCyan.withOpacity(0.05),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -382,7 +343,6 @@ class ChildAppButton extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Ícono de la app
               Container(
                 width: 42,
                 height: 42,
@@ -402,33 +362,30 @@ class ChildAppButton extends StatelessWidget {
                 child: Icon(icon, color: Colors.white, size: 22),
               ),
 
-
               const SizedBox(width: 14),
 
-
-              // Nombre de la app
               Expanded(
                 child: Text(
                   label,
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: enabled ? _textPearl : _textMuted,
+                    color: enabled ? AppColors.textPearl : AppColors.textMuted,
                   ),
                 ),
               ),
 
-
-              // Badge "Próximamente" o flecha
               if (!enabled)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: _textMuted.withOpacity(0.1),
+                    color: AppColors.textMuted.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _textMuted.withOpacity(0.2),
+                      color: AppColors.textMuted.withOpacity(0.2),
                       width: 1,
                     ),
                   ),
@@ -436,12 +393,11 @@ class ChildAppButton extends StatelessWidget {
                     'Próximamente',
                     style: GoogleFonts.poppins(
                       fontSize: 10,
-                      color: _textMuted,
+                      color: AppColors.textMuted,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-
 
               if (enabled) ...[
                 const SizedBox(width: 8),
@@ -450,16 +406,16 @@ class ChildAppButton extends StatelessWidget {
                   height: 28,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _accentCyan.withOpacity(0.12),
+                    color: AppColors.accentCyan.withOpacity(0.12),
                     border: Border.all(
-                      color: _accentCyan.withOpacity(0.3),
+                      color: AppColors.accentCyan.withOpacity(0.3),
                       width: 1,
                     ),
                   ),
                   child: const Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 13,
-                    color: _accentCyan,
+                    color: AppColors.accentCyan,
                   ),
                 ),
               ],

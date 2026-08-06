@@ -11,6 +11,7 @@ import 'login_screen.dart';
 import '../parent/parent_main_screen.dart';
 import '../../utils/app_colors.dart';
 
+
 class Star {
   final double x;
   final double y;
@@ -26,18 +27,22 @@ class Star {
   });
 }
 
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
+
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   static const Duration _totalDuration = Duration(milliseconds: 2800);
   late final List<Star> _stars;
+
 
   @override
   void initState() {
@@ -55,11 +60,13 @@ class _SplashScreenState extends State<SplashScreen>
     _boot();
   }
 
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
 
   double _segment(double t, double start, double end,
       {Curve curve = Curves.linear}) {
@@ -67,17 +74,21 @@ class _SplashScreenState extends State<SplashScreen>
     return curve.transform(value);
   }
 
+
   Future<void> _boot() async {
     await Future.delayed(const Duration(milliseconds: 2400));
 
+
     String deviceId = '';
     String fcmToken = '';
+
 
     try {
       deviceId = await DeviceIdService.getInstallationId();
     } catch (e) {
       debugPrint('DeviceIdService error: $e');
     }
+
 
     try {
       await NotificationService.initLocalNotifications();
@@ -92,6 +103,7 @@ class _SplashScreenState extends State<SplashScreen>
     } catch (e) {
       debugPrint('NotificationService error: $e');
     }
+
 
     // 1. SESIÓN DE NIÑO
     try {
@@ -131,6 +143,7 @@ class _SplashScreenState extends State<SplashScreen>
         await ChildStateService.clearNinoRegistrado();
       } catch (_) {}
     }
+
 
     // 2. SESIÓN DE PADRE
     try {
@@ -179,6 +192,7 @@ class _SplashScreenState extends State<SplashScreen>
       debugPrint('Sesión padre error: $e');
     }
 
+
     // 3. FALLBACK — Login
     if (!mounted) return;
     Navigator.pushReplacement(
@@ -186,6 +200,7 @@ class _SplashScreenState extends State<SplashScreen>
       MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -205,11 +220,12 @@ class _SplashScreenState extends State<SplashScreen>
             final subtitleOpacity =
                 _segment(t, 0.50, 0.80, curve: Curves.easeOut);
 
+
             return Stack(
               children: [
                 // Fondo gradiente
                 Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -221,6 +237,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                 ),
+
 
                 // Orbe violeta superior izquierdo
                 Positioned(
@@ -241,6 +258,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
 
+
                 // Orbe cyan inferior derecho
                 Positioned(
                   bottom: -size.height * 0.10,
@@ -259,6 +277,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                 ),
+
 
                 // Estrellas animadas
                 ..._stars.map((star) {
@@ -286,6 +305,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   );
                 }),
+
 
                 // Contenido central
                 Center(
@@ -336,6 +356,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
 
+
                 // Spinner inferior
                 Positioned(
                   bottom: 48,
@@ -357,6 +378,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                 ),
+
 
                 // Versión
                 Positioned(
@@ -386,12 +408,15 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
+
 double _lerpD(num a, num b, double t) => a + (b - a) * t;
+
 
 // ─── Logo Serenity ───────────────────────────────────────────────────────────
 class SerenityLogo extends StatelessWidget {
   final double size;
   const SerenityLogo({super.key, required this.size});
+
 
   @override
   Widget build(BuildContext context) {
@@ -455,11 +480,13 @@ class SerenityLogo extends StatelessWidget {
   }
 }
 
+
 // ─── Forma de estrella ───────────────────────────────────────────────────────
 class StarShape extends StatelessWidget {
   final double size;
   final Color color;
   const StarShape({super.key, required this.size, required this.color});
+
 
   @override
   Widget build(BuildContext context) {
@@ -470,9 +497,11 @@ class StarShape extends StatelessWidget {
   }
 }
 
+
 class StarPainter extends CustomPainter {
   final Color color;
   const StarPainter({required this.color});
+
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -499,6 +528,7 @@ class StarPainter extends CustomPainter {
     path.close();
     canvas.drawPath(path, paint);
   }
+
 
   @override
   bool shouldRepaint(StarPainter oldDelegate) => oldDelegate.color != color;

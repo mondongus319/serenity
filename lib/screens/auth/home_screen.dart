@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../utils/app_colors.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -7,11 +8,10 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.bgPrimary,
 
-      // ── APP BAR ────────────────────────────────────────────────────────
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: AppColors.bgCard,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Row(
@@ -19,10 +19,13 @@ class HomeScreen extends StatelessWidget {
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8B5CF6), Color(0xFF06B6D4)],
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.accentViolet,
+                    AppColors.accentCyan,
+                  ],
                 ),
               ),
             ),
@@ -30,7 +33,7 @@ class HomeScreen extends StatelessWidget {
             Text(
               'Serenity',
               style: GoogleFonts.poppins(
-                color: const Color(0xFFF1F5F9),
+                color: AppColors.textPearl,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
                 letterSpacing: 0.5,
@@ -46,7 +49,7 @@ class HomeScreen extends StatelessWidget {
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  const Color(0xFF06B6D4).withOpacity(0.3),
+                  AppColors.accentCyan.withOpacity(0.3),
                   Colors.transparent,
                 ],
               ),
@@ -61,7 +64,7 @@ class HomeScreen extends StatelessWidget {
               child: IconButton(
                 icon: const Icon(
                   Icons.logout_rounded,
-                  color: Color(0xFF06B6D4),
+                  color: AppColors.accentCyan,
                   size: 20,
                 ),
                 onPressed: () {
@@ -73,18 +76,17 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
 
-      // ── BODY ──────────────────────────────────────────────────────────
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E293B),
-              Color(0xFF0F172A),
+              AppColors.bgPrimary,
+              AppColors.bgCard,
+              AppColors.bgPrimary,
             ],
           ),
         ),
@@ -96,7 +98,6 @@ class HomeScreen extends StatelessWidget {
               children: [
                 const SizedBox(height: 16),
 
-                // ── Logo con glow ────────────────────────────────────────
                 Stack(
                   alignment: Alignment.center,
                   children: [
@@ -107,8 +108,8 @@ class HomeScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            const Color(0xFF06B6D4).withOpacity(0.12),
-                            const Color(0xFF8B5CF6).withOpacity(0.07),
+                            AppColors.accentCyan.withOpacity(0.12),
+                            AppColors.accentViolet.withOpacity(0.07),
                             Colors.transparent,
                           ],
                         ),
@@ -119,19 +120,19 @@ class HomeScreen extends StatelessWidget {
                       height: 130,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFF1E293B),
+                        color: AppColors.bgCard,
                         border: Border.all(
-                          color: const Color(0xFF06B6D4).withOpacity(0.3),
+                          color: AppColors.accentCyan.withOpacity(0.3),
                           width: 1.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF06B6D4).withOpacity(0.18),
+                            color: AppColors.accentCyan.withOpacity(0.18),
                             blurRadius: 28,
                             spreadRadius: 4,
                           ),
                           BoxShadow(
-                            color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                            color: AppColors.accentViolet.withOpacity(0.1),
                             blurRadius: 40,
                             spreadRadius: 2,
                           ),
@@ -148,14 +149,13 @@ class HomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 28),
 
-                // ── Bienvenida ───────────────────────────────────────────
                 Text(
                   '¡Bienvenido a Serenity!',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFFF1F5F9),
+                    color: AppColors.textPearl,
                   ),
                 ),
 
@@ -166,19 +166,21 @@ class HomeScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: const Color(0xFF94A3B8),
+                    color: AppColors.textMuted,
                   ),
                 ),
 
                 const SizedBox(height: 10),
 
-                // Línea decorativa
                 Container(
                   width: 50,
                   height: 3,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF06B6D4)],
+                      colors: [
+                        AppColors.accentViolet,
+                        AppColors.accentCyan,
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(2),
                   ),
@@ -186,15 +188,14 @@ class HomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 40),
 
-                // ── Card "En Desarrollo" ─────────────────────────────────
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(28),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: AppColors.bgCard,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: const Color(0xFF06B6D4).withOpacity(0.2),
+                      color: AppColors.accentCyan.withOpacity(0.2),
                       width: 1,
                     ),
                     boxShadow: [
@@ -204,7 +205,7 @@ class HomeScreen extends StatelessWidget {
                         offset: const Offset(0, 8),
                       ),
                       BoxShadow(
-                        color: const Color(0xFF06B6D4).withOpacity(0.05),
+                        color: AppColors.accentCyan.withOpacity(0.05),
                         blurRadius: 30,
                         offset: const Offset(0, 4),
                       ),
@@ -212,20 +213,19 @@ class HomeScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      // Ícono construcción con glow
                       Container(
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF0F172A),
+                          color: AppColors.bgPrimary,
                           border: Border.all(
-                            color: const Color(0xFF8B5CF6).withOpacity(0.35),
+                            color: AppColors.accentViolet.withOpacity(0.35),
                             width: 1.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                              color: AppColors.accentViolet.withOpacity(0.2),
                               blurRadius: 20,
                               spreadRadius: 2,
                             ),
@@ -234,26 +234,27 @@ class HomeScreen extends StatelessWidget {
                         child: const Icon(
                           Icons.construction_rounded,
                           size: 38,
-                          color: Color(0xFF8B5CF6),
+                          color: AppColors.accentViolet,
                         ),
                       ),
 
                       const SizedBox(height: 20),
 
-                      // Badge "En Desarrollo"
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              const Color(0xFF8B5CF6).withOpacity(0.15),
-                              const Color(0xFF06B6D4).withOpacity(0.15),
+                              AppColors.accentViolet.withOpacity(0.15),
+                              AppColors.accentCyan.withOpacity(0.15),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                            color: AppColors.accentViolet.withOpacity(0.3),
                             width: 1,
                           ),
                         ),
@@ -262,7 +263,7 @@ class HomeScreen extends StatelessWidget {
                           style: GoogleFonts.poppins(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF8B5CF6),
+                            color: AppColors.accentViolet,
                           ),
                         ),
                       ),
@@ -274,23 +275,22 @@ class HomeScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
-                          color: const Color(0xFF94A3B8),
+                          color: AppColors.textMuted,
                           height: 1.6,
                         ),
                       ),
 
                       const SizedBox(height: 20),
 
-                      // Barra de progreso decorativa
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: 0.45,
                           minHeight: 4,
                           backgroundColor:
-                              Colors.white.withOpacity(0.06),
+                              AppColors.textPearl.withOpacity(0.06),
                           valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF06B6D4),
+                            AppColors.accentCyan,
                           ),
                         ),
                       ),
@@ -301,7 +301,7 @@ class HomeScreen extends StatelessWidget {
                         '45% completado',
                         style: GoogleFonts.poppins(
                           fontSize: 10,
-                          color: const Color(0xFF06B6D4),
+                          color: AppColors.accentCyan,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

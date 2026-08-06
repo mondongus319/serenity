@@ -1,18 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../utils/app_colors.dart';
 
-
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _bgField      = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
-
-const _dangerSoft   = Color(0xFFBE7D8A);
+const _dangerSoft = Color(0xFFBE7D8A);
 const _dangerBorder = Color(0xFF6B3F49);
-
 
 class ParentProfileBody extends StatelessWidget {
   final String nombre;
@@ -50,7 +41,7 @@ class ParentProfileBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
         child: Column(
           children: [
@@ -60,26 +51,28 @@ class ParentProfileBody extends StatelessWidget {
               child: isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: _accentCyan,
+                        color: AppColors.accentCyan,
                         strokeWidth: 2.5,
                       ),
                     )
                   : SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       child: Column(
                         children: [
                           _AvatarSection(nombre: nombre),
                           const SizedBox(height: 24),
                           _DataCard(
-                            correoActual:       correoActual,
-                            nombreCompleto:     nombreCompleto,
-                            fechaTexto:         fechaTexto,
-                            isSaving:           isSaving,
-                            onEditarCorreo:     onEditarCorreo,
-                            onEditarNombres:    onEditarNombres,
-                            onEditarFecha:      onEditarFecha,
+                            correoActual: correoActual,
+                            nombreCompleto: nombreCompleto,
+                            fechaTexto: fechaTexto,
+                            isSaving: isSaving,
+                            onEditarCorreo: onEditarCorreo,
+                            onEditarNombres: onEditarNombres,
+                            onEditarFecha: onEditarFecha,
                             onEditarContrasena: onEditarContrasena,
                           ),
                           const SizedBox(height: 16),
@@ -98,7 +91,6 @@ class ParentProfileBody extends StatelessWidget {
   }
 }
 
-
 // ─── HEADER ───────────────────────────────────────────────────────────────────
 class _ProfileHeader extends StatelessWidget {
   final VoidCallback onSwitchProfile;
@@ -112,10 +104,7 @@ class _ProfileHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Espaciador izquierdo para mantener el logo centrado
           const SizedBox(width: 44),
-
-          // Logo centrado
           Column(
             children: [
               Image.asset(
@@ -130,25 +119,22 @@ class _ProfileHeader extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: _textMuted,
+                  color: AppColors.textMuted,
                   letterSpacing: 1.5,
                 ),
               ),
             ],
           ),
-
-          // Botón cambiar perfil
           _HeaderIconButton(
-            icon:    Icons.switch_account_rounded,
+            icon: Icons.switch_account_rounded,
             tooltip: 'Cambiar de perfil',
-            onTap:   onSwitchProfile,
+            onTap: onSwitchProfile,
           ),
         ],
       ),
     );
   }
 }
-
 
 // ─── BOTÓN ÍCONO HEADER ───────────────────────────────────────────────────────
 class _HeaderIconButton extends StatelessWidget {
@@ -173,26 +159,25 @@ class _HeaderIconButton extends StatelessWidget {
           height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _bgCard,
+            color: AppColors.bgCard,
             border: Border.all(
-              color: _accentCyan.withOpacity(0.4),
+              color: AppColors.accentCyan.withOpacity(0.4),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: _accentCyan.withOpacity(0.15),
+                color: AppColors.accentCyan.withOpacity(0.15),
                 blurRadius: 12,
                 spreadRadius: 1,
               ),
             ],
           ),
-          child: Icon(icon, color: _accentCyan, size: 20),
+          child: Icon(icon, color: AppColors.accentCyan, size: 20),
         ),
       ),
     );
   }
 }
-
 
 // ─── AVATAR ───────────────────────────────────────────────────────────────────
 class _AvatarSection extends StatelessWidget {
@@ -209,13 +194,13 @@ class _AvatarSection extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: const LinearGradient(
-              colors: [_accentViolet, _accentCyan],
+              colors: [AppColors.accentViolet, AppColors.accentCyan],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: _accentViolet.withOpacity(0.4),
+                color: AppColors.accentViolet.withOpacity(0.4),
                 blurRadius: 20,
                 spreadRadius: 2,
               ),
@@ -237,19 +222,18 @@ class _AvatarSection extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: _textPearl,
+            color: AppColors.textPearl,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           nombre,
-          style: GoogleFonts.poppins(fontSize: 13, color: _textMuted),
+          style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textMuted),
         ),
       ],
     );
   }
 }
-
 
 // ─── CARD DE DATOS ────────────────────────────────────────────────────────────
 class _DataCard extends StatelessWidget {
@@ -278,7 +262,7 @@ class _DataCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
         boxShadow: [
@@ -298,12 +282,12 @@ class _DataCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: _accentCyan.withOpacity(0.15),
+                  color: AppColors.accentCyan.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.person_outline_rounded,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   size: 18,
                 ),
               ),
@@ -313,7 +297,7 @@ class _DataCard extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: _textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
             ],
@@ -355,14 +339,17 @@ class _DataCard extends StatelessWidget {
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(
-                    color: _accentCyan,
+                    color: AppColors.accentCyan,
                     strokeWidth: 2,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Guardando cambios...',
-                  style: GoogleFonts.poppins(fontSize: 12, color: _accentCyan),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.accentCyan,
+                  ),
                 ),
               ],
             ),
@@ -372,7 +359,6 @@ class _DataCard extends StatelessWidget {
     );
   }
 }
-
 
 // ─── FILA DE INFO ─────────────────────────────────────────────────────────────
 class DarkInfoRow extends StatelessWidget {
@@ -396,7 +382,7 @@ class DarkInfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, color: _accentCyan, size: 18),
+          Icon(icon, color: AppColors.accentCyan, size: 18),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -404,23 +390,31 @@ class DarkInfoRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.poppins(fontSize: 10, color: _textMuted),
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: AppColors.textMuted,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: _bgField,
+                    color: AppColors.bgField,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: Colors.white.withOpacity(0.06)),
+                      color: Colors.white.withOpacity(0.06),
+                    ),
                   ),
                   child: Text(
                     value,
                     style: GoogleFonts.poppins(
-                        fontSize: 13, color: _textPearl),
+                      fontSize: 13,
+                      color: AppColors.textPearl,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -431,18 +425,19 @@ class DarkInfoRow extends StatelessWidget {
           GestureDetector(
             onTap: onChangeTap,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: _accentCyan.withOpacity(0.12),
+                color: AppColors.accentCyan.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: _accentCyan.withOpacity(0.35), width: 1),
+                  color: AppColors.accentCyan.withOpacity(0.35),
+                  width: 1,
+                ),
               ),
               child: Text(
                 'Editar',
                 style: GoogleFonts.poppins(
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -455,7 +450,6 @@ class DarkInfoRow extends StatelessWidget {
   }
 }
 
-
 // ─── DIVISOR ENTRE FILAS ──────────────────────────────────────────────────────
 class _RowDivider extends StatelessWidget {
   @override
@@ -467,7 +461,6 @@ class _RowDivider extends StatelessWidget {
     );
   }
 }
-
 
 // ─── BOTÓN CERRAR SESIÓN ──────────────────────────────────────────────────────
 class _LogoutButton extends StatelessWidget {
@@ -482,7 +475,7 @@ class _LogoutButton extends StatelessWidget {
         width: double.infinity,
         height: 48,
         decoration: BoxDecoration(
-          color: _bgCard,
+          color: AppColors.bgCard,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: Colors.white.withOpacity(0.08),
@@ -492,12 +485,12 @@ class _LogoutButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.exit_to_app_rounded, color: _textMuted, size: 18),
+            Icon(Icons.exit_to_app_rounded, color: AppColors.textMuted, size: 18),
             const SizedBox(width: 8),
             Text(
               'Cerrar sesión',
               style: GoogleFonts.poppins(
-                color: _textMuted,
+                color: AppColors.textMuted,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -508,7 +501,6 @@ class _LogoutButton extends StatelessWidget {
     );
   }
 }
-
 
 // ─── ZONA DE PELIGRO ──────────────────────────────────────────────────────────
 class _DangerZone extends StatelessWidget {
@@ -521,7 +513,7 @@ class _DangerZone extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: _dangerBorder.withOpacity(0.5),
@@ -533,14 +525,14 @@ class _DangerZone extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline_rounded, color: _textMuted, size: 14),
+              Icon(Icons.info_outline_rounded, color: AppColors.textMuted, size: 14),
               const SizedBox(width: 6),
               Text(
                 'Zona de peligro',
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: _textMuted,
+                  color: AppColors.textMuted,
                   letterSpacing: 0.8,
                 ),
               ),
@@ -554,14 +546,17 @@ class _DangerZone extends StatelessWidget {
               height: 46,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: _bgField,
+                color: AppColors.bgField,
                 border: Border.all(color: _dangerBorder, width: 1),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.delete_outline_rounded,
-                      color: _dangerSoft, size: 17),
+                  Icon(
+                    Icons.delete_outline_rounded,
+                    color: _dangerSoft,
+                    size: 17,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Eliminar mi cuenta',
@@ -580,7 +575,7 @@ class _DangerZone extends StatelessWidget {
             'Desactiva tu cuenta y la de tus niños vinculados.',
             style: GoogleFonts.poppins(
               fontSize: 10,
-              color: _textMuted.withOpacity(0.6),
+              color: AppColors.textMuted.withOpacity(0.6),
             ),
           ),
         ],

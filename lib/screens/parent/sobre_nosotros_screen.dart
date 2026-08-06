@@ -25,6 +25,6 @@ class _SobreNosotrosScreenState extends State<SobreNosotrosScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return const SobreNosotrosBody();
+    return SobreNosotrosBody();
   }
 }

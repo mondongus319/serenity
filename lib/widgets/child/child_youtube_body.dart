@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _bgField      = Color(0xFF0F172A);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
+import '../../utils/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -46,15 +38,15 @@ class ChildYoutubeBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_bgPrimary, _bgCard, _bgPrimary],
+            colors: [AppColors.bgPrimary, AppColors.bgCard, AppColors.bgPrimary],
           ),
         ),
         child: SafeArea(
@@ -68,7 +60,7 @@ class ChildYoutubeBody extends StatelessWidget {
                 const Expanded(
                   child: Center(
                     child: CircularProgressIndicator(
-                      color: _accentCyan,
+                      color: AppColors.accentCyan,
                       strokeWidth: 2.5,
                     ),
                   ),
@@ -80,10 +72,10 @@ class ChildYoutubeBody extends StatelessWidget {
               else ...[
                 // ── CHIPS CATEGORÍAS ──────────────────────────────────
                 _CategoryChips(
-                  categorias:           categorias,
-                  categoriaInfo:        categoriaInfo,
+                  categorias: categorias,
+                  categoriaInfo: categoriaInfo,
                   categoriaSeleccionada: categoriaSeleccionada,
-                  onSeleccionar:        onSeleccionarCategoria,
+                  onSeleccionar: onSeleccionarCategoria,
                 ),
 
                 const SizedBox(height: 14),
@@ -93,15 +85,14 @@ class ChildYoutubeBody extends StatelessWidget {
                   child: loadingVideos
                       ? const Center(
                           child: CircularProgressIndicator(
-                            color: _accentCyan,
+                            color: AppColors.accentCyan,
                             strokeWidth: 2.5,
                           ),
                         )
                       : videos.isEmpty
-                          ? _SinVideosSection(
-                              categoriaLabel: categoriaLabel)
+                          ? _SinVideosSection(categoriaLabel: categoriaLabel)
                           : _VideoList(
-                              videos:       videos,
+                              videos: videos,
                               onAbrirVideo: onAbrirVideo,
                             ),
                 ),
@@ -128,7 +119,6 @@ class _YoutubeHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Botón volver
           GestureDetector(
             onTap: onBack,
             child: Container(
@@ -136,14 +126,14 @@ class _YoutubeHeader extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _bgCard,
+                color: AppColors.bgCard,
                 border: Border.all(
-                  color: _accentCyan.withOpacity(0.4),
+                  color: AppColors.accentCyan.withOpacity(0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentCyan.withOpacity(0.15),
+                    color: AppColors.accentCyan.withOpacity(0.15),
                     blurRadius: 12,
                     spreadRadius: 1,
                   ),
@@ -151,13 +141,12 @@ class _YoutubeHeader extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.arrow_back_ios_new_rounded,
-                color: _accentCyan,
+                color: AppColors.accentCyan,
                 size: 18,
               ),
             ),
           ),
 
-          // Logo YouTube
           Row(
             children: [
               Container(
@@ -185,13 +174,12 @@ class _YoutubeHeader extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: _textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
             ],
           ),
 
-          // Espaciador
           const SizedBox(width: 44),
         ],
       ),
@@ -224,15 +212,16 @@ class _CategoryChips extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: categorias.length,
         itemBuilder: (context, i) {
-          final cat       = categorias[i];
-          final key       = cat['nombre'].toString().toLowerCase();
-          final info      = categoriaInfo[key] ?? {
-            'emoji': '📌',
-            'label': cat['nombre'],
-            'color': _accentCyan,
-          };
+          final cat = categorias[i];
+          final key = cat['nombre'].toString().toLowerCase();
+          final info = categoriaInfo[key] ??
+              {
+                'emoji': '📌',
+                'label': cat['nombre'],
+                'color': AppColors.accentCyan,
+              };
           final isSelected = categoriaSeleccionada == cat['nombre'];
-          final catColor   = info['color'] as Color;
+          final catColor = info['color'] as Color;
 
           return GestureDetector(
             onTap: () => onSeleccionar(
@@ -242,12 +231,9 @@ class _CategoryChips extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? catColor.withOpacity(0.18)
-                    : _bgCard,
+                color: isSelected ? catColor.withOpacity(0.18) : AppColors.bgCard,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isSelected
@@ -270,7 +256,7 @@ class _CategoryChips extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? catColor : _textMuted,
+                  color: isSelected ? catColor : AppColors.textMuted,
                 ),
               ),
             ),
@@ -301,11 +287,11 @@ class _VideoList extends StatelessWidget {
       itemBuilder: (context, i) {
         final video = videos[i];
         return YoutubeVideoCard(
-          titulo:    video['titulo']    ?? 'Sin título',
-          canal:     video['canal']     ?? '',
-          videoId:   video['videoid']   ?? '',
+          titulo: video['titulo'] ?? 'Sin título',
+          canal: video['canal'] ?? '',
+          videoId: video['videoid'] ?? '',
           thumbnail: video['thumbnail'] ?? '',
-          onTap:     () => onAbrirVideo(video['videoid'] ?? ''),
+          onTap: () => onAbrirVideo(video['videoid'] ?? ''),
         );
       },
     );
@@ -330,9 +316,9 @@ class _EmptySection extends StatelessWidget {
               height: 90,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _bgCard,
+                color: AppColors.bgCard,
                 border: Border.all(
-                  color: _textMuted.withOpacity(0.15),
+                  color: AppColors.textMuted.withOpacity(0.15),
                   width: 1,
                 ),
               ),
@@ -348,7 +334,7 @@ class _EmptySection extends StatelessWidget {
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 16,
-                color: _textPearl,
+                color: AppColors.textPearl,
                 fontWeight: FontWeight.w700,
                 height: 1.5,
               ),
@@ -358,7 +344,7 @@ class _EmptySection extends StatelessWidget {
               'Vuelve más tarde',
               style: GoogleFonts.poppins(
                 fontSize: 13,
-                color: _textMuted,
+                color: AppColors.textMuted,
               ),
             ),
           ],
@@ -386,9 +372,9 @@ class _SinVideosSection extends StatelessWidget {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _bgCard,
+              color: AppColors.bgCard,
               border: Border.all(
-                color: _textMuted.withOpacity(0.15),
+                color: AppColors.textMuted.withOpacity(0.15),
                 width: 1,
               ),
             ),
@@ -404,7 +390,7 @@ class _SinVideosSection extends StatelessWidget {
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 15,
-              color: _textMuted,
+              color: AppColors.textMuted,
               fontWeight: FontWeight.w600,
               height: 1.5,
             ),
@@ -458,7 +444,7 @@ class _ErrorSection extends StatelessWidget {
                 error,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  color: _textMuted,
+                  color: AppColors.textMuted,
                   fontSize: 13,
                 ),
               ),
@@ -467,17 +453,22 @@ class _ErrorSection extends StatelessWidget {
                 onTap: onRetry,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 12),
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [_accentViolet, _accentCyan],
+                      colors: [
+                        AppColors.accentViolet,
+                        AppColors.accentCyan,
+                      ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: _accentViolet.withOpacity(0.3),
+                        color: AppColors.accentViolet.withOpacity(0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -538,10 +529,10 @@ class YoutubeVideoCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: _bgCard,
+          color: AppColors.bgCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _accentCyan.withOpacity(0.12),
+            color: AppColors.accentCyan.withOpacity(0.12),
             width: 1,
           ),
           boxShadow: [
@@ -554,10 +545,9 @@ class YoutubeVideoCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // ── Thumbnail ───────────────────────────────────────────────
             ClipRRect(
               borderRadius: const BorderRadius.only(
-                topLeft:    Radius.circular(16),
+                topLeft: Radius.circular(16),
                 bottomLeft: Radius.circular(16),
               ),
               child: thumbnail.isNotEmpty
@@ -573,11 +563,12 @@ class YoutubeVideoCard extends StatelessWidget {
 
             const SizedBox(width: 12),
 
-            // ── Título y canal ───────────────────────────────────────────
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    vertical: 10, horizontal: 4),
+                  vertical: 10,
+                  horizontal: 4,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -588,7 +579,7 @@ class YoutubeVideoCard extends StatelessWidget {
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: _textPearl,
+                        color: AppColors.textPearl,
                         height: 1.4,
                       ),
                     ),
@@ -598,7 +589,7 @@ class YoutubeVideoCard extends StatelessWidget {
                         canal,
                         style: GoogleFonts.poppins(
                           fontSize: 11,
-                          color: _textMuted,
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -607,7 +598,6 @@ class YoutubeVideoCard extends StatelessWidget {
               ),
             ),
 
-            // ── Ícono play ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: Container(
@@ -637,17 +627,19 @@ class YoutubeVideoCard extends StatelessWidget {
 
 // ─── Placeholder thumbnail ────────────────────────────────────────────────
 class _PlaceholderThumb extends StatelessWidget {
+  const _PlaceholderThumb();
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 120,
       height: 80,
-      decoration: const BoxDecoration(
-        color: _bgField,
+      decoration: BoxDecoration(
+        color: AppColors.bgField,
       ),
       child: Icon(
         Icons.play_circle_outline_rounded,
-        color: _textMuted.withOpacity(0.4),
+        color: AppColors.textMuted.withOpacity(0.4),
         size: 36,
       ),
     );

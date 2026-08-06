@@ -1,4 +1,3 @@
-// index.js
 const { onSchedule }          = require("firebase-functions/v2/scheduler");
 const { onCall, HttpsError }  = require("firebase-functions/v2/https");
 const { onDocumentUpdated }   = require("firebase-functions/v2/firestore");
@@ -8,9 +7,11 @@ const admin                   = require("firebase-admin");
 const axios                   = require("axios");
 const KEYWORDS                = require("./keywords");
 
+
 admin.initializeApp();
 const db            = admin.firestore();
 const youtubeApiKey = defineSecret("YOUTUBE_API_KEY");
+
 
 const MAX_RESULTS_POR_KEYWORD   = 8;
 const MAX_DURACION_KEYWORDS_SEG = 20 * 60;
@@ -19,6 +20,7 @@ const MIN_DURACION_SEGUNDOS     = 60;
 const IDIOMA                    = "es";
 const REGION                    = "CO";
 
+
 const TITULOS_EXCLUIDOS = [
   "#shorts", "#short",
   "en vivo", "en directo", "live stream", "livestream",
@@ -26,9 +28,7 @@ const TITULOS_EXCLUIDOS = [
   "podcast",
 ];
 
-// ─────────────────────────────────────────────
-// Helper: parsear duración ISO 8601 → segundos
-// ─────────────────────────────────────────────
+
 function parseDuracionISO(iso) {
   if (!iso) return 0;
   const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -39,20 +39,124 @@ function parseDuracionISO(iso) {
   return h * 3600 + m * 60 + s;
 }
 
+
 function esTituloExcluido(titulo) {
   if (!titulo) return false;
   const lower = titulo.toLowerCase();
   return TITULOS_EXCLUIDOS.some((t) => lower.includes(t));
 }
 
+
 function esDirectoOPremiere(snippet) {
   const lbc = snippet?.liveBroadcastContent;
   return lbc === "live" || lbc === "upcoming";
 }
 
+
+function normalizarRango(rango) {
+  return (rango ?? "").toString().replace(/\s*años\s*$/i, "").trim();
+}
+
+
 // ─────────────────────────────────────────────
-// Borrar toda la colección videos_catalogo
+// Clave técnica para poder filtrar rápido con
+// arrayContains en Firestore, sin duplicar
+// visualmente la info en categorias_info.
 // ─────────────────────────────────────────────
+function claveCategoriaRango(categoriaId, rango) {
+  return `${categoriaId}__${rango}`;
+}
+
+
+// ─────────────────────────────────────────────
+// Agrupa pares {categoriaId, categoriaNombre, rangoEdad}
+// en categorias_info (sin repetir categoria_nombre)
+// y genera categorias_rango para la consulta.
+// ─────────────────────────────────────────────
+function construirCategoriasInfo(pares) {
+  const map = new Map();
+
+  for (const p of pares) {
+    const rango = normalizarRango(p.rangoEdad);
+    if (!map.has(p.categoriaId)) {
+      map.set(p.categoriaId, {
+        categoria_id:     p.categoriaId,
+        categoria_nombre: p.categoriaNombre,
+        rangos_edad:      [],
+      });
+    }
+    const entry = map.get(p.categoriaId);
+    if (!entry.rangos_edad.includes(rango)) {
+      entry.rangos_edad.push(rango);
+    }
+  }
+
+  const categorias_info = Array.from(map.values());
+  const categorias_rango = [];
+  categorias_info.forEach((c) => {
+    c.rangos_edad.forEach((r) => {
+      categorias_rango.push(claveCategoriaRango(c.categoria_id, r));
+    });
+  });
+
+  return { categorias_info, categorias_rango };
+}
+
+
+// ─────────────────────────────────────────────
+// Agrega una categoría/rango a un doc existente
+// sin duplicar la categoría si ya existe: solo
+// le agrega el rango nuevo dentro de su array.
+// ─────────────────────────────────────────────
+function mergeCategoriaEnDocExistente(dataActual, categoriaId, categoriaNombre, rangoEdadRaw) {
+  const rango = normalizarRango(rangoEdadRaw);
+
+  const categoriasActuales = (Array.isArray(dataActual.categorias_info)
+    ? dataActual.categorias_info
+    : []
+  ).map((c) => ({
+    categoria_id:     c.categoria_id,
+    categoria_nombre: c.categoria_nombre,
+    rangos_edad:      Array.isArray(c.rangos_edad)
+      ? c.rangos_edad.map((r) => normalizarRango(r))
+      : [],
+  }));
+
+  const entryExistente = categoriasActuales.find((c) => c.categoria_id === categoriaId);
+
+  let hayCambio = false;
+
+  if (entryExistente) {
+    if (!entryExistente.rangos_edad.includes(rango)) {
+      entryExistente.rangos_edad.push(rango);
+      hayCambio = true;
+    }
+  } else {
+    categoriasActuales.push({
+      categoria_id:     categoriaId,
+      categoria_nombre: categoriaNombre,
+      rangos_edad:      [rango],
+    });
+    hayCambio = true;
+  }
+
+  if (!hayCambio) return null;
+
+  const categorias_rango = [];
+  categoriasActuales.forEach((c) => {
+    c.rangos_edad.forEach((r) => {
+      categorias_rango.push(claveCategoriaRango(c.categoria_id, r));
+    });
+  });
+
+  return {
+    categorias_info:  categoriasActuales,
+    categorias_rango: categorias_rango,
+    actualizado_en:   admin.firestore.FieldValue.serverTimestamp(),
+  };
+}
+
+
 async function limpiarCatalogo() {
   console.log("Serenity: Limpiando catálogo anterior...");
   const colRef         = db.collection("videos_catalogo");
@@ -69,17 +173,11 @@ async function limpiarCatalogo() {
     snapshot = await colRef.limit(500).get();
   }
 
-  if (maxIteraciones === 0) {
-    console.warn("Serenity: ⚠️ Se alcanzó el límite máximo de iteraciones al limpiar catálogo.");
-  }
-
   console.log(`Serenity: Catálogo limpiado: ${totalBorrados} videos borrados.`);
   return totalBorrados;
 }
 
-// ─────────────────────────────────────────────
-// Borrar toda la colección videos_youtubers
-// ─────────────────────────────────────────────
+
 async function limpiarVideosYoutubers() {
   console.log("Serenity: Limpiando videos_youtubers anterior...");
   const colRef         = db.collection("videos_youtubers");
@@ -96,17 +194,11 @@ async function limpiarVideosYoutubers() {
     snapshot = await colRef.limit(500).get();
   }
 
-  if (maxIteraciones === 0) {
-    console.warn("Serenity: ⚠️ Se alcanzó el límite máximo de iteraciones al limpiar videos_youtubers.");
-  }
-
   console.log(`Serenity: videos_youtubers limpiado: ${totalBorrados} videos borrados.`);
   return totalBorrados;
 }
 
-// ─────────────────────────────────────────────
-// Buscar videos en YouTube via API (keywords)
-// ─────────────────────────────────────────────
+
 async function buscarVideosYoutube(keyword, apiKey) {
   const searchRes = await axios.get("https://www.googleapis.com/youtube/v3/search", {
     params: {
@@ -142,9 +234,7 @@ async function buscarVideosYoutube(keyword, apiKey) {
   return detailRes.data.items;
 }
 
-// ─────────────────────────────────────────────
-// Obtener videos de un canal via RSS (sin API)
-// ─────────────────────────────────────────────
+
 async function obtenerVideosViaRss(channelId) {
   const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
   const res = await axios.get(feedUrl, {
@@ -169,9 +259,7 @@ async function obtenerVideosViaRss(channelId) {
   }));
 }
 
-// ─────────────────────────────────────────────
-// Validar duración de videos via API
-// ─────────────────────────────────────────────
+
 async function validarDuracionCanales(videoIds, apiKey) {
   if (!videoIds.length) return {};
 
@@ -207,47 +295,13 @@ async function validarDuracionCanales(videoIds, apiKey) {
   return resultado;
 }
 
+
 function extraerChannelId(url) {
   const match = url.match(/youtube\.com\/channel\/(UC[\w-]+)/);
   return match ? match[1] : null;
 }
 
-function mergeCategoriaEnDocExistente(dataActual, categoriaId, categoriaNombre, rangoEdad) {
-  const categoriasActuales = Array.isArray(dataActual.categorias_info)
-    ? dataActual.categorias_info
-    : [];
 
-  const yaExiste = categoriasActuales.some(
-    (c) => c.categoria_id === categoriaId && c.rango_edad === rangoEdad
-  );
-
-  if (yaExiste) return null;
-
-  const nuevasCategorias = [
-    ...categoriasActuales,
-    { categoria_id: categoriaId, categoria_nombre: categoriaNombre, rango_edad: rangoEdad },
-  ];
-
-  const rangosActuales = new Set(dataActual.rangos_edad ?? []);
-  rangosActuales.add(rangoEdad);
-
-  const camposRaiz = {};
-  if (!dataActual.categoria_id) {
-    camposRaiz.categoria_id     = categoriaId;
-    camposRaiz.categoria_nombre = categoriaNombre;
-  }
-
-  return {
-    ...camposRaiz,
-    categorias_info: nuevasCategorias,
-    rangos_edad:     Array.from(rangosActuales),
-    actualizado_en:  admin.firestore.FieldValue.serverTimestamp(),
-  };
-}
-
-// ─────────────────────────────────────────────
-// Fetch canales_admin → videos_catalogo
-// ─────────────────────────────────────────────
 async function ejecutarFetchCanalesAdmin(apiKey) {
   console.log("Serenity [canales_admin]: Leyendo canales desde Firestore...");
 
@@ -272,7 +326,11 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
       continue;
     }
     if (!porChannel[channelId]) porChannel[channelId] = [];
-    porChannel[channelId].push(entrada);
+    porChannel[channelId].push({
+      categoriaId:     entrada.categoriaId,
+      categoriaNombre: entrada.categoriaNombre,
+      rangoEdad:       normalizarRango(entrada.rangoEdad),
+    });
   }
 
   let totalGuardados = 0;
@@ -287,17 +345,11 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
       console.log(`Serenity [canales_admin]: ${channelId} → ${nombresGrupo}`);
 
       const videosRss = await obtenerVideosViaRss(channelId);
-      if (!videosRss.length) {
-        console.log(`Serenity [canales_admin]: Sin videos en RSS para ${channelId}`);
-        continue;
-      }
+      if (!videosRss.length) continue;
 
       const videosPretitulo = videosRss.filter((v) => {
         if (!v.video_id) return false;
-        if (esTituloExcluido(v.titulo)) {
-          console.log(`Serenity [canales_admin]: Título excluido: ${v.video_id} - ${v.titulo}`);
-          return false;
-        }
+        if (esTituloExcluido(v.titulo)) return false;
         return true;
       });
 
@@ -308,28 +360,14 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
 
       const videosFiltrados = videosPretitulo.filter((v) => {
         const meta = duracionMap[v.video_id];
-        if (!meta) {
-          console.log(`Serenity [canales_admin]: Sin metadata para ${v.video_id}, omitido.`);
-          return false;
-        }
-        if (meta.duracion_segundos > MAX_DURACION_CANALES_SEG) {
-          console.log(
-            `Serenity [canales_admin]: Video muy largo omitido: ${v.video_id} - ${v.titulo} ` +
-            `(${Math.round(meta.duracion_segundos / 3600)}h)`
-          );
-          return false;
-        }
+        if (!meta) return false;
+        if (meta.duracion_segundos > MAX_DURACION_CANALES_SEG) return false;
         return true;
       });
-
-      console.log(
-        `Serenity [canales_admin]: ${channelId} → ${videosFiltrados.length}/${videosRss.length} válidos`
-      );
 
       if (!videosFiltrados.length) continue;
 
       const videoIdsFiltrados = videosFiltrados.map((v) => v.video_id);
-
       const snaps = await Promise.all(
         videoIdsFiltrados.map((id) => db.collection("videos_catalogo").doc(id).get())
       );
@@ -348,37 +386,20 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
 
           for (const cat of cats) {
             const updateData = mergeCategoriaEnDocExistente(
-              dataActual,
-              cat.categoriaId,
-              cat.categoriaNombre,
-              cat.rangoEdad
+              dataActual, cat.categoriaId, cat.categoriaNombre, cat.rangoEdad
             );
             if (updateData) {
               await docRef.update(updateData);
-              dataActual = {
-                ...dataActual,
-                categorias_info: updateData.categorias_info,
-                rangos_edad:     updateData.rangos_edad,
-              };
+              dataActual = { ...dataActual, ...updateData };
               hayUpdate = true;
             }
           }
 
-          if (!hayUpdate) {
-            console.log(`Serenity [canales_admin]: Sin cambios para ${video.video_id}`);
-          }
-          totalOmitidos++;
+          if (hayUpdate) totalGuardados++; else totalOmitidos++;
           continue;
         }
 
-        const categorias_info = cats.map((cat) => ({
-          categoria_id:     cat.categoriaId,
-          categoria_nombre: cat.categoriaNombre,
-          rango_edad:       cat.rangoEdad,
-        }));
-
-        const rangos_edad = [...new Set(cats.map((c) => c.rangoEdad))];
-        const primeracat  = cats[0];
+        const { categorias_info, categorias_rango } = construirCategoriasInfo(cats);
 
         await docRef.set({
           video_id:          video.video_id,
@@ -389,10 +410,8 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
           thumbnail:         video.thumbnail,
           duracion_iso:      meta?.duracion_iso      ?? "",
           duracion_segundos: meta?.duracion_segundos ?? 0,
-          categoria_id:      primeracat.categoriaId,
-          categoria_nombre:  primeracat.categoriaNombre,
           categorias_info:   categorias_info,
-          rangos_edad:       rangos_edad,
+          categorias_rango:  categorias_rango,
           palabra_clave:     "",
           activo:            true,
           fuente:            "canal",
@@ -419,10 +438,7 @@ async function ejecutarFetchCanalesAdmin(apiKey) {
   };
 }
 
-// ─────────────────────────────────────────────
-// Fetch canales_youtubers → videos_youtubers
-// Sin categorías, sin rangos de edad — global
-// ─────────────────────────────────────────────
+
 async function ejecutarFetchCanalesYoutubers(apiKey) {
   console.log("Serenity [canales_youtubers]: Leyendo canales desde Firestore...");
 
@@ -431,13 +447,9 @@ async function ejecutarFetchCanalesYoutubers(apiKey) {
     .where("activo", "==", true)
     .get();
 
-  if (snap.empty) {
-    console.warn("Serenity [canales_youtubers]: No hay canales activos.");
-    return { canales_procesados: 0, guardados: 0, omitidos: 0, errores: 0 };
-  }
+  if (snap.empty) return { canales_procesados: 0, guardados: 0, omitidos: 0, errores: 0 };
 
   const canales = snap.docs.map((d) => ({ docId: d.id, ...d.data() }));
-  console.log(`Serenity [canales_youtubers]: ${canales.length} canales a procesar.`);
 
   let totalGuardados = 0;
   let totalOmitidos  = 0;
@@ -448,61 +460,24 @@ async function ejecutarFetchCanalesYoutubers(apiKey) {
     try {
       totalCanales++;
       const channelId = extraerChannelId(canal.channel_url);
-
-      if (!channelId) {
-        console.warn(`Serenity [canales_youtubers]: ⚠️ URL no válida: ${canal.channel_url}`);
-        totalErrores++;
-        continue;
-      }
-
-      console.log(`Serenity [canales_youtubers]: Procesando ${canal.nombre_canal} (${channelId})`);
+      if (!channelId) { totalErrores++; continue; }
 
       const videosRss = await obtenerVideosViaRss(channelId);
-      if (!videosRss.length) {
-        console.log(`Serenity [canales_youtubers]: Sin videos en RSS para ${channelId}`);
-        continue;
-      }
+      if (!videosRss.length) continue;
 
-      // Filtro por título
-      const videosPretitulo = videosRss.filter((v) => {
-        if (!v.video_id) return false;
-        if (esTituloExcluido(v.titulo)) {
-          console.log(`Serenity [canales_youtubers]: Título excluido: ${v.video_id} - ${v.titulo}`);
-          return false;
-        }
-        return true;
-      });
-
+      const videosPretitulo = videosRss.filter((v) => v.video_id && !esTituloExcluido(v.titulo));
       if (!videosPretitulo.length) continue;
 
-      // Validar duración via API
       const videoIds    = videosPretitulo.map((v) => v.video_id);
       const duracionMap = await validarDuracionCanales(videoIds, apiKey);
 
       const videosFiltrados = videosPretitulo.filter((v) => {
         const meta = duracionMap[v.video_id];
-        if (!meta) {
-          console.log(`Serenity [canales_youtubers]: Sin metadata para ${v.video_id}, omitido.`);
-          return false;
-        }
-        if (meta.duracion_segundos > MAX_DURACION_CANALES_SEG) {
-          console.log(
-            `Serenity [canales_youtubers]: Video muy largo omitido: ${v.video_id} ` +
-            `(${Math.round(meta.duracion_segundos / 3600)}h)`
-          );
-          return false;
-        }
-        return true;
+        return meta && meta.duracion_segundos <= MAX_DURACION_CANALES_SEG;
       });
-
-      console.log(
-        `Serenity [canales_youtubers]: ${canal.nombre_canal} → ` +
-        `${videosFiltrados.length}/${videosRss.length} válidos`
-      );
 
       if (!videosFiltrados.length) continue;
 
-      // Guardar en videos_youtubers (limpia antes del fetch, así solo se insertan)
       const batch = db.batch();
       for (const video of videosFiltrados) {
         if (!video.video_id) continue;
@@ -534,27 +509,16 @@ async function ejecutarFetchCanalesYoutubers(apiKey) {
 
     } catch (err) {
       totalErrores++;
-      console.error(
-        `Serenity [canales_youtubers]: Error en canal [${canal.nombre_canal}]:`,
-        err.message
-      );
+      console.error(`Serenity [canales_youtubers]: Error en canal [${canal.nombre_canal}]:`, err.message);
     }
   }
 
-  return {
-    canales_procesados: totalCanales,
-    guardados:          totalGuardados,
-    omitidos:           totalOmitidos,
-    errores:            totalErrores,
-  };
+  return { canales_procesados: totalCanales, guardados: totalGuardados, omitidos: totalOmitidos, errores: totalErrores };
 }
 
-// ─────────────────────────────────────────────
-// Lógica principal: keywords + canales_admin
-//                  + canales_youtubers
-// ─────────────────────────────────────────────
+
 async function ejecutarFetch(apiKey) {
-  console.log("Serenity: Iniciando fetch completo (keywords + canales_admin + canales_youtubers)...");
+  console.log("Serenity: Iniciando fetch completo...");
 
   const borrados          = await limpiarCatalogo();
   const borradosYoutubers = await limpiarVideosYoutubers();
@@ -563,12 +527,11 @@ async function ejecutarFetch(apiKey) {
   let totalOmitidos  = 0;
   let totalErrores   = 0;
 
-  // ── PARTE 1: Keywords via API ──
   for (const entrada of KEYWORDS) {
-    const { categoriaId, categoriaNombre, rangoEdad, keyword } = entrada;
+    const { categoriaId, categoriaNombre, keyword } = entrada;
+    const rangoEdad = normalizarRango(entrada.rangoEdad);
 
     try {
-      console.log(`Serenity: Buscando [${categoriaNombre}][${rangoEdad}]: ${keyword}`);
       const videos = await buscarVideosYoutube(keyword, apiKey);
 
       const videoIds = videos.map((v) => v.id).filter(Boolean);
@@ -576,9 +539,7 @@ async function ejecutarFetch(apiKey) {
         videoIds.map((id) => db.collection("videos_catalogo").doc(id).get())
       );
       const existentesMap = {};
-      existentesSnap.forEach((snap) => {
-        if (snap.exists) existentesMap[snap.id] = snap;
-      });
+      existentesSnap.forEach((snap) => { if (snap.exists) existentesMap[snap.id] = snap; });
 
       for (const video of videos) {
         const videoId  = video.id;
@@ -586,38 +547,24 @@ async function ejecutarFetch(apiKey) {
         const detalles = video.contentDetails;
         const duracion = parseDuracionISO(detalles?.duration);
 
-        if (esDirectoOPremiere(snippet)) {
-          console.log(`Serenity: Directo omitido: ${videoId} - ${snippet?.title}`);
-          totalOmitidos++;
-          continue;
-        }
-
-        if (duracion > MAX_DURACION_KEYWORDS_SEG || duracion < MIN_DURACION_SEGUNDOS) {
-          totalOmitidos++;
-          continue;
-        }
-
-        if (esTituloExcluido(snippet?.title)) {
-          console.log(`Serenity: Título excluido: ${videoId} - ${snippet?.title}`);
-          totalOmitidos++;
-          continue;
-        }
+        if (esDirectoOPremiere(snippet)) { totalOmitidos++; continue; }
+        if (duracion > MAX_DURACION_KEYWORDS_SEG || duracion < MIN_DURACION_SEGUNDOS) { totalOmitidos++; continue; }
+        if (esTituloExcluido(snippet?.title)) { totalOmitidos++; continue; }
 
         const docRef = db.collection("videos_catalogo").doc(videoId);
 
         if (existentesMap[videoId]) {
           const updateData = mergeCategoriaEnDocExistente(
-            existentesMap[videoId].data(),
-            categoriaId,
-            categoriaNombre,
-            rangoEdad
+            existentesMap[videoId].data(), categoriaId, categoriaNombre, rangoEdad
           );
-          if (updateData) {
-            await docRef.update(updateData);
-          }
-          totalOmitidos++;
+          if (updateData) { await docRef.update(updateData); totalGuardados++; }
+          else totalOmitidos++;
           continue;
         }
+
+        const { categorias_info, categorias_rango } = construirCategoriasInfo([
+          { categoriaId, categoriaNombre, rangoEdad },
+        ]);
 
         await docRef.set({
           video_id:          videoId,
@@ -631,12 +578,8 @@ async function ejecutarFetch(apiKey) {
                           ?? "",
           duracion_iso:      detalles?.duration                  ?? "",
           duracion_segundos: duracion,
-          categoria_id:      categoriaId,
-          categoria_nombre:  categoriaNombre,
-          categorias_info: [
-            { categoria_id: categoriaId, categoria_nombre: categoriaNombre, rango_edad: rangoEdad },
-          ],
-          rangos_edad:       [rangoEdad],
+          categorias_info:   categorias_info,
+          categorias_rango:  categorias_rango,
           palabra_clave:     keyword,
           activo:            true,
           fuente:            "auto",
@@ -655,13 +598,11 @@ async function ejecutarFetch(apiKey) {
     }
   }
 
-  // ── PARTE 2: Canales admin via RSS ──
   const resumenCanales = await ejecutarFetchCanalesAdmin(apiKey);
   totalGuardados += resumenCanales.guardados;
   totalOmitidos  += resumenCanales.omitidos;
   totalErrores   += resumenCanales.errores;
 
-  // ── PARTE 3: Canales youtubers via RSS ──
   const resumenYoutubers = await ejecutarFetchCanalesYoutubers(apiKey);
 
   const resumen = {
@@ -686,54 +627,26 @@ async function ejecutarFetch(apiKey) {
   return resumen;
 }
 
-// ─────────────────────────────────────────────
-// FUNCIÓN 1: Automática — 7AM hora Colombia
-// ─────────────────────────────────────────────
+
 exports.fetchVideosScheduled = onSchedule(
-  {
-    schedule:       "0 7 * * *",
-    timeZone:       "America/Bogota",
-    timeoutSeconds: 540,
-    memory:         "512MiB",
-    secrets:        [youtubeApiKey],
-  },
-  async () => {
-    const apiKey = youtubeApiKey.value();
-    await ejecutarFetch(apiKey);
-  }
+  { schedule: "0 7 * * *", timeZone: "America/Bogota", timeoutSeconds: 540, memory: "512MiB", secrets: [youtubeApiKey] },
+  async () => { await ejecutarFetch(youtubeApiKey.value()); }
 );
 
-// ─────────────────────────────────────────────
-// FUNCIÓN 2: Manual callable desde Flutter
-// ─────────────────────────────────────────────
-exports.fetchVideosManual = onCall(
-  {
-    timeoutSeconds: 540,
-    memory:         "512MiB",
-    secrets:        [youtubeApiKey],
-  },
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Debes estar autenticado.");
-    }
 
+exports.fetchVideosManual = onCall(
+  { timeoutSeconds: 540, memory: "512MiB", secrets: [youtubeApiKey] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Debes estar autenticado.");
     const ADMIN_UID = "8BHxVfZWCwYZ3meCG9j4omw82jM2";
     if (request.auth.uid !== ADMIN_UID) {
-      throw new HttpsError(
-        "permission-denied",
-        "Solo el administrador puede ejecutar el fetch manual."
-      );
+      throw new HttpsError("permission-denied", "Solo el administrador puede ejecutar el fetch manual.");
     }
-
-    const apiKey = youtubeApiKey.value();
-    return await ejecutarFetch(apiKey);
+    return await ejecutarFetch(youtubeApiKey.value());
   }
 );
 
-// ─────────────────────────────────────────────
-// FUNCIÓN 3: Notificación al padre cuando un
-// niño se vincula (trigger Firestore)
-// ─────────────────────────────────────────────
+
 exports.notificarVinculacion = onDocumentUpdated(
   "ninos/{ninoId}",
   async (event) => {
@@ -757,79 +670,34 @@ exports.notificarVinculacion = onDocumentUpdated(
         .limit(5)
         .get();
 
-      if (sesionesSnap.empty) {
-        console.log(`Serenity: No hay sesiones para padre ${padreId}`);
-        return null;
-      }
+      if (sesionesSnap.empty) return null;
 
       const tokens = [];
       sesionesSnap.docs.forEach((doc) => {
         const token = doc.data().device_token;
-        if (token && token.length > 10 && !tokens.includes(token)) {
-          tokens.push(token);
-        }
+        if (token && token.length > 10 && !tokens.includes(token)) tokens.push(token);
       });
 
-      if (tokens.length === 0) {
-        console.log(`Serenity: Sin tokens FCM válidos para padre ${padreId}`);
-        return null;
-      }
-
-      console.log(`Serenity: Enviando a ${tokens.length} dispositivo(s) del padre ${padreId}`);
+      if (tokens.length === 0) return null;
 
       const mensaje = {
-        notification: {
-          title: "¡Vinculación exitosa! 🎉",
-          body:  `${nombreNino} se ha vinculado a tu cuenta en Serenity.`,
-        },
-        data: {
-          tipo:   "vinculacion_padre_hijo",
-          ninoId: String(event.params.ninoId),
-          nombre: String(nombreNino),
-        },
-        android: {
-          priority: "high",
-          notification: {
-            channelId:    "serenity_high_importance",
-            priority:     "max",
-            defaultSound: true,
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: "default",
-              badge: 1,
-            },
-          },
-          headers: {
-            "apns-priority": "10",
-          },
-        },
+        notification: { title: "¡Vinculación exitosa! 🎉", body: `${nombreNino} se ha vinculado a tu cuenta en Serenity.` },
+        data: { tipo: "vinculacion_padre_hijo", ninoId: String(event.params.ninoId), nombre: String(nombreNino) },
+        android: { priority: "high", notification: { channelId: "serenity_high_importance", priority: "max", defaultSound: true } },
+        apns: { payload: { aps: { sound: "default", badge: 1 } }, headers: { "apns-priority": "10" } },
         tokens: tokens,
       };
 
       const response = await admin.messaging().sendEachForMulticast(mensaje);
-      console.log(
-        `Serenity: Notificación enviada. Éxitos: ${response.successCount}, Fallos: ${response.failureCount}`
-      );
 
       const promesasLimpieza = [];
       response.responses.forEach((resp, idx) => {
         if (!resp.success) {
           const errorCode = resp.error?.code;
-          if (
-            errorCode === "messaging/invalid-registration-token" ||
-            errorCode === "messaging/registration-token-not-registered"
-          ) {
+          if (errorCode === "messaging/invalid-registration-token" || errorCode === "messaging/registration-token-not-registered") {
             const tokenInvalido = tokens[idx];
-            console.log(`Serenity: Eliminando token inválido: ${tokenInvalido}`);
-            const docsAEliminar = sesionesSnap.docs.filter(
-              (d) => d.data().device_token === tokenInvalido
-            );
-            docsAEliminar.forEach((d) =>
-              promesasLimpieza.push(d.ref.update({ device_token: "" }))
-            );
+            const docsAEliminar = sesionesSnap.docs.filter((d) => d.data().device_token === tokenInvalido);
+            docsAEliminar.forEach((d) => promesasLimpieza.push(d.ref.update({ device_token: "" })));
           }
         }
       });

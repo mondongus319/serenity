@@ -34,12 +34,14 @@ class VerifyEmailBody extends StatelessWidget {
             _VerifyHeader(onBack: onBack),
             Expanded(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
-                    _EmailIcon(),
+                    const _EmailIcon(),
                     const SizedBox(height: 28),
                     Text(
                       'Verifica tu Email',
@@ -54,7 +56,9 @@ class VerifyEmailBody extends StatelessWidget {
                       'Hemos enviado un código de 6 dígitos a:',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
-                          fontSize: 13, color: AppColors.textMuted),
+                        fontSize: 13,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     _EmailChip(email: emailUsuario),
@@ -136,6 +140,8 @@ class _VerifyHeader extends StatelessWidget {
 }
 
 class _EmailIcon extends StatelessWidget {
+  const _EmailIcon();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -197,7 +203,11 @@ class _EmailChip extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.email_outlined, color: AppColors.accentCyan, size: 18),
+          const Icon(
+            Icons.email_outlined,
+            color: AppColors.accentCyan,
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Flexible(
             child: Text(
@@ -248,8 +258,11 @@ class _ResendSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.refresh_rounded,
-                  color: AppColors.accentCyan, size: 18),
+              const Icon(
+                Icons.refresh_rounded,
+                color: AppColors.accentCyan,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Reenviar código',
@@ -281,7 +294,10 @@ class _ResendSection extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           'Reenviar en ',
-          style: GoogleFonts.poppins(color: AppColors.textMuted, fontSize: 13),
+          style: GoogleFonts.poppins(
+            color: AppColors.textMuted,
+            fontSize: 13,
+          ),
         ),
         Text(
           '$segundosRestantes s',
@@ -315,7 +331,10 @@ class _CodeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.07),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.35),
@@ -340,8 +359,11 @@ class _CodeCard extends StatelessWidget {
                   color: AppColors.accentCyan.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.pin_outlined,
-                    color: AppColors.accentCyan, size: 16),
+                child: const Icon(
+                  Icons.pin_outlined,
+                  color: AppColors.accentCyan,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 10),
               Text(
@@ -384,13 +406,18 @@ class _CodeCard extends StatelessWidget {
                 ),
                 counterText: '',
                 border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 18,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 24),
-          _VerifyButton(isLoading: isLoading, onPressed: onVerificar),
+          _VerifyButton(
+            isLoading: isLoading,
+            onPressed: onVerificar,
+          ),
         ],
       ),
     );
@@ -401,7 +428,10 @@ class _VerifyButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onPressed;
 
-  const _VerifyButton({required this.isLoading, required this.onPressed});
+  const _VerifyButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -443,8 +473,11 @@ class _VerifyButton extends StatelessWidget {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.verified_outlined,
-                      color: Colors.white, size: 20),
+                  const Icon(
+                    Icons.verified_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Verificar Código',

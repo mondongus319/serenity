@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// ─── Paleta "Indigo Premium & Cyan Focus" ────────────────────────────────────
-const _bgPrimary    = Color(0xFF0F172A);
-const _bgCard       = Color(0xFF1E293B);
-const _accentCyan   = Color(0xFF06B6D4);
-const _accentViolet = Color(0xFF8B5CF6);
-const _textPearl    = Color(0xFFF1F5F9);
-const _textMuted    = Color(0xFF94A3B8);
+import '../../utils/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -18,7 +11,7 @@ class SobreNosotrosBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgPrimary,
+      backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
         child: Column(
           children: [
@@ -31,7 +24,9 @@ class SobreNosotrosBody extends StatelessWidget {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 child: Column(
                   children: [
                     // ── Título principal ───────────────────────────────────
@@ -40,7 +35,7 @@ class SobreNosotrosBody extends StatelessWidget {
                       style: GoogleFonts.poppins(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
-                        color: _textPearl,
+                        color: AppColors.textPearl,
                       ),
                     ),
 
@@ -52,7 +47,10 @@ class SobreNosotrosBody extends StatelessWidget {
                       height: 3,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [_accentViolet, _accentCyan],
+                          colors: [
+                            AppColors.accentViolet,
+                            AppColors.accentCyan,
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -69,7 +67,7 @@ class SobreNosotrosBody extends StatelessWidget {
                           'el vínculo entre padres e hijos en el mundo digital. '
                           'Creemos que la tecnología debe ser una herramienta '
                           'de conexión, no de distancia.',
-                      accentColor: _accentCyan,
+                      accentColor: AppColors.accentCyan,
                     ),
 
                     const SizedBox(height: 14),
@@ -83,7 +81,7 @@ class SobreNosotrosBody extends StatelessWidget {
                           'internet y redes sociales, garantizando un entorno '
                           'digital seguro, educativo y adaptado a cada etapa '
                           'del desarrollo infantil.',
-                      accentColor: _accentViolet,
+                      accentColor: AppColors.accentViolet,
                     ),
 
                     const SizedBox(height: 14),
@@ -97,7 +95,7 @@ class SobreNosotrosBody extends StatelessWidget {
                           'construyendo una generación de niños y jóvenes '
                           'que usen la tecnología de manera consciente, '
                           'creativa y segura.',
-                      accentColor: _accentCyan,
+                      accentColor: AppColors.accentCyan,
                     ),
 
                     const SizedBox(height: 14),
@@ -115,7 +113,7 @@ class SobreNosotrosBody extends StatelessWidget {
                           'soporte@serenityapp.com\n\n'
                           'Estamos aquí para ayudarte a construir '
                           'un entorno digital más seguro para tu familia.',
-                      accentColor: _accentViolet,
+                      accentColor: AppColors.accentViolet,
                     ),
 
                     const SizedBox(height: 28),
@@ -151,7 +149,7 @@ class _SobreHeader extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: _accentCyan.withOpacity(0.15),
+                  color: AppColors.accentCyan.withOpacity(0.15),
                   blurRadius: 20,
                   spreadRadius: 3,
                 ),
@@ -170,7 +168,7 @@ class _SobreHeader extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: _textMuted,
+              color: AppColors.textMuted,
               letterSpacing: 2.0,
             ),
           ),
@@ -202,7 +200,7 @@ class _DarkInfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: accentColor.withOpacity(0.15),
@@ -242,7 +240,7 @@ class _DarkInfoCard extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _textPearl,
+                    color: AppColors.textPearl,
                   ),
                 ),
               ),
@@ -271,7 +269,7 @@ class _DarkInfoCard extends StatelessWidget {
             contenido,
             style: GoogleFonts.poppins(
               fontSize: 13,
-              color: _textMuted,
+              color: AppColors.textMuted,
               height: 1.6,
             ),
           ),
@@ -299,10 +297,10 @@ class _DarkValoresCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _bgCard,
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: _accentViolet.withOpacity(0.15),
+          color: AppColors.accentViolet.withOpacity(0.15),
           width: 1,
         ),
         boxShadow: [
@@ -312,7 +310,7 @@ class _DarkValoresCard extends StatelessWidget {
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: _accentViolet.withOpacity(0.05),
+            color: AppColors.accentViolet.withOpacity(0.05),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -327,12 +325,12 @@ class _DarkValoresCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: _accentViolet.withOpacity(0.15),
+                  color: AppColors.accentViolet.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.favorite_outline_rounded,
-                  color: _accentViolet,
+                  color: AppColors.accentViolet,
                   size: 18,
                 ),
               ),
@@ -342,7 +340,7 @@ class _DarkValoresCard extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: _textPearl,
+                  color: AppColors.textPearl,
                 ),
               ),
             ],
@@ -356,7 +354,7 @@ class _DarkValoresCard extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  _accentViolet.withOpacity(0.4),
+                  AppColors.accentViolet.withOpacity(0.4),
                   Colors.transparent,
                 ],
               ),
@@ -369,9 +367,10 @@ class _DarkValoresCard extends StatelessWidget {
           ..._valores.asMap().entries.map((entry) {
             final i = entry.key;
             final v = entry.value;
-            // Alterna el color del borde del emoji entre Cian y Violeta
-            final borderColor =
-                i.isEven ? _accentCyan : _accentViolet;
+            final borderColor = i.isEven
+                ? AppColors.accentCyan
+                : AppColors.accentViolet;
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
@@ -380,7 +379,7 @@ class _DarkValoresCard extends StatelessWidget {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: _bgPrimary,
+                      color: AppColors.bgPrimary,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: borderColor.withOpacity(0.3),
@@ -405,7 +404,7 @@ class _DarkValoresCard extends StatelessWidget {
                     v['texto']!,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: _textPearl,
+                      color: AppColors.textPearl,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -431,15 +430,15 @@ class _Footer extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
           decoration: BoxDecoration(
-            color: _bgCard,
+            color: AppColors.bgCard,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _accentCyan.withOpacity(0.3),
+              color: AppColors.accentCyan.withOpacity(0.3),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: _accentCyan.withOpacity(0.08),
+                color: AppColors.accentCyan.withOpacity(0.08),
                 blurRadius: 12,
                 spreadRadius: 1,
               ),
@@ -448,14 +447,16 @@ class _Footer extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Punto de estado animado simulado con círculo
               Container(
                 width: 6,
                 height: 6,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [_accentViolet, _accentCyan],
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.accentViolet,
+                      AppColors.accentCyan,
+                    ],
                   ),
                 ),
               ),
@@ -464,7 +465,7 @@ class _Footer extends StatelessWidget {
                 'Serenity App v1.0.0',
                 style: GoogleFonts.poppins(
                   fontSize: 11,
-                  color: _accentCyan,
+                  color: AppColors.accentCyan,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -478,7 +479,7 @@ class _Footer extends StatelessWidget {
           '© 2026 Serenity. Todos los derechos reservados.',
           style: GoogleFonts.poppins(
             fontSize: 11,
-            color: _textMuted.withOpacity(0.5),
+            color: AppColors.textMuted.withOpacity(0.5),
           ),
           textAlign: TextAlign.center,
         ),

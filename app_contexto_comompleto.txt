@@ -8641,18 +8641,22 @@ ARCHIVO: C:\Users\pinzo\Desktop\serenity_app\serenity_app\lib\screens\parent\par
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'parent_home_screen.dart';
 import 'parent_terms_screen.dart';
 import 'sobre_nosotros_screen.dart';
 import 'parent_profile_screen.dart';
 import '../../servicces/firestore_service.dart';
 import '../../servicces/location_service.dart';
+import '../../providers/theme_provider.dart';
 import '../../utils/app_colors.dart';
+
 
 class ParentMainScreen extends StatefulWidget {
   final String parentEmail;
   final String userName;
   final String userId;
+
 
   const ParentMainScreen({
     super.key,
@@ -8661,15 +8665,19 @@ class ParentMainScreen extends StatefulWidget {
     required this.userId,
   });
 
+
   @override
   State<ParentMainScreen> createState() => _ParentMainScreenState();
 }
+
 
 class _ParentMainScreenState extends State<ParentMainScreen> {
   int currentIndex = 0;
   bool switching = false;
 
+
   final Stopwatch stopwatch = Stopwatch();
+
 
   @override
   void initState() {
@@ -8678,14 +8686,17 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
     enviarUbicacionUnaVez();
   }
 
+
   @override
   void dispose() {
     if (stopwatch.isRunning) {
       stopwatch.stop();
     }
 
+
     final segundos = stopwatch.elapsed.inSeconds;
     stopwatch.reset();
+
 
     if (segundos > 0) {
       FirestoreService.registrarTiempoUso(
@@ -8695,17 +8706,22 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
       ).catchError((_) {});
     }
 
+
     super.dispose();
   }
 
+
   Future<void> guardarTiempo() async {
     if (!stopwatch.isRunning && stopwatch.elapsed.inSeconds == 0) return;
+
 
     stopwatch.stop();
     final segundos = stopwatch.elapsed.inSeconds;
     stopwatch.reset();
 
+
     if (segundos <= 0) return;
+
 
     try {
       await FirestoreService.registrarTiempoUso(
@@ -8716,10 +8732,12 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
     } catch (_) {}
   }
 
+
   Future<void> enviarUbicacionUnaVez() async {
     try {
       final position = await LocationService.obtenerUbicacionSilenciosa();
       if (position == null || !mounted) return;
+
 
       await FirestoreService.guardarUbicacionPadre(
         widget.userId,
@@ -8729,19 +8747,28 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
     } catch (_) {}
   }
 
+
   void onTabTap(int index) {
     if (switching || index == currentIndex) return;
 
+
     switching = true;
     setState(() => currentIndex = index);
+
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       switching = false;
     });
   }
 
+
   @override
   Widget build(BuildContext context) {
+    // ✅ FIX: nos suscribimos a ThemeProvider para que este Scaffold y el
+    // DarkBottomNav se reconstruyan al alternar el tema claro/oscuro.
+    context.watch<ThemeProvider>();
+
+
     final screens = [
       ParentHomeScreen(
         parentEmail: widget.parentEmail,
@@ -8766,6 +8793,7 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
       ),
     ];
 
+
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
       body: IndexedStack(
@@ -8780,9 +8808,11 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
   }
 }
 
+
 class DarkBottomNav extends StatelessWidget {
   final int currentIndex;
   final void Function(int) onTap;
+
 
   const DarkBottomNav({
     super.key,
@@ -8790,12 +8820,14 @@ class DarkBottomNav extends StatelessWidget {
     required this.onTap,
   });
 
+
   static const items = [
     NavItem(icon: Icons.child_care_rounded, label: 'Mis Niños'),
     NavItem(icon: Icons.description_outlined, label: 'Términos'),
     NavItem(icon: Icons.info_outline_rounded, label: 'Nosotros'),
     NavItem(icon: Icons.person_outline_rounded, label: 'Perfil'),
   ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -8842,9 +8874,11 @@ class DarkBottomNav extends StatelessWidget {
   }
 }
 
+
 class NavItem {
   final IconData icon;
   final String label;
+
 
   const NavItem({
     required this.icon,
@@ -8852,10 +8886,12 @@ class NavItem {
   });
 }
 
+
 class NavTabItem extends StatelessWidget {
   final NavItem item;
   final bool isSelected;
   final VoidCallback onTap;
+
 
   const NavTabItem({
     super.key,
@@ -8863,6 +8899,7 @@ class NavTabItem extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -18902,6 +18939,7 @@ import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../utils/app_colors.dart';
 
+
 class ParentHomeBody extends StatelessWidget {
   final String userName;
   final List<dynamic> ninos;
@@ -18909,6 +18947,7 @@ class ParentHomeBody extends StatelessWidget {
   final VoidCallback onSwitchProfile;
   final VoidCallback onAddChild;
   final void Function(dynamic nino) onTapChild;
+
 
   const ParentHomeBody({
     super.key,
@@ -18920,9 +18959,11 @@ class ParentHomeBody extends StatelessWidget {
     required this.onTapChild,
   });
 
+
   @override
   Widget build(BuildContext context) {
     context.watch<ThemeProvider>();
+
 
     return Container(
       width: double.infinity,
@@ -18967,9 +19008,11 @@ class ParentHomeBody extends StatelessWidget {
   }
 }
 
+
 class HomeHeader extends StatelessWidget {
   final String userName;
   final VoidCallback onSwitchProfile;
+
 
   const HomeHeader({
     super.key,
@@ -18977,9 +19020,11 @@ class HomeHeader extends StatelessWidget {
     required this.onSwitchProfile,
   });
 
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
+
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -19038,10 +19083,12 @@ class HomeHeader extends StatelessWidget {
   }
 }
 
+
 class HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
+
 
   const HeaderIconButton({
     super.key,
@@ -19049,6 +19096,7 @@ class HeaderIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -19088,12 +19136,14 @@ class HeaderIconButton extends StatelessWidget {
   }
 }
 
+
 class ChildrenCard extends StatelessWidget {
   final List<dynamic> ninos;
   final bool isLoading;
   final String userName;
   final VoidCallback onAddChild;
   final void Function(dynamic nino) onTapChild;
+
 
   const ChildrenCard({
     super.key,
@@ -19103,6 +19153,7 @@ class ChildrenCard extends StatelessWidget {
     required this.onAddChild,
     required this.onTapChild,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -19194,7 +19245,10 @@ class ChildrenCard extends StatelessWidget {
                     ),
                   )
                 : ninos.isEmpty
-                    ? const EmptyState()
+                    // ✅ FIX: se quita "const" para que este widget se
+                    // reconstruya en cada rebuild y lea los colores
+                    // actualizados de AppColors al cambiar el tema.
+                    ? EmptyState()
                     : ListView.builder(
                         itemCount: ninos.length,
                         itemBuilder: (context, index) {
@@ -19216,13 +19270,16 @@ class ChildrenCard extends StatelessWidget {
   }
 }
 
+
 class AddChildButton extends StatelessWidget {
   final VoidCallback onTap;
+
 
   const AddChildButton({
     super.key,
     required this.onTap,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -19279,8 +19336,10 @@ class AddChildButton extends StatelessWidget {
   }
 }
 
+
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key});
+
 
   @override
   Widget build(BuildContext context) {
@@ -19327,11 +19386,13 @@ class EmptyState extends StatelessWidget {
   }
 }
 
+
 class DarkChildTile extends StatelessWidget {
   final String nombre;
   final String fechaNacimiento;
   final bool activo;
   final VoidCallback onTap;
+
 
   const DarkChildTile({
     super.key,
@@ -19340,6 +19401,7 @@ class DarkChildTile extends StatelessWidget {
     required this.activo,
     required this.onTap,
   });
+
 
   @override
   Widget build(BuildContext context) {

@@ -2,9 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firestore_service.dart';
 
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+
 
   // ─── REGISTRO ─────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> registrarUsuario({
@@ -170,7 +172,23 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      final cred = await _auth.signInWithCredential(credential);
+      UserCredential cred;
+      try {
+        cred = await _auth.signInWithCredential(credential);
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'account-exists-with-different-credential') {
+          return {
+            'success': false,
+            'accountLinkingRequired': true,
+            'email': googleUser.email,
+            'pendingCredential': credential,
+            'message':
+                'Ya existe una cuenta con este correo. Ingresa tu contraseña para vincular Google a tu cuenta.',
+          };
+        }
+        rethrow;
+      }
+
       final user = cred.user!;
 
       var datos = await FirestoreService.obtenerPadre(user.uid);
@@ -207,6 +225,128 @@ class AuthService {
     } catch (e) {
       return {'success': false, 'message': 'Error con Google: $e'};
     }
+  }
+
+  // ─── COMPLETAR VINCULACIÓN GOOGLE ↔ CUENTA MANUAL ────────────────────────
+  Future<Map<String, dynamic>> vincularGoogleConPassword({
+    required String email,
+    required String password,
+    required AuthCredential googleCredential,
+  }) async {
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = cred.user!;
+
+      await user.linkWithCredential(googleCredential);
+
+      final datos = await FirestoreService.obtenerPadre(user.uid);
+      if (datos == null) {
+        return {'success': false, 'message': 'Perfil no encontrado'};
+      }
+
+      return {
+        'success': true,
+        'user': {
+          'ID': user.uid,
+          'gmail': email,
+          ...datos,
+        },
+      };
+    } on FirebaseAuthException catch (e) {
+      String msg;
+      switch (e.code) {
+        case 'wrong-password':
+        case 'invalid-credential':
+          msg = 'La contraseña ingresada es incorrecta';
+          break;
+        case 'user-not-found':
+          msg = 'No existe una cuenta manual con este correo';
+          break;
+        case 'credential-already-in-use':
+          msg = 'Esta cuenta de Google ya está vinculada a otro usuario';
+          break;
+        case 'too-many-requests':
+          msg = 'Demasiados intentos. Intenta más tarde';
+          break;
+        default:
+          msg = e.message ?? 'No se pudo vincular la cuenta';
+      }
+      return {'success': false, 'message': msg};
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+  // ─── CONFIGURAR CONTRASEÑA EN UNA CUENTA CREADA CON GOOGLE ───────────────
+  /// Permite que un usuario que se registró con Google agregue un método de
+  /// email/contraseña a su MISMA cuenta (mismo UID), sin crear una cuenta
+  /// nueva ni depender del correo de "olvidé mi contraseña". El usuario debe
+  /// estar autenticado (currentUser != null) al momento de llamar esto.
+  Future<Map<String, dynamic>> establecerPasswordCuentaGoogle(
+    String nuevaContrasena,
+  ) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        return {'success': false, 'message': 'No hay usuario autenticado'};
+      }
+
+      final email = user.email;
+      if (email == null || email.isEmpty) {
+        return {
+          'success': false,
+          'message': 'No se encontró el correo de la cuenta',
+        };
+      }
+
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: nuevaContrasena,
+      );
+
+      await user.linkWithCredential(credential);
+
+      return {
+        'success': true,
+        'message':
+            'Contraseña configurada correctamente. Ya puedes iniciar sesión también con tu correo y esta contraseña.',
+      };
+    } on FirebaseAuthException catch (e) {
+      String msg;
+      switch (e.code) {
+        case 'weak-password':
+          msg = 'Contraseña muy débil (mínimo 6 caracteres)';
+          break;
+        case 'provider-already-linked':
+          msg = 'Ya tienes una contraseña configurada en esta cuenta';
+          break;
+        case 'credential-already-in-use':
+          msg = 'Ese correo ya tiene una contraseña asociada a otra cuenta';
+          break;
+        case 'requires-recent-login':
+          msg =
+              'Por seguridad, vuelve a iniciar sesión con Google antes de configurar tu contraseña';
+          break;
+        default:
+          msg = e.message ?? 'No se pudo configurar la contraseña';
+      }
+      return {'success': false, 'message': msg};
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+  /// Consulta en vivo (no en Firestore) si la cuenta actualmente autenticada
+  /// ya tiene el método de email/contraseña vinculado. Es la fuente de
+  /// verdad real para decidir si mostrar "Configura tu contraseña" o no,
+  /// independientemente de lo que diga 'tipo_registro' en Firestore.
+  bool tieneMetodoPassword() {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    return user.providerData.any((p) => p.providerId == 'password');
   }
 
   // ─── RECUPERAR CONTRASEÑA ────────────────────────────────────────────────

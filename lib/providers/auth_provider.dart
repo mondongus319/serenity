@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../servicces/auth_service.dart';
 import '../servicces/firestore_service.dart';
@@ -9,6 +10,7 @@ class AuthProvider extends ChangeNotifier {
 
   bool isLoading = false;
   bool isLoadingGoogle = false;
+  bool isSettingPassword = false;
   String? errorMessage;
 
   // ── LOGIN CON CORREO ──────────────────────────────────────────────────────
@@ -52,7 +54,10 @@ class AuthProvider extends ChangeNotifier {
       } else {
         errorMessage = resultado['message'];
         notifyListeners();
-        return resultado;
+        return {
+          ...resultado,
+          'needsVerification': resultado['needsverification'] ?? false,
+        };
       }
     } catch (e) {
       isLoading = false;
@@ -111,6 +116,12 @@ class AuthProvider extends ChangeNotifier {
         final bool needsBirthDate =
             fechaNac == null || fechaNac.trim().isEmpty;
 
+        // ✅ FIX: si la cuenta (nueva o existente) todavía no tiene un
+        // método de email/contraseña vinculado, se lo pedimos a la UI
+        // en el mismo flujo de login con Google, en vez de dejar que el
+        // usuario dependa de recordar ir a "Cambiar contraseña" después.
+        final bool needsPassword = !tieneMetodoPassword();
+
         await _guardarSesionFirestore(userId: userId);
         errorMessage = null;
         notifyListeners();
@@ -121,6 +132,7 @@ class AuthProvider extends ChangeNotifier {
           'primerNombre': primerNombre,
           'gmail': email,
           'needsBirthDate': needsBirthDate,
+          'needsPassword': needsPassword,
         };
       } else {
         errorMessage = resultado['message'];
@@ -134,6 +146,86 @@ class AuthProvider extends ChangeNotifier {
       return {'success': false, 'message': 'Error inesperado: $e'};
     }
   }
+
+  // ── VINCULAR GOOGLE A CUENTA MANUAL EXISTENTE ────────────────────────────
+  Future<Map<String, dynamic>> vincularGoogleConPassword({
+    required String email,
+    required String password,
+    required AuthCredential googleCredential,
+  }) async {
+    isLoadingGoogle = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final resultado = await _authService.vincularGoogleConPassword(
+        email: email,
+        password: password,
+        googleCredential: googleCredential,
+      );
+
+      isLoadingGoogle = false;
+
+      if (resultado['success'] == true) {
+        final String userId = resultado['user']['ID'].toString();
+        final String primerNombre = (
+          resultado['user']['primer_nombre'] ??
+          resultado['user']['primernombre'] ??
+          'Usuario'
+        ).toString();
+
+        await _guardarSesionFirestore(userId: userId);
+        errorMessage = null;
+        notifyListeners();
+
+        return {
+          'success': true,
+          'userId': userId,
+          'primerNombre': primerNombre,
+          'gmail': email,
+        };
+      } else {
+        errorMessage = resultado['message'];
+        notifyListeners();
+        return resultado;
+      }
+    } catch (e) {
+      isLoadingGoogle = false;
+      errorMessage = e.toString();
+      notifyListeners();
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
+
+  // ── CONFIGURAR CONTRASEÑA EN CUENTA GOOGLE ───────────────────────────────
+  /// Para el padre que se registró con Google y quiere poder entrar también
+  /// con correo/contraseña. Requiere que ya esté autenticado (con Google).
+  Future<Map<String, dynamic>> establecerPasswordCuentaGoogle(
+    String nuevaContrasena,
+  ) async {
+    isSettingPassword = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final resultado =
+          await _authService.establecerPasswordCuentaGoogle(nuevaContrasena);
+
+      isSettingPassword = false;
+      errorMessage = resultado['success'] != true ? resultado['message'] : null;
+      notifyListeners();
+      return resultado;
+    } catch (e) {
+      isSettingPassword = false;
+      errorMessage = e.toString();
+      notifyListeners();
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
+
+  /// true si la cuenta actualmente autenticada YA tiene método de
+  /// email/contraseña vinculado (sin importar cómo se registró originalmente).
+  bool tieneMetodoPassword() => _authService.tieneMetodoPassword();
 
   // ── REGISTRO ──────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> registrarUsuario({
@@ -183,9 +275,8 @@ class AuthProvider extends ChangeNotifier {
 
         isLoading = false;
 
-        if (loginExistente['success'] == true &&
-            (loginExistente['needsverification'] == true ||
-                loginExistente['needsVerification'] == true)) {
+        if (loginExistente['needsverification'] == true ||
+            loginExistente['needsVerification'] == true) {
           errorMessage = null;
           notifyListeners();
 

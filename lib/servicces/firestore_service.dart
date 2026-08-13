@@ -406,27 +406,27 @@ class FirestoreService {
 }) async {
   final clave = '${categoriaId}__$rangoEdad';
 
-
   final q = await _db
       .collection('videos_catalogo')
       .where('categorias_rango', arrayContains: clave)
       .where('activo', isEqualTo: true)
       .get();
 
-
-  final nombreCategoria = _catalogoCategorias[categoriaId]?['nombre'] as String? ?? '';
-
+  final nombreCategoria =
+      _catalogoCategorias[categoriaId]?['nombre'] as String? ?? '';
 
   return q.docs
       .map((d) => d.data())
       .map((data) => {
-            'video_id':  data['video_id'] ?? '',
-            'titulo':    data['titulo'] ?? '',
+            'video_id': data['video_id'] ?? '',
+            'titulo': data['titulo'] ?? '',
             'thumbnail': data['thumbnail'] ?? '',
-            'canal':     data['canal'] ?? '',
-            'duracion':  data['duracion_segundos'] ?? 0,
+            'canal': data['canal'] ?? '',
+            // ✅ FIX: antes era 'duracion', ahora coincide con
+            // obtenerVideosYoutubers() que usa 'duracion_segundos'.
+            'duracion_segundos': data['duracion_segundos'] ?? 0,
             'categoria': nombreCategoria,
-            'rango':     rangoEdad,
+            'rango': rangoEdad,
           })
       .where((v) => (v['video_id'] as String).isNotEmpty)
       .toList();

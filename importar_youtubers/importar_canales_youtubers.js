@@ -41,12 +41,6 @@ const CANALES_YOUTUBERS = [
     imagen_url: "https://yt3.googleusercontent.com/xWFxsumrEidXfn1QyFSlqpRuGO1YJnob-F5HLT7NmbxnjYogPJ0NL1MR3DgTpsreFdt077A=s160-c-k-c0x00ffffff-no-rj",
   },
   {
-    nombre_canal: "Baby Shark Spanish",
-    channel_url: "https://www.youtube.com/channel/UCSt2n0wNy6MSQUkBmcPgSug",
-    channel_id: "UCSt2n0wNy6MSQUkBmcPgSug",
-    imagen_url: "https://yt3.googleusercontent.com/-yGCXuScl3TXmFVp7XRT0E_bqN8V60hm15Ty64OSeeEXx4YOFqB6oy2JVlXvddFEadST8Idw=s160-c-k-c0x00ffffff-no-rj",
-  },
-  {
     nombre_canal: "Little Baby Bum Espanol",
     channel_url: "https://www.youtube.com/channel/UCHicabXz9rUMWLcdMqBtbxQ",
     channel_id: "UCHicabXz9rUMWLcdMqBtbxQ",
@@ -141,6 +135,54 @@ const CANALES_YOUTUBERS = [
     channel_url: "https://www.youtube.com/channel/UCCyCcRlr_NRDP-JFAhBxq1g",
     channel_id: "UCCyCcRlr_NRDP-JFAhBxq1g",
     imagen_url: "https://yt3.googleusercontent.com/R1L260c3xo_cd13p1cj_Lmk09fNnt9h2oEOP5JzGyF7AyThL_Ne2I5W3mYKx-5EniIu4Ohc5Jg=s160-c-k-c0x00ffffff-no-rj",
+  },
+  {
+    nombre_canal: "Bethcast",
+    channel_url: "https://www.youtube.com/channel/UCKnKiQsPdou6Nj0ig5VmPaw",
+    channel_id: "UCKnKiQsPdou6Nj0ig5VmPaw",
+    imagen_url: "https://yt3.googleusercontent.com/nSfvGy08ijlbumT9GIQQmQ0c3VYg3PQQnLS5RA1Ps5SCffiFyLG_0Xkd6yHyryfP_ArlWbYG=s160-c-k-c0x00ffffff-no-rj",
+  },
+  {
+    nombre_canal: "Paulette",
+    channel_url: "https://www.youtube.com/channel/UCV_64Emay6e8d-pHYGQaWbA",
+    channel_id: "UCV_64Emay6e8d-pHYGQaWbA",
+    imagen_url: "https://yt3.googleusercontent.com/TjtvEwQlclVzBhzaEcwTBP_fPlEHCb5Y7DB7xX8uskRS-FkYlDzsDg_yDHThBYsKs_kWqwmcCw=s160-c-k-c0x00ffffff-no-rj",
+  },
+  {
+    nombre_canal: "Kika Nieto",
+    channel_url: "https://www.youtube.com/channel/UC67qfftymkxZk_3aWOklaaA",
+    channel_id: "UC67qfftymkxZk_3aWOklaaA",
+    imagen_url: "https://yt3.googleusercontent.com/EH94ig-hL1XPYj-vRv-Pg0yDS-Z0jLan9_QDuggwWI_av7OR8-S3taOKXHWK4tyj9cVtb3U=s160-c-k-c0x00ffffff-no-rj",
+  },
+  {
+    nombre_canal: "Sebastian Villalobos",
+    channel_url: "https://www.youtube.com/channel/UCftb_W4Y8jDXMu05GhvAWPA",
+    channel_id: "UCftb_W4Y8jDXMu05GhvAWPA",
+    imagen_url: "https://yt3.googleusercontent.com/1FlzTwGfPUqSz02I6iCuTLtLoYljB3QZNkicVF1-icPkdj2D6W9q1QAYlqVWTYotetvz5pOw=s160-c-k-c0x00ffffff-no-rj",
+  },
+  {
+    nombre_canal: "Libardo Isaza",
+    channel_url: "https://www.youtube.com/channel/UC0qE-Iq_PEYCYyKJAnBEeHg",
+    channel_id: "UC0qE-Iq_PEYCYyKJAnBEeHg",
+    imagen_url: "https://yt3.googleusercontent.com/6L4PyawLWuL6d2PVXONkhOyLtSmGeSTtoeUarpJXoVF0e27HKv-7ApOCMMtoQvM2Ue2zZtdJ=s160-c-k-c0x00ffffff-no-rj",
+  },
+  {
+    nombre_canal: "Zarate Arte",
+    channel_url: "https://www.youtube.com/channel/UCZkhz7lYMW6LrPk3THEKAuw",
+    channel_id: "UCZkhz7lYMW6LrPk3THEKAuw",
+    imagen_url: "https://yt3.googleusercontent.com/grHfl0IfxjuViqu0-pWG7WB7bM6K2BlCZgUE8YNFAD4TjqP0w676COhqb7yDoDLRbrPd7EUxYf8=s160-c-k-c0x00ffffff-no-rj",
+  },
+  {
+    nombre_canal: "MrStivenTc",
+    channel_url: "https://www.youtube.com/channel/UCwq-AEFGSdkSTeqcnBsgSlQ",
+    channel_id: "UCwq-AEFGSdkSTeqcnBsgSlQ",
+    imagen_url: "https://yt3.googleusercontent.com/eycXQgnu_HG91TmNNjsUr_NLT67yoe4E4gbDwg6HYuaaEQ0wxkbBmvpe4wyrneGGDmTsg5Bx=s160-c-k-c0x00ffffff-no-rj",
+  },
+  {
+    nombre_canal: "Las Gemelas Del Free",
+    channel_url: "https://www.youtube.com/channel/UCEduDOXxVv-gL2tlh3Rp_6g",
+    channel_id: "UCEduDOXxVv-gL2tlh3Rp_6g",
+    imagen_url: "https://yt3.googleusercontent.com/oxTJBlqvEE0jysLpvkDG2n0W7ONy7f3xTo9FDDljYp8eyJPEs7d9QD1xY2gyYvONKo5SCGjH=s160-c-k-c0x00ffffff-no-rj",
   },
 ];
 

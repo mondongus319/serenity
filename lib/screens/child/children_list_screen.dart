@@ -211,8 +211,11 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
   }
 
   Future<void> seleccionarNino(Map<String, dynamic> nino) async {
-    final ninoId = (nino['id'] ?? nino['ID'] ?? '').toString();
-    final nombreNino = (nino['nombre'] ?? nino['Nombre'] ?? '').toString();
+    // ✅ FIX: listarNinosPadre() siempre inyecta 'id' (minúscula) y 'nombre'.
+    // Las variantes 'ID' y 'Nombre' no existen en la colección 'ninos', así
+    // que los fallbacks eran código muerto.
+    final ninoId = (nino['id'] ?? '').toString();
+    final nombreNino = (nino['nombre'] ?? '').toString();
 
     final password = await PasswordDialog.show(
       context: context,

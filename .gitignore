@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ─────────────────────────────────────────────────────────────
+# SECRETOS — nunca subir a git
+#
+# serviceAccountKey.json es la llave maestra del proyecto de
+# Firebase: quien la tenga puede leer, modificar y borrar toda
+# la base de datos sin ninguna restriccion, saltandose incluso
+# las reglas de seguridad de Firestore.
+# ─────────────────────────────────────────────────────────────
+serviceAccountKey.json
+**/serviceAccountKey.json
+*-firebase-adminsdk-*.json
+.env
+.env.*
+!.env.example
+
+# Dependencias de Node (functions e importadores)
+node_modules/
+**/node_modules/

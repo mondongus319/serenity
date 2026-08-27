@@ -287,11 +287,17 @@ class _VideoList extends StatelessWidget {
       itemBuilder: (context, i) {
         final video = videos[i];
         return YoutubeVideoCard(
-          titulo: video['titulo'] ?? 'Sin título',
-          canal: video['canal'] ?? '',
-          videoId: video['videoid'] ?? '',
-          thumbnail: video['thumbnail'] ?? '',
-          onTap: () => onAbrirVideo(video['videoid'] ?? ''),
+          titulo: (video['titulo'] ?? 'Sin título').toString(),
+          canal: (video['canal'] ?? '').toString(),
+          // ✅ FIX: antes 'videoid' (sin guion bajo). Tanto YoutubeService
+          // como FirestoreService emiten 'video_id'.
+          // NOTA: hoy este widget (ChildYoutubeBody) no lo importa ningún
+          // archivo — el flujo real del niño es ChildYoutubeScreen →
+          // YoutubeAutoPlayScreen. Se corrige igual para que no quede una
+          // trampa si se reactiva, pero considera borrarlo si ya no se usa.
+          videoId: (video['video_id'] ?? '').toString(),
+          thumbnail: (video['thumbnail'] ?? '').toString(),
+          onTap: () => onAbrirVideo((video['video_id'] ?? '').toString()),
         );
       },
     );

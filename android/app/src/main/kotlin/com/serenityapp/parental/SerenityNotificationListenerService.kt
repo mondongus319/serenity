@@ -1,4 +1,4 @@
-package com.example.serenity_app
+package com.serenityapp.parental
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification

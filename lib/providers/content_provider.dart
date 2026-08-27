@@ -109,18 +109,26 @@ class ContentProvider extends ChangeNotifier {
       String catId, String padreId) async {
     final List<Map<String, dynamic>> todos = [];
 
+    // ✅ FIX: el canal por defecto y los canales custom del padre ahora usan
+    // la MISMA clave 'channel_url'. Antes el catálogo interno la llamaba
+    // 'url' y la colección 'canales' de Firestore 'channel_url', así que el
+    // mismo dato se leía con dos nombres distintos a 8 líneas de distancia.
     final defaultCanal = FirestoreService.obtenerCanalDefault(catId);
     if (defaultCanal != null) {
-      final vids =
-          await YoutubeService.obtenerVideosDeCanal(defaultCanal['url']!);
+      final vids = await YoutubeService.obtenerVideosDeCanal(
+          defaultCanal['channel_url']!);
       todos.addAll(vids);
     }
 
     final customs =
         await FirestoreService.obtenerCanalesCustom(padreId, catId);
     for (final c in customs) {
-      final vids = await YoutubeService.obtenerVideosDeCanal(
-          c['channel_url'] as String);
+      // ✅ FIX: se quitó el cast duro `as String`, igual que en
+      // ChannelManagementScreen, para no lanzar TypeError si un documento
+      // de 'canales' llegara sin el campo.
+      final url = (c['channel_url'] ?? '').toString().trim();
+      if (url.isEmpty) continue;
+      final vids = await YoutubeService.obtenerVideosDeCanal(url);
       todos.addAll(vids);
     }
 

@@ -21,6 +21,9 @@ class ChildDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChildDetailBody(
+      // ✅ ninoId nuevo: lo necesita LimiteTiempoCard para escuchar el
+      // documento del niño y mostrar el contador de tiempo en vivo.
+      ninoId: idNino,
       nombreNino: nombreNino,
       onBack: () => Navigator.pop(context),
       onYoutube: () => Navigator.push(

@@ -1,4 +1,4 @@
-package com.example.serenity_app
+package com.serenityapp.parental
 
 import android.app.ActivityManager
 import android.content.Context
@@ -15,7 +15,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
 
-    private val KIOSK_CHANNEL = "com.example.serenity_app/kiosk"
+    private val KIOSK_CHANNEL = "com.serenityapp.parental/kiosk"
     private val TAG = "KioskMode"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

@@ -215,8 +215,9 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
       (snap) async {
         if (!snap.exists) return;
         final data = snap.data() as Map<String, dynamic>;
-        // 'id_padre' con underscore es el campo real de crearNino — fallback sin underscore
-        final idPadre = data['id_padre'] ?? data['idpadre'];
+        // ✅ FIX: 'id_padre' es el campo real que escribe crearNino(); se
+        // eliminó el fallback a 'idpadre', que nunca existió en Firestore.
+        final idPadre = data['id_padre'];
         final activo = data['activo'] == true;
 
         if (idPadre != null && activo) {
@@ -284,9 +285,9 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
   Future<String> _obtenerNombrePadre(String padreId) async {
     try {
       final datos = await FirestoreService.obtenerPadre(padreId);
-      // FIX: 'primer_nombre' con underscore es el campo real de crearPadre
-      return (datos?['primer_nombre'] ?? datos?['primernombre'] ?? 'Papá')
-          .toString();
+      // ✅ FIX: 'primer_nombre' es el campo real de crearPadre; se eliminó
+      // el fallback a 'primernombre', que nunca existió en Firestore.
+      return (datos?['primer_nombre'] ?? 'Papá').toString();
     } catch (_) {
       return 'Papá';
     }
@@ -295,7 +296,10 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
   Future<String> _obtenerEmailPadre(String padreId) async {
     try {
       final datos = await FirestoreService.obtenerPadre(padreId);
-      return (datos?['gmail'] ?? datos?['email'] ?? '').toString();
+      // ✅ FIX: en la colección 'padres' el correo se guarda como 'gmail'.
+      // 'email' solo existe en los mapas de respuesta de AuthService, nunca
+      // en el documento de Firestore, así que era un fallback muerto.
+      return (datos?['gmail'] ?? '').toString();
     } catch (_) {
       return '';
     }

@@ -159,8 +159,9 @@ class _SplashScreenState extends State<SplashScreen>
         if (!mounted) return;
         if (datos != null && datos['activo'] != false) {
           final email = datos['gmail'] ?? user.email ?? '';
-          final userName =
-              datos['primer_nombre'] ?? datos['primernombre'] ?? 'Usuario';
+          // ✅ FIX: se quitó el fallback a 'primernombre'; en la colección
+          // 'padres' el campo real es 'primer_nombre'.
+          final userName = datos['primer_nombre'] ?? 'Usuario';
           final userId = user.uid;
           if (fcmToken.isNotEmpty) {
             try {

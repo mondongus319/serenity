@@ -31,11 +31,15 @@ class AuthProvider extends ChangeNotifier {
       isLoading = false;
 
       if (resultado['success'] == true) {
-        final String userId = resultado['user']['ID'].toString();
+        // ✅ FIX: AuthService ahora emite 'id' en minúscula, igual que
+        // FirestoreService.obtenerPadre().
+        final String userId = resultado['user']['id'].toString();
+        // ✅ FIX: se quitó el fallback a 'primernombre'. En Firestore el
+        // campo siempre se llama 'primer_nombre' (lo escribe
+        // FirestoreService.crearPadre), así que la variante sin guion bajo
+        // nunca existió y solo escondía el nombre real del campo.
         final String primerNombre = (
-          resultado['user']['primer_nombre'] ??
-          resultado['user']['primernombre'] ??
-          'Usuario'
+          resultado['user']['primer_nombre'] ?? 'Usuario'
         ).toString();
 
         await _guardarSesionFirestore(userId: userId);
@@ -48,7 +52,9 @@ class AuthProvider extends ChangeNotifier {
           'primerNombre': primerNombre,
           'gmail': gmail,
           'message': resultado['message'],
-          'needsVerification': resultado['needsverification'] ?? false,
+          // ✅ FIX: AuthService ahora emite 'needsVerification' directamente,
+          // ya no hace falta traducir desde 'needsverification'.
+          'needsVerification': resultado['needsVerification'] ?? false,
           'email': resultado['email'] ?? gmail,
         };
       } else {
@@ -56,7 +62,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return {
           ...resultado,
-          'needsVerification': resultado['needsverification'] ?? false,
+          'needsVerification': resultado['needsVerification'] ?? false,
         };
       }
     } catch (e) {
@@ -80,7 +86,8 @@ class AuthProvider extends ChangeNotifier {
 
       if (resultado['success'] == true) {
         final userData = resultado['user'];
-        final String userId = userData['ID'].toString();
+        // ✅ FIX: AuthService ahora emite 'id' en minúscula.
+        final String userId = userData['id'].toString();
         final String email = userData['gmail'] ?? '';
 
         String primerNombre = '';
@@ -91,26 +98,17 @@ class AuthProvider extends ChangeNotifier {
               .timeout(const Duration(seconds: 10));
 
           if (datosFS != null) {
-            primerNombre = (
-              datosFS['primer_nombre'] ??
-              datosFS['primernombre'] ??
-              ''
-            ).toString();
-
-            fechaNac = (
-              datosFS['fecha_nacimiento'] ??
-              datosFS['fechanacimiento'] ??
-              ''
-            ).toString();
+            // ✅ FIX: se quitaron los fallbacks a 'primernombre' y
+            // 'fechanacimiento'. En la colección 'padres' los campos son
+            // 'primer_nombre' y 'fecha_nacimiento' (snake_case); las
+            // variantes sin guion bajo nunca se han escrito.
+            primerNombre = (datosFS['primer_nombre'] ?? '').toString();
+            fechaNac = (datosFS['fecha_nacimiento'] ?? '').toString();
           }
         } catch (_) {}
 
         if (primerNombre.isEmpty) {
-          primerNombre = (
-            userData['primer_nombre'] ??
-            userData['primernombre'] ??
-            ''
-          ).toString();
+          primerNombre = (userData['primer_nombre'] ?? '').toString();
         }
 
         final bool needsBirthDate =
@@ -167,11 +165,12 @@ class AuthProvider extends ChangeNotifier {
       isLoadingGoogle = false;
 
       if (resultado['success'] == true) {
-        final String userId = resultado['user']['ID'].toString();
+        // ✅ FIX: AuthService ahora emite 'id' en minúscula, igual que
+        // FirestoreService.obtenerPadre().
+        final String userId = resultado['user']['id'].toString();
+        // ✅ FIX: se quitó el fallback a 'primernombre' (ver nota arriba).
         final String primerNombre = (
-          resultado['user']['primer_nombre'] ??
-          resultado['user']['primernombre'] ??
-          'Usuario'
+          resultado['user']['primer_nombre'] ?? 'Usuario'
         ).toString();
 
         await _guardarSesionFirestore(userId: userId);
@@ -275,8 +274,9 @@ class AuthProvider extends ChangeNotifier {
 
         isLoading = false;
 
-        if (loginExistente['needsverification'] == true ||
-            loginExistente['needsVerification'] == true) {
+        // ✅ FIX: antes se comprobaban las dos variantes de la misma clave.
+        // AuthService ahora emite solo 'needsVerification'.
+        if (loginExistente['needsVerification'] == true) {
           errorMessage = null;
           notifyListeners();
 

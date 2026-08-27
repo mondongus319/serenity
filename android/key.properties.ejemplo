@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PLANTILLA — este archivo NO lo usa Gradle.
+#
+# Cuando ya hayas generado el keystore:
+#   1. Copia este archivo como  key.properties  (en esta misma carpeta android/)
+#   2. Reemplaza los CUATRO valores de abajo por los tuyos
+#
+# key.properties está en .gitignore y NUNCA se sube a git: contiene las
+# contraseñas de tu llave de firma.
+#
+# ⚠️ OJO CON LAS BARRAS: en un archivo .properties la barra invertida "\" es un
+# carácter de escape. La ruta va con barras NORMALES "/", incluso en Windows.
+#   ✅ storeFile=C:/Users/pinzo/llaves/serenity-release.jks
+#   ❌ storeFile=C:\Users\pinzo\llaves\serenity-release.jks
+# ─────────────────────────────────────────────────────────────────────────────
+
+storePassword=LA_CONTRASENA_QUE_ELEGISTE
+keyPassword=LA_MISMA_CONTRASENA_SI_PUSISTE_LA_MISMA
+keyAlias=serenity
+storeFile=C:/Users/pinzo/llaves/serenity-release.jks

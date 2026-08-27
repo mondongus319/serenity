@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
+import 'limite_tiempo_card.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
+//
+// ✅ Se agregó `ninoId` para poder mostrar LimiteTiempoCard, que necesita
+// escuchar el documento del niño en Firestore. Esa tarjeta maneja su propio
+// estado, así que este widget sigue siendo un StatelessWidget.
 // ─────────────────────────────────────────────────────────────────────────────
 class ChildDetailBody extends StatelessWidget {
+  final String ninoId;
   final String nombreNino;
   final VoidCallback onBack;
   final VoidCallback onYoutube;
 
   const ChildDetailBody({
     super.key,
+    required this.ninoId,
     required this.nombreNino,
     required this.onBack,
     required this.onYoutube,
@@ -45,9 +52,22 @@ class ChildDetailBody extends StatelessWidget {
                       horizontal: 28,
                       vertical: 16,
                     ),
-                    child: _DetailCard(
-                      nombreNino: nombreNino,
-                      onYoutube: onYoutube,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _DetailCard(
+                          nombreNino: nombreNino,
+                          onYoutube: onYoutube,
+                        ),
+                        const SizedBox(height: 18),
+                        // ✅ Contador de tiempo. Se muestra siempre: si el
+                        // niño está en ilimitado ofrece poner un límite, y si
+                        // ya lo tiene muestra la cuenta regresiva en vivo.
+                        LimiteTiempoCard(
+                          ninoId: ninoId,
+                          nombreNino: nombreNino,
+                        ),
+                      ],
                     ),
                   ),
                 ),

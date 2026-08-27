@@ -83,7 +83,11 @@ class AuthService {
           'success': false,
           'message':
               'Debes verificar tu correo primero. Revisa tu bandeja de entrada.',
-          'needsverification': true,
+          // ✅ FIX: antes 'needsverification' (todo minúscula). El resto de
+          // la app (AuthProvider y LoginScreen) usa 'needsVerification' en
+          // camelCase, así que AuthProvider tenía que traducir la clave en
+          // cada retorno. Ahora se emite directamente con el nombre correcto.
+          'needsVerification': true,
           'email': gmail,
         };
       }
@@ -102,7 +106,10 @@ class AuthService {
       return {
         'success': true,
         'user': {
-          'ID': user.uid,
+          // ✅ FIX: antes 'ID' en mayúsculas. Como justo debajo se hace
+          // `...datos` y obtenerPadre() ya inyecta 'id' en minúscula, el
+          // mismo valor quedaba duplicado en el mapa bajo dos nombres.
+          'id': user.uid,
           'gmail': gmail,
           ...datos,
         },
@@ -213,7 +220,10 @@ class AuthService {
       return {
         'success': true,
         'user': {
-          'ID': user.uid,
+          // ✅ FIX: antes 'ID' en mayúsculas. Como justo debajo se hace
+          // `...datos` y obtenerPadre() ya inyecta 'id' en minúscula, el
+          // mismo valor quedaba duplicado en el mapa bajo dos nombres.
+          'id': user.uid,
           'primer_nombre':
               datos?['primer_nombre'] ??
               user.displayName?.split(' ').first ??
@@ -250,7 +260,10 @@ class AuthService {
       return {
         'success': true,
         'user': {
-          'ID': user.uid,
+          // ✅ FIX: antes 'ID' en mayúsculas. Como justo debajo se hace
+          // `...datos` y obtenerPadre() ya inyecta 'id' en minúscula, el
+          // mismo valor quedaba duplicado en el mapa bajo dos nombres.
+          'id': user.uid,
           'gmail': email,
           ...datos,
         },

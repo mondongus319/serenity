@@ -21,7 +21,7 @@
     <application
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:label="serenity_app">
+        android:label="@string/app_name">
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

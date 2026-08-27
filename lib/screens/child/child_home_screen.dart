@@ -10,6 +10,7 @@ import 'children_list_screen.dart';
 import '../../../widgets/auth/password_dialog.dart';
 import 'child_youtube_screen.dart';
 import '../../../widgets/child/child_home_body.dart';
+import '../../widgets/child/limite_tiempo_guard.dart';
 import '../../utils/app_colors.dart';
 
 class ChildHomeScreen extends StatefulWidget {
@@ -353,10 +354,26 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _cerrarSesion();
       },
-      child: ChildHomeBody(
+      // ✅ LimiteTiempoGuard envuelve TODA la sesión del niño. Como esta
+      // pantalla sigue viva mientras él navega a la galería o al
+      // reproductor, el conteo y el bloqueo lo acompañan a todos lados sin
+      // repetir lógica en cada pantalla.
+      //
+      // Si el niño no tiene límite (el estado por defecto), el guardián es
+      // transparente: devuelve el contenido tal cual.
+      //
+      // onSalirPadre le permite al guardián ofrecer la salida con contraseña
+      // en la pantalla de "hasta mañana", para que un adulto pueda recuperar
+      // el dispositivo sin desinstalar nada.
+      child: LimiteTiempoGuard(
+        ninoId: widget.ninoId,
         nombreNino: widget.nombreNino,
-        onCerrarSesion: _cerrarSesion,
-        onYoutube: _irAYoutube,
+        onSalirPadre: _cerrarSesion,
+        child: ChildHomeBody(
+          nombreNino: widget.nombreNino,
+          onCerrarSesion: _cerrarSesion,
+          onYoutube: _irAYoutube,
+        ),
       ),
     );
   }

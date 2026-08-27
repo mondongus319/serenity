@@ -63,6 +63,11 @@ class FirestoreService {
   }
 
 
+  /// ⚠️ SIN USO. La colección 'rangos_edad' NO existe en Firestore.
+  /// Los rangos viven en la constante [_catalogoRangos] de este archivo y se
+  /// calculan con [calcularRangoEdad]. Llamar a esto crearía una colección
+  /// nueva que nada lee. Se conserva por si algún día se quiere mover el
+  /// catálogo a Firestore; si no, puede borrarse sin afectar a la app.
   static Future<void> poblarRangosEdad() async {
     final batch = _db.batch();
     for (final rango in _catalogoRangos) {
@@ -73,6 +78,8 @@ class FirestoreService {
   }
 
 
+  /// ⚠️ SIN USO. Lee la colección 'rangos_edad', que NO existe en Firestore:
+  /// hoy devuelve siempre una lista vacía. Ver nota en [poblarRangosEdad].
   static Future<List<Map<String, dynamic>>> obtenerRangosEdad() async {
     final q = await _db.collection('rangos_edad').orderBy('orden').get();
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
@@ -331,6 +338,119 @@ class FirestoreService {
   }
 
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // LÍMITE DE TIEMPO DIARIO
+  //
+  // Campos que se agregan al documento del niño:
+  //
+  //   limite_activo         bool    false = ilimitado (por defecto)
+  //   limite_minutos        int?    cuota total del día en minutos
+  //   limite_fecha          String  "yyyy-MM-dd" del día que corresponde
+  //                                 el consumo. Si no es hoy, se reinicia.
+  //   consumido_segundos    int     lo que lleva usado HOY
+  //   sesion_activa         bool    si está usando la app en este momento
+  //   ultimo_latido         Timestamp del último reporte del dispositivo
+  //   aviso_5min_enviado    bool    para no repetir la notificación
+  //   aviso_fin_enviado     bool
+  //
+  // El consumo lo mide un Stopwatch en el dispositivo del niño, que es
+  // monotónico: cambiar la hora del teléfono no le regala minutos.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Deja al niño sin límite de tiempo. Es el estado por defecto.
+  ///
+  /// ⚠️ También pone `consumido_segundos` en cero. Sin esto, el tiempo que el
+  /// niño gastara mientras estaba en ilimitado se le descontaría de un límite
+  /// puesto después: el padre quita el límite, el niño ve videos dos horas, y
+  /// al volver a ponerle 15 minutos ya aparecería en cero.
+  static Future<void> quitarLimiteTiempo({
+    required String ninoId,
+    required String fechaHoy,
+  }) async {
+    await _db.collection('ninos').doc(ninoId).set({
+      'limite_activo': false,
+      'limite_minutos': null,
+      'consumido_segundos': 0,
+      'limite_fecha': fechaHoy,
+      'aviso_5min_enviado': false,
+      'aviso_fin_enviado': false,
+      'limite_actualizado_en': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Define el límite TOTAL del día en minutos.
+  ///
+  /// No toca `consumido_segundos`: si el niño ya usó 10 minutos y el padre
+  /// pone 60, le quedan 50. Así el mismo gesto sirve para ampliar y para
+  /// recortar, que es justo lo que se espera de un control parental.
+  ///
+  /// [fechaHoy] debe venir de LimiteTiempoService.fechaDeHoy().
+  static Future<void> establecerLimiteTiempo({
+    required String ninoId,
+    required int limiteMinutos,
+    required String fechaHoy,
+    bool reiniciarConsumo = false,
+  }) async {
+    final datos = <String, dynamic>{
+      'limite_activo': true,
+      'limite_minutos': limiteMinutos,
+      'limite_fecha': fechaHoy,
+      // Al cambiar el límite se rearman los avisos: si el padre amplía el
+      // tiempo, tiene sentido volver a avisarle cuando se acabe otra vez.
+      'aviso_5min_enviado': false,
+      'aviso_fin_enviado': false,
+      'limite_actualizado_en': FieldValue.serverTimestamp(),
+    };
+
+    if (reiniciarConsumo) datos['consumido_segundos'] = 0;
+
+    await _db.collection('ninos').doc(ninoId).set(
+          datos,
+          SetOptions(merge: true),
+        );
+  }
+
+  /// Reporta cuánto lleva usado el niño hoy. Lo llama su dispositivo cada
+  /// minuto mientras la app está al frente, y también al salir de ella.
+  static Future<void> reportarConsumo({
+    required String ninoId,
+    required int consumidoSegundos,
+    required bool sesionActiva,
+    required String fechaHoy,
+  }) async {
+    await _db.collection('ninos').doc(ninoId).set({
+      'consumido_segundos': consumidoSegundos < 0 ? 0 : consumidoSegundos,
+      'sesion_activa': sesionActiva,
+      'limite_fecha': fechaHoy,
+      'ultimo_latido': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Pone el consumo del día en cero. Se llama cuando el niño abre la app y
+  /// la fecha guardada ya no es la de hoy.
+  static Future<void> reiniciarConsumoDiario({
+    required String ninoId,
+    required String fechaHoy,
+  }) async {
+    await _db.collection('ninos').doc(ninoId).set({
+      'consumido_segundos': 0,
+      'limite_fecha': fechaHoy,
+      'aviso_5min_enviado': false,
+      'aviso_fin_enviado': false,
+      'ultimo_latido': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Marca que el niño dejó de usar la app, para que el contador del padre
+  /// deje de descontar.
+  static Future<void> marcarSesionInactiva(String ninoId) async {
+    await _db.collection('ninos').doc(ninoId).set({
+      'sesion_activa': false,
+      'ultimo_latido': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+
   static const Map<String, Map<String, dynamic>> _catalogoCategorias = {
     'cat_1': {'id': 'cat_1', 'nombre': 'Música'},
     'cat_2': {'id': 'cat_2', 'nombre': 'Deportes'},
@@ -390,14 +510,11 @@ class FirestoreService {
   }
 
 
-  /// Compara un valor de rango de edad guardado en Firestore (que puede
-  /// venir como "14-17" o como "14-17 años") contra el código puro
-  /// calculado por [calcularRangoEdad] (ej. "14-17").
-  static bool _rangoCoincide(dynamic valor, String rangoEdad) {
-    final texto = valor?.toString().trim() ?? '';
-    if (texto.isEmpty) return false;
-    return texto == rangoEdad || texto.startsWith(rangoEdad);
-  }
+  // ✅ FIX: se eliminó el helper privado _rangoCoincide(). No lo llamaba
+  // nadie (el analizador de Dart lo marcaba como unused_element) y su razón
+  // de existir —tolerar el formato "14-17 años" de la colección
+  // canales_admin— ya la resuelve normalizarRango() en functions/index.js
+  // antes de que el dato llegue a videos_catalogo.
 
 
  static Future<List<Map<String, dynamic>>> obtenerVideosCatalogo({
@@ -477,12 +594,11 @@ class FirestoreService {
 
     for (final d in canalesSnap.docs) {
       final data = d.data();
-      nombresCanales[d.id] = (
-        data['nombre_canal'] ??
-        data['nombrecanal'] ??
-        data['nombre'] ??
-        ''
-      ).toString().trim();
+      // ✅ FIX: la colección 'canales_youtubers' la escribe
+      // importar_youtubers/importar_canales_youtubers.js y el único campo
+      // que existe es 'nombre_canal'. Las variantes 'nombrecanal' y
+      // 'nombre' nunca se han escrito: eran fallbacks muertos.
+      nombresCanales[d.id] = (data['nombre_canal'] ?? '').toString().trim();
     }
   }
 
@@ -501,15 +617,15 @@ class FirestoreService {
     final data = d.data();
 
 
+    // ✅ FIX: antes se probaban 8 nombres distintos para el mismo campo.
+    // La colección 'videos_youtubers' la escribe functions/index.js y solo
+    // existen dos: 'canal_youtuber_id' (id del doc en canales_youtubers) y
+    // 'canal_id' (el channelId de YouTube). Hoy ambos coinciden porque el
+    // importador usa el channelId como id del documento, pero el canónico
+    // es 'canal_youtuber_id'; 'canal_id' queda como respaldo real.
     final canalId = (
-      data['id_canal_youtuber'] ??
-      data['idcanalyoutuber'] ??
       data['canal_youtuber_id'] ??
-      data['canalyoutuberid'] ??
-      data['id_canal'] ??
-      data['idcanal'] ??
       data['canal_id'] ??
-      data['canalid'] ??
       ''
     ).toString().trim();
 
@@ -518,11 +634,8 @@ class FirestoreService {
     if (!idsNormalizados.contains(canalId)) continue;
 
 
-    final videoId = (
-      data['video_id'] ??
-      data['videoid'] ??
-      ''
-    ).toString().trim();
+    // ✅ FIX: antes 'video_id' ?? 'videoid'. 'videoid' nunca se escribe.
+    final videoId = (data['video_id'] ?? '').toString().trim();
 
 
     if (videoId.isEmpty) continue;
@@ -535,32 +648,41 @@ class FirestoreService {
     resultado.add({
       'video_id': videoId,
       'titulo': (data['titulo'] ?? '').toString(),
-      'thumbnail': (
-        data['thumbnail'] ??
-        data['imagen_url'] ??
-        data['imagenurl'] ??
-        ''
-      ).toString(),
+      // ✅ FIX: 'thumbnail' es la miniatura del VIDEO. 'imagen_canal' (que
+      // sí existe en esta colección) es el avatar del canal, otra cosa
+      // distinta, y 'imagen_url' pertenece a 'canales_youtubers', no aquí.
+      'thumbnail': (data['thumbnail'] ?? '').toString(),
+      // ✅ FIX: el campo real es 'canal' (nombre del canal, escrito por la
+      // Cloud Function). 'nombre_canal' vive en 'canales_youtubers', por eso
+      // se conserva el mapa nombresCanales como respaldo legítimo.
       'canal': (
         data['canal'] ??
-        data['nombre_canal'] ??
-        data['nombrecanal'] ??
         nombresCanales[canalId] ??
         'Youtuber'
       ).toString(),
-      'duracion_segundos': data['duracion_segundos'] ?? data['duracion'] ?? 0,
+      // ✅ FIX: antes '?? data['duracion']'. La Cloud Function siempre
+      // escribe 'duracion_segundos'.
+      'duracion_segundos': data['duracion_segundos'] ?? 0,
       'categoria': (data['categoria'] ?? 'Youtubers').toString(),
-      'rango': (
-        data['rango_edad'] ??
-        data['rangos_edad'] ??
-        ''
-      ).toString(),
+      // ✅ FIX: 'videos_youtubers' NO tiene rango de edad — la Cloud
+      // Function nunca escribe 'rango_edad' ni 'rangos_edad' en esta
+      // colección, así que la lectura anterior devolvía siempre ''. Los
+      // canales de youtubers los elige explícitamente el padre, por lo que
+      // no se filtran por edad: se deja el rango vacío a propósito.
+      'rango': '',
     });
   }
 
 
   return resultado;
 }
+
+
+  /// ⚠️ SIN USO Y ROTA. Consulta la colección 'videos', que NO existe en este
+  /// proyecto de Firestore: las colecciones reales son 'videos_catalogo' y
+  /// 'videos_youtubers'. Hoy devuelve siempre una lista vacía, sin error.
+  /// Si necesitas videos por categoría usa [obtenerVideosCatalogo], que sí
+  /// consulta 'videos_catalogo' con la clave 'categorias_rango'.
   static Future<List<Map<String, dynamic>>> obtenerVideosPorCategoria(
       String categoriaId) async {
     final q = await _db
@@ -572,46 +694,51 @@ class FirestoreService {
   }
 
 
+  // ✅ FIX: las claves de este catálogo eran 'nombre' y 'url', mientras
+  // que los canales que agrega el padre (colección 'canales' en Firestore)
+  // usan 'nombre_canal' y 'channel_url'. Era el mismo concepto con dos
+  // nombres, y ContentProvider tenía que tratarlos por separado. Ahora
+  // ambos orígenes exponen exactamente las mismas claves.
   static const Map<String, Map<String, String>> _catalogoCanales = {
     'cat_1': {
-      'nombre': 'Canticuénticos',
-      'url': 'https://www.youtube.com/@CANTICUENTICOSMUSICAPARACHICOS'
+      'nombre_canal': 'Canticuénticos',
+      'channel_url': 'https://www.youtube.com/@CANTICUENTICOSMUSICAPARACHICOS'
     },
     'cat_2': {
-      'nombre': 'Little Sports Español',
-      'url': 'https://www.youtube.com/@littlesportsespanol'
+      'nombre_canal': 'Little Sports Español',
+      'channel_url': 'https://www.youtube.com/@littlesportsespanol'
     },
     'cat_3': {
-      'nombre': 'Happy Learning ES',
-      'url': 'https://www.youtube.com/@HappyLearningES'
+      'nombre_canal': 'Happy Learning ES',
+      'channel_url': 'https://www.youtube.com/@HappyLearningES'
     },
     'cat_4': {
-      'nombre': 'CuriosaMente',
-      'url': 'https://www.youtube.com/@curiosamente'
+      'nombre_canal': 'CuriosaMente',
+      'channel_url': 'https://www.youtube.com/@curiosamente'
     },
     'cat_5': {
-      'nombre': 'CNTV Infantil',
-      'url': 'https://www.youtube.com/@cntvinfantil'
+      'nombre_canal': 'CNTV Infantil',
+      'channel_url': 'https://www.youtube.com/@cntvinfantil'
     },
     'cat_6': {
-      'nombre': 'Aprendemos Juntos Kids',
-      'url': 'https://www.youtube.com/@AprendemosjuntosKIDS'
+      'nombre_canal': 'Aprendemos Juntos Kids',
+      'channel_url': 'https://www.youtube.com/@AprendemosjuntosKIDS'
     },
     'cat_7': {
-      'nombre': 'Smile and Learn ES',
-      'url': 'https://www.youtube.com/@SmileandLearnEspañol'
+      'nombre_canal': 'Smile and Learn ES',
+      'channel_url': 'https://www.youtube.com/@SmileandLearnEspañol'
     },
     'cat_8': {
-      'nombre': 'GENIAL Bright Side',
-      'url': 'https://www.youtube.com/@GENIALBrightSideSpanish'
+      'nombre_canal': 'GENIAL Bright Side',
+      'channel_url': 'https://www.youtube.com/@GENIALBrightSideSpanish'
     },
     'cat_9': {
-      'nombre': 'Academia Play',
-      'url': 'https://www.youtube.com/@academiaplay'
+      'nombre_canal': 'Academia Play',
+      'channel_url': 'https://www.youtube.com/@academiaplay'
     },
     'cat_10': {
-      'nombre': 'ExpCaserosMix',
-      'url': 'https://www.youtube.com/@ExpCaserosMix'
+      'nombre_canal': 'ExpCaserosMix',
+      'channel_url': 'https://www.youtube.com/@ExpCaserosMix'
     },
   };
 

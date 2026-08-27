@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/formato_fecha.dart';
 
 class ChildrenListBody extends StatelessWidget {
   final String nombrePadre;
@@ -304,9 +305,13 @@ class ListCard extends StatelessWidget {
       itemBuilder: (context, index) {
         final nino = ninos[index] as Map<String, dynamic>;
         return ChildTile(
-          nombre: nino['Nombre'] ?? nino['nombre'] ?? '',
-          fechaNacimiento:
-              nino['Fechanacimiento'] ?? nino['fechanacimiento'] ?? '',
+          // ✅ FIX: en Firestore (colección 'ninos') los campos reales son
+          // 'nombre' y 'fecha_nacimiento' en snake_case. Antes se leía
+          // 'Nombre' / 'Fechanacimiento' / 'fechanacimiento', que NO existen
+          // en la base de datos, por lo que la fecha de nacimiento salía
+          // siempre vacía en la lista de hijos.
+          nombre: (nino['nombre'] ?? '').toString(),
+          fechaNacimiento: (nino['fecha_nacimiento'] ?? '').toString(),
           activo: nino['id_padre'] != null,
           onTap: () => onSeleccionarNino(nino),
         );
@@ -484,9 +489,13 @@ class ChildTile extends StatelessWidget {
                       ),
                     ],
                   ),
+                  // ✅ FIX: hasta ahora esta línea NUNCA se pintaba porque la
+                  // fecha llegaba vacía (se leía una clave inexistente). Ya
+                  // que ahora sí llega, se formatea a dd/MM/yyyy en vez de
+                  // mostrar el ISO crudo "2018-08-16" de Firestore.
                   if (fechaNacimiento.isNotEmpty)
                     Text(
-                      fechaNacimiento,
+                      FormatoFecha.aVisual(fechaNacimiento),
                       style: GoogleFonts.poppins(
                         fontSize: 11,
                         color: AppColors.textMuted,

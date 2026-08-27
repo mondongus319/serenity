@@ -183,11 +183,16 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
             return;
           }
           if (!ctx.mounted) return;
+          // ✅ FIX: estas claves eran 'primernombre', 'segundonombre',
+          // 'primerapellido' y 'segundoapellido' (todo junto), mientras que
+          // en Firestore y en ParentProvider los mismos campos se llaman
+          // 'primer_nombre', 'segundo_nombre', etc. Se unifican al nombre
+          // canónico para que no convivan dos convenciones en el mismo flujo.
           Navigator.pop(ctx, {
-            'primernombre': c1.text.trim(),
-            'segundonombre': c2.text.trim(),
-            'primerapellido': c3.text.trim(),
-            'segundoapellido': c4.text.trim(),
+            'primer_nombre': c1.text.trim(),
+            'segundo_nombre': c2.text.trim(),
+            'primer_apellido': c3.text.trim(),
+            'segundo_apellido': c4.text.trim(),
           });
         },
       ),
@@ -196,10 +201,10 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
     if (result == null || !mounted) return;
     final res = await parent.guardarEnBD(
       userId: widget.userId,
-      primerNombre: result['primernombre']!,
-      segundoNombreVal: result['segundonombre'],
-      primerApellidoVal: result['primerapellido'],
-      segundoApellidoVal: result['segundoapellido'],
+      primerNombre: result['primer_nombre']!,
+      segundoNombreVal: result['segundo_nombre'],
+      primerApellidoVal: result['primer_apellido'],
+      segundoApellidoVal: result['segundo_apellido'],
       fechaNacimientoVal:
           parent.fechaNacimiento.isEmpty ? null : parent.fechaNacimiento,
     );

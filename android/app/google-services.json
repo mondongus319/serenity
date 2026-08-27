@@ -48,6 +48,58 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:215690310787:android:55b89eed535080951e97b6",
+        "android_client_info": {
+          "package_name": "com.serenityapp.parental"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "215690310787-cl4660dmufo008g6419g78n729jpjqd0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.serenityapp.parental",
+            "certificate_hash": "cd5929b01a9ed11e06e0b5461ef5582684639ba5"
+          }
+        },
+        {
+          "client_id": "215690310787-ndl0ksamnp5m7ujrp9sbcqmrst59an3b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.serenityapp.parental",
+            "certificate_hash": "547a3974d5eae5b2820671e41838e75f57e82cb1"
+          }
+        },
+        {
+          "client_id": "215690310787-oi923rhb4ota33haqnpcn22e9u1i245l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMBEMHKI6ko2M7t6-zQqo8365rL7BGH7M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "215690310787-oi923rhb4ota33haqnpcn22e9u1i245l.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "215690310787-2ijtqsho8aqs0880vrv81eoi173lid1v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.serenityApp"
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

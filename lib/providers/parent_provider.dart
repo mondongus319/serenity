@@ -52,20 +52,15 @@ class ParentProvider extends ChangeNotifier {
           .timeout(const Duration(seconds: 8));
 
       if (datos != null) {
-        nombre =
-            (datos['primer_nombre'] ?? datos['primer_nombre'] ?? nombreFallback)
-                .toString();
-        segundoNombre =
-            (datos['segundo_nombre'] ?? datos['segundo_nombre'] ?? '').toString();
-        primerApellido =
-            (datos['primer_apellido'] ?? datos['primer_apellido'] ?? '')
-                .toString();
-        segundoApellido =
-            (datos['segundo_apellido'] ?? datos['segundo_apellido'] ?? '')
-                .toString();
-        fechaNacimiento =
-            (datos['fecha_nacimiento'] ?? datos['fecha_nacimiento'] ?? '')
-                .toString();
+        // ✅ FIX: cada una de estas líneas repetía la MISMA clave dos veces
+        // (`datos['primer_nombre'] ?? datos['primer_nombre']`), lo que no
+        // aportaba nada. Los nombres de abajo son los que realmente escribe
+        // FirestoreService.crearPadre() en la colección 'padres'.
+        nombre = (datos['primer_nombre'] ?? nombreFallback).toString();
+        segundoNombre = (datos['segundo_nombre'] ?? '').toString();
+        primerApellido = (datos['primer_apellido'] ?? '').toString();
+        segundoApellido = (datos['segundo_apellido'] ?? '').toString();
+        fechaNacimiento = (datos['fecha_nacimiento'] ?? '').toString();
         correoActual = (datos['gmail'] ?? emailFallback).toString();
         tipoRegistro = (datos['tipo_registro'] ?? '').toString();
         datosYaCargados = true;

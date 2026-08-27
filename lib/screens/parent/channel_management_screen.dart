@@ -51,7 +51,14 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
         await FirestoreService.obtenerTodosCanalesCustom(widget.padreId);
     final mapa = <String, List<Map<String, dynamic>>>{};
     for (final c in todos) {
-      final cat = c['id_categoria'] as String;
+      // ✅ FIX: cast duro `as String` reemplazado por lectura tolerante.
+      // 'id_categoria' es el nombre correcto en la colección 'canales', pero
+      // un documento sin ese campo hacía crashear toda la pantalla.
+      // El `continue` no cambia lo que ve el padre: la lista se pinta
+      // recorriendo _categorias (cat_1..cat_10), así que una categoría vacía
+      // nunca se habría mostrado igualmente.
+      final cat = (c['id_categoria'] ?? '').toString();
+      if (cat.isEmpty) continue;
       mapa.putIfAbsent(cat, () => []).add(c);
     }
     setState(() {
@@ -75,8 +82,11 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           Future<void> validarCanal() async {
-            final url = _normalizarUrl(urlController.text.trim());
-            if (url.isEmpty) return;
+            // ✅ Ya no hace falta normalizar la URL a mano: la Cloud Function
+            // entiende @handle, /channel/UCxxxx, /c/Nombre, /user/Nombre y el
+            // ID suelto. El padre puede escribir simplemente "@canticuentos".
+            final entrada = urlController.text.trim();
+            if (entrada.isEmpty) return;
 
             setDialogState(() {
               validando = true;
@@ -87,26 +97,36 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
             });
 
             try {
-              final videos = await YoutubeService.obtenerVideosDeCanal(url);
-              if (videos.isEmpty) {
+              // ✅ 1 sola unidad de cuota. Antes esto descargaba el HTML de
+              // YouTube fingiendo ser Chrome y además traía TODOS los videos
+              // del canal solo para leer el nombre del primero.
+              final canal = await YoutubeService.resolverCanal(entrada);
+
+              if (canal == null) {
                 setDialogState(() {
                   validando = false;
                   errorValidacion =
-                      'No pudimos encontrar videos en ese canal. Verifica el link.';
+                      'No encontramos ese canal. Revisa el @usuario o el enlace.';
                 });
                 return;
               }
 
-              final primerVideo = videos.first;
-              final nombreDetectado = (primerVideo['canal'] as String?) ?? '';
-              final thumbDetectado = (primerVideo['thumbnail'] as String?) ?? '';
+              final nombreDetectado =
+                  (canal['nombre_canal'] ?? '').toString();
+              // ✅ Ahora es el LOGO real del canal. Antes se mostraba la
+              // miniatura del primer video, que confundía al padre.
+              final logoCanal = (canal['imagen_url'] ?? '').toString();
+              final urlCanonica = (canal['channel_url'] ?? '').toString();
 
               setDialogState(() {
                 validando = false;
                 canalValidado = true;
                 errorValidacion = null;
                 previewNombre = nombreDetectado;
-                previewThumbnail = thumbDetectado;
+                previewThumbnail = logoCanal;
+                // Guardamos la URL canónica /channel/UCxxxx, que no depende
+                // de que el creador cambie su handle más adelante.
+                if (urlCanonica.isNotEmpty) urlController.text = urlCanonica;
                 if (nombreController.text.trim().isEmpty &&
                     nombreDetectado.isNotEmpty) {
                   nombreController.text = nombreDetectado;
@@ -140,7 +160,7 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Pega la URL del canal de YouTube',
+                    'Escribe el @usuario del canal o pega su enlace',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: AppColors.textMuted,
@@ -149,7 +169,7 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
                   const SizedBox(height: 10),
                   _InputField(
                     controller: urlController,
-                    hint: 'https://www.youtube.com/@canal',
+                    hint: '@canticuentos',
                   ),
                   const SizedBox(height: 10),
                   Align(
@@ -293,7 +313,11 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
                       onPressed: !canalValidado
                           ? null
                           : () async {
-                              final url = _normalizarUrl(urlController.text.trim());
+                              // ✅ validarCanal() ya dejó en urlController la
+                              // URL canónica /channel/UCxxxx devuelta por la
+                              // API oficial, así que no hay que normalizar
+                              // nada a mano.
+                              final url = urlController.text.trim();
                               final nombre = nombreController.text.trim();
                               if (url.isEmpty || nombre.isEmpty) return;
 
@@ -349,17 +373,12 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
     );
   }
 
-  String _normalizarUrl(String input) {
-    if (input.isEmpty) return '';
-    if (input.startsWith('http')) return input;
-    if (input.startsWith('@')) return 'https://www.youtube.com/$input';
-    if (input.startsWith('channel/') ||
-        input.startsWith('c/') ||
-        input.startsWith('user/')) {
-      return 'https://www.youtube.com/$input';
-    }
-    return 'https://www.youtube.com/@$input';
-  }
+  // ✅ ELIMINADO: _normalizarUrl().
+  // Adivinaba a mano si lo escrito era un handle, una ruta o una URL, y
+  // muchas veces construía un enlace que después había que resolver
+  // raspando HTML. Ahora esa interpretación la hace la Cloud Function
+  // `resolverCanal` (ver interpretarEntradaCanal en functions/index.js)
+  // contra la API oficial, que además devuelve la URL canónica del canal.
 
   Future<void> _eliminarCanal(String docId) async {
     try {
@@ -554,16 +573,21 @@ class _CategoriaCard extends StatelessWidget {
           const Divider(color: Colors.white10, height: 1),
           if (defaultCanal != null)
             _CanalTile(
-              nombre: defaultCanal!['nombre']!,
+              // ✅ FIX: antes 'nombre'. El catálogo por defecto ahora usa
+              // 'nombre_canal', igual que los canales custom de Firestore.
+              nombre: defaultCanal!['nombre_canal']!,
               subtitulo: 'Canal predeterminado',
               isPredeterminado: true,
             ),
           for (final c in customs)
             _CanalTile(
-              nombre: c['nombre_canal'] as String,
-              subtitulo: c['channel_url'] as String,
+              // ✅ FIX: estos venían de Firestore como String pero con cast
+              // duro (`as String`), que lanza si el campo llega null en un
+              // documento viejo. Se normaliza igual que el resto.
+              nombre: (c['nombre_canal'] ?? '').toString(),
+              subtitulo: (c['channel_url'] ?? '').toString(),
               isPredeterminado: false,
-              onEliminar: () => onEliminar(c['id'] as String),
+              onEliminar: () => onEliminar((c['id'] ?? '').toString()),
             ),
           const SizedBox(height: 4),
         ],

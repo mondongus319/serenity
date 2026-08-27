@@ -1,4 +1,4 @@
-package com.example.serenity_app
+package com.serenityapp.parental
 
 import android.content.ComponentName
 import android.content.Context

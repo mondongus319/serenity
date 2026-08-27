@@ -1,208 +1,164 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
+/// Acceso a YouTube **100% por la API oficial**.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// POR QUÉ SE REESCRIBIÓ ESTE ARCHIVO
+///
+/// La versión anterior hacía tres cosas que violaban los Términos de
+/// Servicio de YouTube y que además eran frágiles:
+///
+///  1. `_resolverChannelId()` descargaba el HTML de youtube.com enviando un
+///     User-Agent falso de Chrome y buscaba el "UCxxxx" con 5 expresiones
+///     regulares. Eso es scraping puro: se rompe en cuanto YouTube cambia su
+///     HTML, y no está permitido.
+///  2. `_videosViaExplode()` usaba `youtube_explode_dart`, que funciona
+///     haciendo ingeniería inversa de la API interna de YouTube.
+///  3. `_videosViaRss()` leía el feed videos.xml, también con User-Agent
+///     falso, y solo devolvía los ~15 videos más recientes.
+///
+/// Ahora todo pasa por dos Cloud Functions (`resolverCanal` y
+/// `videosDeCanal`) que llaman a la API oficial de YouTube Data v3.
+///
+/// La API key vive como secreto en el servidor y **nunca** viaja dentro del
+/// APK, donde cualquiera podría extraerla.
+///
+/// COSTE DE CUOTA (de las 10.000 unidades diarias):
+///   - resolver un canal ....... 1 unidad  (channels.list)
+///   - listar sus videos ....... 1 unidad por cada 50 (playlistItems.list)
+///   - validar duraciones ...... 1 unidad por cada 50 (videos.list)
+/// Las Functions además cachean en Firestore, así que la mayoría de las
+/// llamadas repetidas cuestan 0.
+///
+/// Nota: `search.list` (búsqueda por texto libre) NO se usa aquí porque
+/// tiene un tope aparte de 100 llamadas al día para todo el proyecto.
+/// ─────────────────────────────────────────────────────────────────────────
 class YoutubeService {
-  static final _yt = YoutubeExplode();
+  static final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
-  // Duración permitida
-  static const int _duracionMinSegundos = 300;   // 5 min
-  static const int _duracionMaxSegundos = 1800;  // 30 min
-
-  // Caché: channelUrl → lista de videos
+  /// Caché en memoria: entrada del canal → lista de videos.
+  /// Evita repetir la llamada dentro de una misma sesión de la app.
   static final Map<String, List<Map<String, dynamic>>> _cache = {};
-  // Caché: handleUrl → channelId real (UCxxxxx)
-  static final Map<String, String> _idCache = {};
 
-  static Future<List<Map<String, dynamic>>> obtenerVideosDeCanal(
-    String channelUrl, {
-    int maxVideos = 100, // ✅ FIX: 100 videos por defecto
-  }) async {
-    final key = channelUrl.toLowerCase().trim();
-    if (_cache.containsKey(key)) return _cache[key]!;
+  /// Caché en memoria de los datos del canal (nombre, logo, id).
+  static final Map<String, Map<String, dynamic>> _cacheCanales = {};
 
-    final channelId = await _resolverChannelId(channelUrl);
-    if (channelId == null) {
-      debugPrint('⚠️ No se pudo resolver channelId para: $channelUrl');
-      _cache[key] = [];
-      return [];
-    }
+  /// Duración permitida para los videos que ve el niño.
+  static const int duracionMinSegundos = 300; // 5 min
+  static const int duracionMaxSegundos = 1800; // 30 min
 
-    // Intento 1: youtube_explode_dart (soporta filtro de duración)
-    try {
-      final result = await _videosViaExplode(channelId, maxVideos);
-      if (result.isNotEmpty) {
-        _cache[key] = result;
-        return result;
-      }
-    } catch (e) {
-      debugPrint('⚠️ explode falló para $channelUrl: $e');
-    }
+  // ── RESOLVER UN CANAL ─────────────────────────────────────────────────────
 
-    // Intento 2: RSS público de YouTube (sin autenticación, sin filtro duración)
-    try {
-      final result = await _videosViaRss(channelId, maxVideos);
-      _cache[key] = result;
-      if (result.isEmpty) debugPrint('⚠️ RSS vacío para $channelUrl');
-      return result;
-    } catch (e) {
-      debugPrint('⚠️ RSS falló para $channelUrl: $e');
-      _cache[key] = [];
-      return [];
-    }
-  }
+  /// Averigua a qué canal corresponde lo que escribió el padre.
+  ///
+  /// Acepta cualquiera de estos formatos:
+  ///   - `@nombrecanal`
+  ///   - `https://www.youtube.com/@nombrecanal`
+  ///   - `https://www.youtube.com/channel/UCxxxxxxxx`
+  ///   - `https://www.youtube.com/c/Nombre` o `/user/Nombre`
+  ///   - `UCxxxxxxxx` suelto
+  ///
+  /// Devuelve null si YouTube no reconoce el canal. Cuando sí lo encuentra,
+  /// el mapa trae: `channel_id`, `nombre_canal`, `imagen_url` (el logo REAL
+  /// del canal), `channel_url`, `total_videos` y `descripcion`.
+  static Future<Map<String, dynamic>?> resolverCanal(String entrada) async {
+    final clave = entrada.trim().toLowerCase();
+    if (clave.isEmpty) return null;
 
-  // ── Método A: youtube_explode_dart ─────────────────────────────────────────
-  static Future<List<Map<String, dynamic>>> _videosViaExplode(
-    String channelId,
-    int maxVideos,
-  ) async {
-    final uploads = _yt.channels.getUploads(ChannelId(channelId));
-    final List<Map<String, dynamic>> result = [];
-
-    // Límite de seguridad: revisar hasta 3× el máximo para compensar filtrados
-    int revisados = 0;
-    final int limiteRevision = maxVideos * 3;
-
-    await for (final video in uploads) {
-      if (revisados >= limiteRevision) break;
-      revisados++;
-
-      try {
-        // ✅ FIX: obtener duración real del video
-        final duracionSeg = video.duration?.inSeconds ?? 0;
-
-        // ✅ FIX: filtrar videos fuera del rango de 5 a 30 minutos
-        if (duracionSeg < _duracionMinSegundos ||
-            duracionSeg > _duracionMaxSegundos) {
-          continue;
-        }
-
-        final vid = video.id.value;
-        result.add({
-          'video_id':  vid,
-          'titulo':    video.title,
-          'canal':     video.author,
-          'thumbnail': video.thumbnails.mediumResUrl,
-          'duracion':  duracionSeg,
-          'categoria': '',
-          'rango':     [],
-        });
-      } catch (_) {
-        continue; // video con metadatos incompletos
-      }
-
-      if (result.length >= maxVideos) break;
-    }
-
-    debugPrint(
-      '🎬 Explode: ${result.length} videos válidos '
-      '(revisados $revisados) para $channelId',
-    );
-    return result;
-  }
-
-  // ── Método B: RSS feed de YouTube ──────────────────────────────────────────
-  // ⚠️ El RSS no incluye duración — se retornan sin filtro de tiempo
-  static Future<List<Map<String, dynamic>>> _videosViaRss(
-    String channelId,
-    int maxVideos,
-  ) async {
-    final rssUrl =
-        'https://www.youtube.com/feeds/videos.xml?channel_id=$channelId';
-    final response = await http.get(Uri.parse(rssUrl));
-    if (response.statusCode != 200) {
-      throw Exception('RSS HTTP ${response.statusCode}');
-    }
-
-    final body = response.body;
-    final List<Map<String, dynamic>> result = [];
-
-    final entryRegex = RegExp(r'<entry>([\s\S]*?)</entry>');
-    for (final entryMatch in entryRegex.allMatches(body)) {
-      if (result.length >= maxVideos) break;
-      final entry = entryMatch.group(1)!;
-
-      final videoId = _rssField(entry, r'<yt:videoId>(.*?)</yt:videoId>');
-      final titulo  = _rssField(entry, r'<title>(.*?)</title>');
-      final canal   = _rssField(entry, r'<name>(.*?)</name>');
-
-      if (videoId == null) continue;
-
-      result.add({
-        'video_id':  videoId,
-        'titulo':    titulo ?? '',
-        'canal':     canal  ?? '',
-        'thumbnail': 'https://img.youtube.com/vi/$videoId/mqdefault.jpg',
-        'duracion':  0, // RSS no provee duración
-        'categoria': '',
-        'rango':     [],
-      });
-    }
-
-    debugPrint('📡 RSS: ${result.length} videos para $channelId');
-    return result;
-  }
-
-  static String? _rssField(String xml, String pattern) =>
-      RegExp(pattern).firstMatch(xml)?.group(1);
-
-  // ── Resolución de handle → UCxxxxxxxx ──────────────────────────────────────
-  static Future<String?> _resolverChannelId(String url) async {
-    if (_idCache.containsKey(url)) return _idCache[url];
-
-    // Si ya es un ID directo
-    if (RegExp(r'^UC[a-zA-Z0-9_-]{22}$').hasMatch(url)) {
-      _idCache[url] = url;
-      return url;
-    }
+    if (_cacheCanales.containsKey(clave)) return _cacheCanales[clave];
 
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-              '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'es-ES,es;q=0.9',
-        },
-      );
+      final resultado = await _functions
+          .httpsCallable('resolverCanal')
+          .call<Map<String, dynamic>>({'entrada': entrada.trim()});
 
-      if (response.statusCode != 200) {
-        debugPrint('⚠️ HTTP ${response.statusCode} para $url');
+      final data = Map<String, dynamic>.from(resultado.data);
+
+      if (data['encontrado'] != true) {
+        debugPrint('⚠️ Canal no encontrado: $entrada — ${data['mensaje']}');
         return null;
       }
 
-      final patterns = [
-        RegExp(r'"channelId":"(UC[a-zA-Z0-9_-]{22})"'),
-        RegExp(r'"externalChannelId":"(UC[a-zA-Z0-9_-]{22})"'),
-        RegExp(r'"browseId":"(UC[a-zA-Z0-9_-]{22})"'),
-        RegExp(r'/channel/(UC[a-zA-Z0-9_-]{22})'),
-        RegExp(r'data-channel-external-id="(UC[a-zA-Z0-9_-]{22})"'),
-      ];
-
-      for (final pattern in patterns) {
-        final match = pattern.firstMatch(response.body);
-        if (match != null) {
-          final id = match.group(1)!;
-          _idCache[url] = id;
-          debugPrint('✅ Resuelto $url → $id');
-          return id;
-        }
-      }
-
-      debugPrint('⚠️ No se encontró channelId en $url');
+      _cacheCanales[clave] = data;
+      return data;
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('⚠️ resolverCanal falló (${e.code}): ${e.message}');
       return null;
     } catch (e) {
-      debugPrint('⚠️ Error resolviendo $url: $e');
+      debugPrint('⚠️ resolverCanal error inesperado: $e');
       return null;
     }
   }
 
-  static void limpiarCache() {
-    _cache.clear();
-    _idCache.clear();
+  // ── OBTENER LOS VIDEOS DE UN CANAL ────────────────────────────────────────
+
+  /// Devuelve los videos del canal ya filtrados por duración y sin directos
+  /// ni shorts. Cada video trae:
+  /// `video_id`, `titulo`, `canal`, `thumbnail`, `duracion_segundos`,
+  /// `categoria` y `rango`.
+  ///
+  /// [entrada] admite los mismos formatos que [resolverCanal].
+  static Future<List<Map<String, dynamic>>> obtenerVideosDeCanal(
+    String entrada, {
+    int maxVideos = 50,
+    int? duracionMin,
+    int? duracionMax,
+  }) async {
+    final clave = entrada.trim().toLowerCase();
+    if (clave.isEmpty) return [];
+
+    if (_cache.containsKey(clave)) return _cache[clave]!;
+
+    try {
+      final resultado = await _functions
+          .httpsCallable('videosDeCanal')
+          .call<Map<String, dynamic>>({
+        'entrada': entrada.trim(),
+        'max': maxVideos,
+        'duracion_min': duracionMin ?? duracionMinSegundos,
+        'duracion_max': duracionMax ?? duracionMaxSegundos,
+      });
+
+      final data = Map<String, dynamic>.from(resultado.data);
+
+      if (data['encontrado'] != true) {
+        debugPrint('⚠️ Sin videos para: $entrada');
+        _cache[clave] = [];
+        return [];
+      }
+
+      // Guardamos también los datos del canal para que el diálogo de
+      // "agregar canal" pueda mostrar el logo sin una segunda llamada.
+      final canal = data['canal'];
+      if (canal is Map) {
+        _cacheCanales[clave] = Map<String, dynamic>.from(canal);
+      }
+
+      final lista = (data['videos'] as List? ?? [])
+          .map((v) => Map<String, dynamic>.from(v as Map))
+          .toList();
+
+      _cache[clave] = lista;
+      debugPrint('🎬 ${lista.length} videos para $entrada');
+      return lista;
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('⚠️ videosDeCanal falló (${e.code}): ${e.message}');
+      _cache[clave] = [];
+      return [];
+    } catch (e) {
+      debugPrint('⚠️ videosDeCanal error inesperado: $e');
+      _cache[clave] = [];
+      return [];
+    }
   }
 
-  static void dispose() => _yt.close();
+  // ── CACHÉ ─────────────────────────────────────────────────────────────────
+
+  /// Vacía la caché en memoria. Las Functions mantienen su propia caché en
+  /// Firestore, que se refresca sola cada pocas horas.
+  static void limpiarCache() {
+    _cache.clear();
+    _cacheCanales.clear();
+  }
 }

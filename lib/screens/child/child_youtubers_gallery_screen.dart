@@ -80,12 +80,10 @@ class _ChildYoutubersGalleryScreenState
     }
 
     final filtrados = canales.where((canal) {
-      final nombre = (canal['nombre_canal'] ??
-              canal['nombrecanal'] ??
-              canal['nombre'] ??
-              '')
-          .toString()
-          .toLowerCase();
+      // ✅ FIX: en la colección 'canales_youtubers' el único campo existente
+      // es 'nombre_canal' (lo escribe importar_canales_youtubers.js).
+      // 'nombrecanal' y 'nombre' eran fallbacks muertos.
+      final nombre = (canal['nombre_canal'] ?? '').toString().toLowerCase();
 
       return nombre.contains(query);
     }).toList();
@@ -294,15 +292,15 @@ class _ChildYoutubersGalleryScreenState
                                 itemBuilder: (_, i) {
                                   final canal = canalesFiltrados[i];
                                   final id = canal['id']?.toString() ?? '';
-                                  final nombre = (canal['nombre_canal'] ??
-                                          canal['nombrecanal'] ??
-                                          canal['nombre'] ??
-                                          'Canal')
-                                      .toString();
-                                  final imagen = (canal['imagen_url'] ??
-                                          canal['imagenurl'] ??
-                                          '')
-                                      .toString();
+                                  // ✅ FIX: 'canales_youtubers' solo tiene
+                                  // 'nombre_canal' e 'imagen_url'. Las
+                                  // variantes 'nombrecanal', 'nombre' e
+                                  // 'imagenurl' eran fallbacks muertos.
+                                  final nombre =
+                                      (canal['nombre_canal'] ?? 'Canal')
+                                          .toString();
+                                  final imagen =
+                                      (canal['imagen_url'] ?? '').toString();
                                   final seleccionado =
                                       seleccionados.contains(id);
 

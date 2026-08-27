@@ -1,4 +1,4 @@
-package com.example.serenity_app
+package com.serenityapp.parental
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
@@ -9,7 +9,7 @@ import android.view.accessibility.AccessibilityEvent
 class SerenityAccessibilityService : AccessibilityService() {
 
     private val allowedPackages = setOf(
-        "com.example.serenity_app",
+        "com.serenityapp.parental",
         "com.android.systemui"
     )
 

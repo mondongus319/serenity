@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class KioskService {
-  static const _channel = MethodChannel('com.example.serenity_app/kiosk');
+  // ⚠️ Esta cadena debe ser IDÉNTICA a la de MainActivity.kt. Si cambia en un
+  // lado y no en el otro, el modo kiosco deja de funcionar EN SILENCIO: no
+  // lanza error, simplemente el niño puede salirse de la app.
+  static const _channel = MethodChannel('com.serenityapp.parental/kiosk');
 
   static Future<void> bloquear() async {
     try {

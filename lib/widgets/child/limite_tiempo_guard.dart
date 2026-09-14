@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../servicces/firestore_service.dart';
 import '../../servicces/kiosk_service.dart';
 import '../../servicces/limite_tiempo_service.dart';
+import '../../servicces/premium_service.dart';
 import '../../utils/app_colors.dart';
 
 /// Envuelve la pantalla del niño y hace cumplir el límite de tiempo diario.
@@ -60,6 +61,14 @@ class LimiteTiempoGuard extends StatefulWidget {
   /// sin tener que desinstalar nada.
   final Future<void> Function()? onSalirPadre;
 
+  /// Avisa cuándo el niño está realmente viendo videos y cuándo no.
+  ///
+  /// `false` mientras está en la pantalla de "hasta mañana" o en la cuenta
+  /// atrás de despedida. Lo usa ChildHomeScreen para no contarle ese rato
+  /// como uso en el reporte semanal del padre: mirar una pantalla que le
+  /// dice que se acabó no es usar la app.
+  final void Function(bool usando)? onUsoCambia;
+
   final Widget child;
 
   const LimiteTiempoGuard({
@@ -68,6 +77,7 @@ class LimiteTiempoGuard extends StatefulWidget {
     required this.nombreNino,
     required this.child,
     this.onSalirPadre,
+    this.onUsoCambia,
   });
 
   @override
@@ -105,10 +115,36 @@ class _LimiteTiempoGuardState extends State<LimiteTiempoGuard> {
   /// positivos y le regalaría segundos al niño.
   int _ultimoReportado = 0;
 
-  bool _limiteActivo = false;
+  /// Lo que dice el documento del niño, tal cual.
+  bool _limiteEnDoc = false;
   int? _limiteMinutos;
 
+  /// Plan del padre. Si es false, el guardián no aplica ningún límite.
+  bool _esPremium = false;
+  String _padreId = '';
+
+  /// El límite solo existe si el documento lo trae **y** el padre paga.
+  ///
+  /// Es un getter y no un campo a propósito: así no hay forma de que las dos
+  /// condiciones se desincronicen según el orden en que lleguen los datos.
+  bool get _limiteActivo => _esPremium && _limiteEnDoc;
+
   _Estado _estado = _Estado.cargando;
+
+  /// Cambia el estado y le avisa a quien nos envuelve si el niño pasa de
+  /// estar usando la app a no estarlo, o al revés.
+  ///
+  /// Va centralizado en un método para que no se pueda cambiar `_estado` en
+  /// un sitio y olvidar el aviso en otro: son cuatro sitios distintos y el
+  /// que se olvidara dejaría el reporte semanal contando de más.
+  void _pasarA(_Estado nuevo) {
+    if (_estado == nuevo) return;
+    final usabaAntes = _estado == _Estado.libre;
+    final usaAhora = nuevo == _Estado.libre;
+    _estado = nuevo;
+    if (mounted) setState(() {});
+    if (usabaAntes != usaAhora) widget.onUsoCambia?.call(usaAhora);
+  }
 
   /// Segundos que faltan para que la app se cierre sola.
   int _cuentaAtras = LimiteTiempoService.segundosAntesDeCerrar;
@@ -120,6 +156,7 @@ class _LimiteTiempoGuardState extends State<LimiteTiempoGuard> {
   Timer? _revision;
   Timer? _despedida;
   StreamSubscription<DocumentSnapshot>? _suscripcion;
+  StreamSubscription<bool>? _suscripcionPlan;
   late final AppLifecycleListener _cicloVida;
 
   @override
@@ -140,6 +177,7 @@ class _LimiteTiempoGuardState extends State<LimiteTiempoGuard> {
     _revision?.cancel();
     _despedida?.cancel();
     _suscripcion?.cancel();
+    _suscripcionPlan?.cancel();
     _cicloVida.dispose();
     _cronometro.stop();
     // Sin await: dispose no puede esperar, pero la escritura igual se envía.
@@ -157,7 +195,19 @@ class _LimiteTiempoGuardState extends State<LimiteTiempoGuard> {
       final hoy = LimiteTiempoService.fechaDeHoy();
 
       if (nino != null) {
-        _limiteActivo = nino['limite_activo'] == true;
+        // El control de tiempo es Premium. Si el padre no paga, el guardián
+        // se comporta como si no hubiera límite, aunque el documento traiga
+        // uno viejo de cuando sí pagaba.
+        //
+        // Se verifica aquí, del lado del niño, además de impedir ponerlo del
+        // lado del padre: si una suscripción se vence y la Cloud Function que
+        // debía desactivar el límite falla, un niño quedaría encerrado fuera
+        // de la app por una función que su papá ya no está pagando. Esta
+        // comprobación es el seguro contra eso.
+        _padreId = nino['id_padre']?.toString() ?? '';
+        _esPremium = await PremiumService.esPremium(_padreId);
+
+        _limiteEnDoc = nino['limite_activo'] == true;
         _limiteMinutos = (nino['limite_minutos'] as num?)?.toInt();
 
         final fechaGuardada = nino['limite_fecha'] as String?;
@@ -197,14 +247,25 @@ class _LimiteTiempoGuardState extends State<LimiteTiempoGuard> {
     _suscripcion =
         FirestoreService.streamNino(widget.ninoId).listen(_alCambiar);
 
+    // Escucha el plan en vivo. Si el papá compra ahora mismo, el límite
+    // empieza a aplicar sin reiniciar; si se le vence, el bloqueo se levanta
+    // solo en vez de dejar al niño encerrado.
+    if (_padreId.isNotEmpty) {
+      _suscripcionPlan = PremiumService.stream(_padreId).listen((activo) {
+        if (!mounted) return;
+        _esPremium = activo;
+        _revisarAgotado();
+      });
+    }
+
     if (yaAgotado) {
       // No arranca el cronómetro ni los latidos: no está consumiendo nada.
-      if (mounted) setState(() => _estado = _Estado.bloqueado);
+      _pasarA(_Estado.bloqueado);
       return;
     }
 
     _cronometro.start();
-    if (mounted) setState(() => _estado = _Estado.libre);
+    _pasarA(_Estado.libre);
 
     await _reportar(activa: true);
 
@@ -225,7 +286,7 @@ class _LimiteTiempoGuardState extends State<LimiteTiempoGuard> {
     if (!doc.exists || !mounted) return;
     final data = doc.data() as Map<String, dynamic>? ?? {};
 
-    _limiteActivo = data['limite_activo'] == true;
+    _limiteEnDoc = data['limite_activo'] == true;
     _limiteMinutos = (data['limite_minutos'] as num?)?.toInt();
 
     // Si el padre reinició el consumo (quitó el límite, o puso uno nuevo
@@ -294,7 +355,7 @@ class _LimiteTiempoGuardState extends State<LimiteTiempoGuard> {
         );
       }
 
-      setState(() => _estado = _Estado.libre);
+      _pasarA(_Estado.libre);
       return;
     }
 
@@ -321,7 +382,7 @@ class _LimiteTiempoGuardState extends State<LimiteTiempoGuard> {
     _reportar(activa: false);
 
     _cuentaAtras = LimiteTiempoService.segundosAntesDeCerrar;
-    setState(() => _estado = _Estado.despidiendose);
+    _pasarA(_Estado.despidiendose);
 
     _despedida = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) {

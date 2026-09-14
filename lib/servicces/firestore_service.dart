@@ -1,7 +1,11 @@
 import 'dart:math';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
+import '../utils/catalogo_categorias.dart';
+import '../utils/mensajes_error.dart';
+import 'premium_service.dart';
 
 
 class FirestoreService {
@@ -86,25 +90,26 @@ class FirestoreService {
   }
 
 
-  static Future<Map<String, int>> migrarRangosEdadNinos() async {
-    final todos = await _db.collection('ninos').get();
-    final batch = _db.batch();
-    int actualizados = 0;
-    int sinRango = 0;
-    for (final doc in todos.docs) {
-      final data = doc.data();
-      final fecha = data['fecha_nacimiento'] as String? ?? '';
-      final rango = calcularRangoEdad(fecha);
-      if (rango != null) {
-        batch.update(doc.reference, {'rango_edad': rango});
-        actualizados++;
-      } else {
-        sinRango++;
-      }
-    }
-    await batch.commit();
-    return {'actualizados': actualizados, 'sin_rango': sinRango};
-  }
+  // ❌ SE ELIMINÓ `migrarRangosEdadNinos`.
+  //
+  // Era una migración de una sola vez que recorría la colección `ninos`
+  // ENTERA con `.collection('ninos').get()` y les escribía `rango_edad`.
+  //
+  // Se quitó por tres razones que se suman:
+  //
+  //   1. No se llamaba desde ninguna parte. Era código muerto.
+  //
+  //   2. Ya no funcionaba. Desde que `ninos` dejó de ser una colección
+  //      abierta, las reglas rechazan cualquier consulta que no filtre por
+  //      `id_padre`, así que esa lectura devolvía PERMISSION_DENIED.
+  //
+  //   3. Hoy `crearNino()` escribe `rango_edad` desde el principio, así
+  //      que no hay nada que migrar.
+  //
+  // Dejar dentro del APK una función que se descarga todos los perfiles de
+  // menores del sistema es exactamente lo que una revisión de seguridad —o
+  // la de Google Play, en una app de la Families Policy— señala primero,
+  // aunque las reglas ya la bloqueen.
 
 
   static Future<void> crearPadre({
@@ -129,9 +134,9 @@ class FirestoreService {
       'tipo_registro': tipoRegistro,
       'activo': true,
       'eliminado': false,
-      'latitud': null,
-      'longitud': null,
-      'fecha_ultima_ubicacion': null,
+      // Sin campos de ubicación: la del padre no se recoge ni se muestra en
+      // ninguna parte. La única ubicación que la app usa es la del niño, y
+      // vive en su propio documento.
       'creado_en': FieldValue.serverTimestamp(),
     });
   }
@@ -191,14 +196,16 @@ class FirestoreService {
   }
 
 
-  static Future<void> guardarUbicacionPadre(
-      String uid, double lat, double lng) async {
-    await _db.collection('padres').doc(uid).update({
-      'latitud': lat,
-      'longitud': lng,
-      'fecha_ultima_ubicacion': FieldValue.serverTimestamp(),
-    });
-  }
+  // ❌ ELIMINADO: guardarUbicacionPadre()
+  //
+  // Guardaba las coordenadas del padre en `padres/{id}`, y ninguna pantalla
+  // de la app las mostró nunca. Un dato de localización recogido sin una
+  // función que lo use es exactamente lo que la Política de Familias de
+  // Google Play no permite.
+  //
+  // Los documentos de padres creados antes de este cambio todavía tienen
+  // esos campos con valores reales. Conviene limpiarlos con un script antes
+  // de publicar.
 
 
   static String _generarCodigo() {
@@ -213,21 +220,20 @@ class FirestoreService {
     required String fechaNacimiento,
     required String password,
   }) async {
-    String codigo;
-    bool existe = true;
-    int intentos = 0;
-    do {
-      codigo = _generarCodigo();
-      final q = await _db
-          .collection('ninos')
-          .where('codigo_vinculacion', isEqualTo: codigo)
-          .limit(1)
-          .get();
-      existe = q.docs.isNotEmpty;
-      intentos++;
-      if (intentos > 20) throw Exception('No se pudo generar código único');
-    } while (existe);
-
+    // ⚠️ Aquí había una consulta que comprobaba que el código no existiera.
+    // Se eliminó porque las reglas de Firestore la rechazan: buscar por
+    // `codigo_vinculacion` recorre niños de otras familias, y las reglas
+    // exigen que una consulta demuestre de antemano que solo puede traer
+    // documentos permitidos. Filtrar por `id_padre == null` tampoco sirve:
+    // Firestore traduce esa condición a un filtro especial que su motor de
+    // reglas no acepta como prueba.
+    //
+    // No hace falta: con 6 caracteres de un alfabeto de 36 hay 2.176
+    // millones de combinaciones. Y si contra todo pronóstico dos códigos
+    // libres coincidieran, la Cloud Function `vincularNino` detecta el
+    // duplicado y **se niega a vincular** en vez de elegir al niño
+    // equivocado. El riesgo queda en tener que generar otro código.
+    final codigo = _generarCodigo();
 
     final rangoEdad = calcularRangoEdad(fechaNacimiento);
 
@@ -238,6 +244,10 @@ class FirestoreService {
       'rango_edad': rangoEdad,
       'codigo_vinculacion': codigo,
       'password_hash': hashPassword(password),
+      // Copia legible para que el padre pueda recordarla si se le olvida.
+      // Ver la nota larga en [cambiarPasswordNino] sobre por qué se guarda
+      // así y qué NO debe guardarse nunca de esta forma.
+      'password_visible': password,
       'activo': false,
       'id_padre': null,
       'fecha_vinculacion': null,
@@ -263,45 +273,184 @@ class FirestoreService {
   }
 
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // LA CONTRASEÑA DEL PERFIL DEL NIÑO
+  //
+  // Se guarda DOS veces, a propósito:
+  //
+  //   password_hash     SHA-256. Es la que se usa para entrar.
+  //   password_visible  El texto tal cual. Solo para que el padre la
+  //                     recuerde cuando se le olvide.
+  //
+  // ¿Por qué no basta el hash? Porque un hash es de una sola vía: sirve para
+  // comprobar si la que escribes coincide, pero de él no se puede sacar la
+  // original. Sin la copia legible, un padre que olvida la contraseña de su
+  // hijo pierde el perfil.
+  //
+  // ⚠️ ESTO SOLO ES ACEPTABLE PORQUE ES LA CLAVE DE UN PERFIL DE NIÑO
+  //
+  // No abre una cuenta, ni protege datos personales, ni tiene dinero detrás:
+  // es el pestillo del perfil de videos de un niño en el teléfono de la
+  // familia. Y las reglas de Firestore solo dejan leer el documento al padre
+  // dueño.
+  //
+  // **Nunca guardar así la contraseña de la cuenta del padre.** Esa la
+  // maneja Firebase Auth, que la guarda hasheada y salada, y ahí sí hay un
+  // correo, datos personales y una suscripción detrás.
+  //
+  // Los perfiles creados antes de este cambio solo tienen el hash. Para
+  // esos no hay nada que mostrar —no se perdió, es que nunca se guardó— y
+  // la app ofrece cambiarla en vez de enseñarla.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// La contraseña legible, o `null` si el perfil es anterior a esta función.
+  static String? passwordVisibleDe(Map<String, dynamic>? datosNino) {
+    final v = datosNino?['password_visible'];
+    if (v is! String) return null;
+    return v.isEmpty ? null : v;
+  }
+
+  /// Le pone una contraseña nueva al perfil del niño.
+  ///
+  /// Escribe las dos formas a la vez. Si solo se actualizara el hash, la
+  /// copia legible seguiría mostrando la contraseña vieja y el padre acabaría
+  /// convencido de que la app le miente.
+  static Future<void> cambiarPasswordNino({
+    required String ninoId,
+    required String nuevaPassword,
+  }) async {
+    final limpia = nuevaPassword.trim();
+    if (limpia.isEmpty) {
+      throw ArgumentError('La contraseña no puede estar vacía');
+    }
+
+    await _db.collection('ninos').doc(ninoId).update({
+      'password_hash': hashPassword(limpia),
+      'password_visible': limpia,
+      'password_actualizada_en': FieldValue.serverTimestamp(),
+    });
+  }
+
+
+  /// Marca el perfil de un niño como eliminado.
+  ///
+  /// **Borrado suave a propósito.** El documento NO se borra: quedan el
+  /// historial en `tiempo_uso`, las sesiones y todo lo demás apuntando a un
+  /// id que sigue existiendo. Un `delete()` real dejaría esas referencias
+  /// colgando y haría imposible auditar qué pasó.
+  ///
+  /// `activo: false` además desconecta el dispositivo del niño: el splash
+  /// revisa ese campo al arrancar y, si no está activo, limpia la sesión
+  /// guardada y lo devuelve a la pantalla de selección.
+  static Future<void> eliminarNino(String ninoId) async {
+    await _db.collection('ninos').doc(ninoId).set({
+      'eliminado': true,
+      'activo': false,
+      'sesion_activa': false,
+      'fecha_eliminacion': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// true si el documento corresponde a un perfil eliminado.
+  static bool _estaEliminado(Map<String, dynamic> data) =>
+      data['eliminado'] == true;
+
+  /// Los hijos activos de un padre, del más antiguo al más reciente.
+  ///
+  /// El orden importa para la degradación: si a un padre con 3 hijos se le
+  /// vence el plan, los que siguen accesibles son **los primeros que
+  /// vinculó**. Es un criterio determinista y no castiga arbitrariamente.
+  static Future<List<Map<String, dynamic>>> ninosOrdenados(
+      String padreId) async {
+    final q = await _db
+        .collection('ninos')
+        .where('id_padre', isEqualTo: padreId)
+        .where('activo', isEqualTo: true)
+        .get();
+
+    // El filtro de eliminados va en memoria, no con un where(). Un
+    // `where('eliminado', isEqualTo: false)` en Firestore **descarta los
+    // documentos que no tienen el campo**, y ningún niño creado antes de
+    // esta función lo tiene: desaparecerían todos.
+    final lista = q.docs
+        .map((d) => {'id': d.id, ...d.data()})
+        .where((n) => !_estaEliminado(n))
+        .toList();
+
+    // Se ordena en memoria y no con orderBy() a propósito: así no hace falta
+    // crear un índice compuesto en Firestore, y un documento viejo sin
+    // 'fecha_vinculacion' no desaparece de la lista.
+    lista.sort((a, b) {
+      final fa = a['fecha_vinculacion'];
+      final fb = b['fecha_vinculacion'];
+      if (fa is Timestamp && fb is Timestamp) return fa.compareTo(fb);
+      if (fa is Timestamp) return -1; // los que tienen fecha, primero
+      if (fb is Timestamp) return 1;
+      return 0;
+    });
+
+    return lista;
+  }
+
+  /// Cuántos hijos puede tener este padre según su plan.
+  static Future<int> topeHijos(String padreId) async {
+    final esPremium = await PremiumService.esPremium(padreId);
+    return esPremium
+        ? CatalogoCategorias.maxHijosPremium
+        : CatalogoCategorias.maxHijosGratis;
+  }
+
+  /// Los hijos a los que el padre puede entrar hoy, según su plan.
+  ///
+  /// **No borra nada.** Los que quedan fuera siguen existiendo en Firestore
+  /// con todos sus datos, y vuelven solos al renovar. Borrar el perfil de un
+  /// hijo por un cobro fallido de tarjeta sería imperdonable.
+  static Future<List<Map<String, dynamic>>> ninosPermitidos(
+      String padreId) async {
+    final todos = await ninosOrdenados(padreId);
+    final tope = await topeHijos(padreId);
+    return todos.take(tope).toList();
+  }
+
+  /// Vincula un niño usando su código.
+  ///
+  /// La búsqueda la hace la Cloud Function `vincularNino`, no la app. No es
+  /// un capricho de arquitectura: buscar por `codigo_vinculacion` recorre
+  /// niños de otras familias, y las reglas de Firestore rechazan cualquier
+  /// consulta que no puedan demostrar segura de antemano.
+  ///
+  /// El cambio trae algo mejor: **el tope de hijos ahora se verifica en el
+  /// servidor**. Antes vivía en Dart, o sea que un APK modificado lo saltaba.
+  ///
+  /// [padreId] se conserva por compatibilidad pero **la función lo ignora**:
+  /// usa el uid de quien llama, que no se puede falsificar. Confiar en un id
+  /// que manda el cliente permitiría vincularle hijos a otra cuenta.
   static Future<Map<String, dynamic>> vincularNinoPadre({
     required String padreId,
     required String codigoVinculacion,
   }) async {
-    final q = await _db
-        .collection('ninos')
-        .where(
-          'codigo_vinculacion',
-          isEqualTo: codigoVinculacion.trim().toUpperCase(),
-        )
-        .limit(1)
-        .get();
+    try {
+      final resultado = await FirebaseFunctions.instance
+          .httpsCallable('vincularNino')
+          .call<Map<String, dynamic>>({
+        'codigo': codigoVinculacion.trim().toUpperCase(),
+      });
 
-
-    if (q.docs.isEmpty) {
-      return {'success': false, 'message': 'Código inválido o no encontrado'};
-    }
-
-
-    final doc = q.docs.first;
-    final data = doc.data();
-
-
-    if (data['activo'] == true && data['id_padre'] != null) {
+      return Map<String, dynamic>.from(resultado.data);
+    } on FirebaseFunctionsException catch (e) {
       return {
         'success': false,
-        'message': 'Este niño ya está vinculado a otra cuenta',
+        // `vincularNino` devuelve sus mensajes ya escritos en español; el
+        // traductor los respeta y solo sustituye los de la plataforma.
+        'message': MensajesError.para(e,
+            respaldo: 'No se pudo vincular. Intenta de nuevo.'),
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'No se pudo vincular. Revisa tu conexión.',
       };
     }
-
-
-    await doc.reference.update({
-      'activo': true,
-      'id_padre': padreId,
-      'fecha_vinculacion': FieldValue.serverTimestamp(),
-    });
-
-
-    return {'success': true, 'id': doc.id, 'nombre': data['nombre']};
   }
 
 
@@ -313,6 +462,9 @@ class FirestoreService {
         .get();
     return q.docs
         .map((d) => {'id': d.id, 'nombre': d.data()['nombre'] ?? '', ...d.data()})
+        // Los perfiles eliminados no se le muestran a nadie. Siguen en
+        // Firestore para conservar el historial, pero salen de la app.
+        .where((n) => !_estaEliminado(n))
         .toList();
   }
 
@@ -328,13 +480,28 @@ class FirestoreService {
   }
 
 
+  /// Guarda dónde está el niño. Lo lee la tarjeta de ubicación del padre.
+  ///
+  /// [precisionMetros] es el radio de error del GPS. Se guarda porque cambia
+  /// por completo cómo hay que leer el punto: 15 metros señala una casa,
+  /// 2.000 metros señala medio barrio. Sin ese número el padre le daría la
+  /// misma confianza a los dos.
+  ///
+  /// Se usa `set(merge: true)` y no `update()` a propósito: `update()` falla
+  /// si el documento no existe, y esto se llama desde el teléfono del niño en
+  /// medio de otras cosas. Un fallo aquí no puede tumbar la sesión.
   static Future<void> guardarUbicacionNino(
-      String ninoId, double lat, double lng) async {
-    await _db.collection('ninos').doc(ninoId).update({
+    String ninoId,
+    double lat,
+    double lng, {
+    double? precisionMetros,
+  }) async {
+    await _db.collection('ninos').doc(ninoId).set({
       'latitud': lat,
       'longitud': lng,
+      'precision_metros': precisionMetros,
       'fecha_ultima_ubicacion': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true));
   }
 
 
@@ -378,11 +545,22 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
-  /// Define el límite TOTAL del día en minutos.
+  /// Define el límite del día en minutos.
   ///
-  /// No toca `consumido_segundos`: si el niño ya usó 10 minutos y el padre
-  /// pone 60, le quedan 50. Así el mismo gesto sirve para ampliar y para
-  /// recortar, que es justo lo que se espera de un control parental.
+  /// [reiniciarConsumo] decide qué significa el gesto:
+  ///
+  ///   · `true`  → **"a partir de ahora, tanto tiempo"**. Pone
+  ///     `consumido_segundos` en cero, así que el niño arranca con el
+  ///     límite completo por delante. Es lo que usa "Cambiar tiempo".
+  ///
+  ///   · `false` → cambia el techo del día sin tocar lo ya consumido. Es lo
+  ///     que usa "+15 minutos", donde la idea es sumar al total, no regalar
+  ///     una tanda nueva.
+  ///
+  /// La distinción importa: con `false`, un padre que le baja el límite a un
+  /// niño que ya consumió más que el nuevo tope lo deja bloqueado en el acto
+  /// —correcto para recortar, pero desconcertante cuando la intención era
+  /// justo la contraria.
   ///
   /// [fechaHoy] debe venir de LimiteTiempoService.fechaDeHoy().
   static Future<void> establecerLimiteTiempo({
@@ -451,22 +629,17 @@ class FirestoreService {
   }
 
 
-  static const Map<String, Map<String, dynamic>> _catalogoCategorias = {
-    'cat_1': {'id': 'cat_1', 'nombre': 'Música'},
-    'cat_2': {'id': 'cat_2', 'nombre': 'Deportes'},
-    'cat_3': {'id': 'cat_3', 'nombre': 'Educación'},
-    'cat_4': {'id': 'cat_4', 'nombre': 'Ciencia & Tecnología'},
-    'cat_5': {'id': 'cat_5', 'nombre': 'Documentales'},
-    'cat_6': {'id': 'cat_6', 'nombre': 'Familia & Valores'},
-    'cat_7': {'id': 'cat_7', 'nombre': 'Motivación'},
-    'cat_8': {'id': 'cat_8', 'nombre': 'Trivias & Datos Curiosos'},
-    'cat_9': {'id': 'cat_9', 'nombre': 'Cultura General'},
-    'cat_10': {'id': 'cat_10', 'nombre': 'Experimentos'},
-  };
-
+  // ⚠️ El catálogo de categorías ya NO vive aquí. Está en
+  // `lib/utils/catalogo_categorias.dart`, que es la fuente única de verdad:
+  // ids, nombres, íconos, colores y qué categorías son Premium.
+  //
+  // Estaba declarado por triplicado (aquí y en dos pantallas) y ya se había
+  // desincronizado. Con el corte gratis/premium eso pasaba de ser un detalle
+  // cosmético a un agujero: una categoría gratis en una pantalla y con
+  // candado en otra.
 
   static List<Map<String, dynamic>> obtenerTodasLasCategorias() =>
-      _catalogoCategorias.values.toList();
+      CatalogoCategorias.comoMapasSimples;
 
 
   static Future<List<Map<String, dynamic>>> obtenerCategoriasNino(
@@ -474,10 +647,28 @@ class FirestoreService {
     final doc = await _db.collection('ninos').doc(ninoId).get();
     if (!doc.exists) return [];
     final data = doc.data()!;
-    final List ids = (data['categorias_permitidas'] as List?) ?? [];
+    final List idsCrudos = (data['categorias_permitidas'] as List?) ?? [];
+
+    // ── COMPUERTA DEL PLAN ────────────────────────────────────────────────
+    //
+    // El filtro va AQUÍ, en la capa de datos, y no solo en los botones de la
+    // pantalla. Esconder botones no protege nada: basta con que el documento
+    // del niño ya traiga una categoría premium —de cuando el papá sí pagaba,
+    // o puesta a mano— para que se colara.
+    //
+    // Y se filtra al LEER, nunca borrando: la selección del papá sigue
+    // guardada en Firestore y vuelve sola cuando renueve.
+    final padreId = data['id_padre']?.toString() ?? '';
+    final esPremium = await PremiumService.esPremium(padreId);
+
+    final ids = CatalogoCategorias.filtrarSegunPlan(
+      idsCrudos.map((e) => e.toString()).toList(),
+      esPremium: esPremium,
+    );
+
     return ids
         .map<Map<String, dynamic>>(
-          (id) => _catalogoCategorias[id.toString()] ?? {},
+          (id) => CatalogoCategorias.porId(id)?.comoMapaSimple ?? {},
         )
         .where((c) => c.isNotEmpty)
         .toList();
@@ -501,12 +692,45 @@ class FirestoreService {
   }
 
 
+  /// La selección COMPLETA, sin recortar por plan.
+  ///
+  /// ⚠️ Úsala solo en la pantalla donde se EDITA la selección. Si esa
+  /// pantalla cargara la lista ya recortada, al guardar escribiría solo los
+  /// que vio y **borraría para siempre** los demás. Un papá que eligió 8
+  /// youtubers cuando tenía plan perdería 5 al vencérsele, y no volverían al
+  /// renovar. Eso es exactamente lo contrario de "degradar sin destruir".
+  static Future<List<String>> obtenerYoutubersNinoCrudos(String ninoId) async {
+    final doc = await _db.collection('ninos').doc(ninoId).get();
+    if (!doc.exists) return [];
+    final List crudos =
+        (doc.data()?['youtubers_seleccionados'] as List?) ?? [];
+    return crudos.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+  }
+
+  /// Youtubers del niño, ya recortados según el plan del padre.
+  ///
+  /// El tope se aplica aquí y no en la galería porque esa pantalla la ve el
+  /// **niño**: ponerle un candado a un niño sería mostrarle un cobro que él
+  /// no puede resolver. El papá elige los que quiera; simplemente solo se
+  /// reproducen los primeros [CatalogoCategorias.maxYoutubersGratis] mientras
+  /// no haya plan.
   static Future<List<String>> obtenerYoutubersNino(String ninoId) async {
     final doc = await _db.collection('ninos').doc(ninoId).get();
     if (!doc.exists) return [];
     final data = doc.data()!;
-    final List ids = (data['youtubers_seleccionados'] as List?) ?? [];
-    return ids.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+    final List crudos = (data['youtubers_seleccionados'] as List?) ?? [];
+
+    final ids =
+        crudos.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+
+    final padreId = data['id_padre']?.toString() ?? '';
+    final esPremium = await PremiumService.esPremium(padreId);
+
+    // Recorta sin borrar: la selección completa sigue en Firestore.
+    return CatalogoCategorias.limitarYoutubersSegunPlan(
+      ids,
+      esPremium: esPremium,
+    );
   }
 
 
@@ -529,8 +753,7 @@ class FirestoreService {
       .where('activo', isEqualTo: true)
       .get();
 
-  final nombreCategoria =
-      _catalogoCategorias[categoriaId]?['nombre'] as String? ?? '';
+  final nombreCategoria = CatalogoCategorias.nombreDe(categoriaId);
 
   return q.docs
       .map((d) => d.data())
@@ -747,11 +970,18 @@ class FirestoreService {
       _catalogoCanales[catId];
 
 
+  /// Canales que el padre agregó **para un niño en concreto**.
+  ///
+  /// ⚠️ El filtro por `id_nino` es la corrección de un bug: antes los canales
+  /// solo guardaban `id_padre`, así que un canal agregado para un hijo
+  /// aparecía en TODOS los hijos. Cada niño debe tener su propio contenido:
+  /// es justamente lo que un control parental promete.
   static Future<List<Map<String, dynamic>>> obtenerCanalesCustom(
-      String padreId, String catId) async {
+      String padreId, String ninoId, String catId) async {
     final q = await _db
         .collection('canales')
         .where('id_padre', isEqualTo: padreId)
+        .where('id_nino', isEqualTo: ninoId)
         .where('id_categoria', isEqualTo: catId)
         .where('activo', isEqualTo: true)
         .get();
@@ -759,11 +989,13 @@ class FirestoreService {
   }
 
 
+  /// Todos los canales que el padre agregó para UN niño.
   static Future<List<Map<String, dynamic>>> obtenerTodosCanalesCustom(
-      String padreId) async {
+      String padreId, String ninoId) async {
     final q = await _db
         .collection('canales')
         .where('id_padre', isEqualTo: padreId)
+        .where('id_nino', isEqualTo: ninoId)
         .where('activo', isEqualTo: true)
         .get();
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
@@ -786,12 +1018,15 @@ class FirestoreService {
 
   static Future<void> agregarCanalCustom({
     required String padreId,
+    required String ninoId,
     required String catId,
     required String channelUrl,
     required String nombreCanal,
   }) async {
     await _db.collection('canales').add({
       'id_padre': padreId,
+      // Sin esto el canal aparecía en todos los hijos del padre.
+      'id_nino': ninoId,
       'id_categoria': catId,
       'channel_url': channelUrl,
       'nombre_canal': nombreCanal,
@@ -806,18 +1041,49 @@ class FirestoreService {
   }
 
 
+  /// Guarda —o actualiza— la sesión de ESTE dispositivo.
+  ///
+  /// ─────────────────────────────────────────────────────────────────────
+  /// ANTES BUSCABA CON UNA CONSULTA, Y ESO OBLIGABA A DEJAR ABIERTA TODA
+  /// LA COLECCIÓN
+  ///
+  /// La versión anterior hacía `where('device_id', isEqualTo: deviceId)`
+  /// para encontrar la fila de este teléfono. Una consulta así no se puede
+  /// asegurar desde las reglas —Firestore no tiene cómo demostrar de
+  /// antemano que solo devuelve lo tuyo—, así que `sesiones` tenía que
+  /// permitirle `list` a cualquier usuario con cuenta.
+  ///
+  /// La consecuencia: cualquier persona registrada podía listar la
+  /// colección entera y bajarse los `device_token` de todos los demás.
+  ///
+  /// Ahora el id del documento ES el dato por el que se buscaba:
+  /// `{device_id}_{tipo_usuario}`. El dispositivo ya conoce su propio
+  /// `device_id`, así que llega directo al documento sin consultar nada, y
+  /// las reglas pueden cerrar la lectura por completo.
+  ///
+  /// `tipo_usuario` va dentro del id, y no solo dentro del documento,
+  /// porque un mismo teléfono puede usarse como padre y como niño. Con el
+  /// esquema viejo la segunda sesión pisaba a la primera: al pasar al modo
+  /// niño, el padre se quedaba sin notificaciones.
+  ///
+  /// `merge: true` conserva el `device_token` anterior cuando esta llamada
+  /// no trae uno nuevo. Si FCM fallara puntualmente y devolviera un token
+  /// vacío, sobrescribirlo dejaría al padre incomunicado.
+  ///
+  /// Se quitó `fecha_creacion`: con `merge` se reescribiría en cada
+  /// llamada, o sea que diría lo mismo que `ultimo_acceso`. Nadie la leía.
+  /// ─────────────────────────────────────────────────────────────────────
   static Future<void> guardarSesion({
     required String idUsuario,
     required String tipoUsuario,
     required String deviceId,
     String deviceToken = '',
   }) async {
-    final q = await _db
-        .collection('sesiones')
-        .where('device_id', isEqualTo: deviceId)
-        .limit(1)
-        .get();
-
+    // Sin `device_id` no hay id de documento estable. Escribir con un id
+    // inventado dejaría basura que nadie vuelve a encontrar ni a limpiar,
+    // y además se llevaría por delante la sesión buena en el próximo
+    // arranque. Mejor no guardar nada: quien llama ya tolera el fallo.
+    if (deviceId.isEmpty) return;
 
     final data = <String, dynamic>{
       'id_usuario': idUsuario,
@@ -826,37 +1092,26 @@ class FirestoreService {
       'ultimo_acceso': FieldValue.serverTimestamp(),
     };
 
-
     if (deviceToken.isNotEmpty) {
       data['device_token'] = deviceToken;
     }
 
-
-    if (q.docs.isNotEmpty) {
-      await q.docs.first.reference.update(data);
-    } else {
-      await _db.collection('sesiones').add({
-        ...data,
-        if (deviceToken.isEmpty) 'device_token': '',
-        'fecha_creacion': FieldValue.serverTimestamp(),
-      });
-    }
-  }
-
-
-  static Future<Map<String, dynamic>?> validarSesion({
-    required String tipoUsuario,
-    required String deviceId,
-  }) async {
-    final q = await _db
+    await _db
         .collection('sesiones')
-        .where('device_id', isEqualTo: deviceId)
-        .where('tipo_usuario', isEqualTo: tipoUsuario)
-        .limit(1)
-        .get();
-    if (q.docs.isEmpty) return null;
-    return {'id': q.docs.first.id, ...q.docs.first.data()};
+        .doc('${deviceId}_$tipoUsuario')
+        .set(data, SetOptions(merge: true));
   }
+
+
+  // ❌ SE ELIMINÓ `validarSesion`.
+  //
+  // No se llamaba desde ninguna parte de la app: era código muerto. Y con
+  // las reglas nuevas tampoco podría funcionar, porque `sesiones` ya no
+  // permite lectura desde el cliente.
+  //
+  // Quien sí lee esta colección es `notificarAlPadre()` en las Cloud
+  // Functions, que entra con el SDK de administrador y no pasa por las
+  // reglas. Esa consulta sigue igual y no hay que tocarla.
 
 
   static Future<void> registrarTiempoUso({

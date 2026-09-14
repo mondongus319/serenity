@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../servicces/firestore_service.dart';
+import '../../servicces/premium_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/catalogo_categorias.dart';
 
 class ChildYoutubersGalleryScreen extends StatefulWidget {
   final String ninoId;
@@ -28,6 +30,10 @@ class _ChildYoutubersGalleryScreenState
   List<Map<String, dynamic>> canalesFiltrados = [];
   final Set<String> seleccionados = {};
 
+  /// Plan del padre. Sin plan, el niño solo puede tener
+  /// [CatalogoCategorias.maxYoutubersGratis] youtubers elegidos.
+  bool esPremium = false;
+
   final TextEditingController searchController = TextEditingController();
 
   @override
@@ -47,8 +53,15 @@ class _ChildYoutubersGalleryScreenState
   Future<void> cargarCanales() async {
     try {
       final listaCanales = await FirestoreService.obtenerCanalesYoutubers();
+
+      // ⚠️ CRUDOS a propósito: esta pantalla EDITA la selección y al guardar
+      // la sobrescribe entera. Si cargara la lista ya recortada por plan,
+      // guardar borraría de Firestore los youtubers que el papá eligió
+      // cuando sí tenía plan, y no volverían al renovar.
       final listaSeleccionados =
-          await FirestoreService.obtenerYoutubersNino(widget.ninoId);
+          await FirestoreService.obtenerYoutubersNinoCrudos(widget.ninoId);
+
+      final plan = await PremiumService.esPremiumPorNino(widget.ninoId);
 
       if (!mounted) return;
 
@@ -58,6 +71,7 @@ class _ChildYoutubersGalleryScreenState
         seleccionados
           ..clear()
           ..addAll(listaSeleccionados);
+        esPremium = plan;
         loading = false;
       });
     } catch (e) {
@@ -94,13 +108,82 @@ class _ChildYoutubersGalleryScreenState
   }
 
   void toggleSeleccion(String id) {
-    setState(() {
-      if (seleccionados.contains(id)) {
-        seleccionados.remove(id);
-      } else {
-        seleccionados.add(id);
-      }
-    });
+    // Quitar siempre se puede.
+    if (seleccionados.contains(id)) {
+      setState(() => seleccionados.remove(id));
+      return;
+    }
+
+    // Agregar por encima del tope, sin plan: NO se queda callado.
+    //
+    // Un botón que simplemente no responde se siente como que la app está
+    // dañada. Es mejor explicar por qué no se puede, y a quién pedírselo:
+    // esta pantalla la ve el niño, y un niño no puede comprar nada.
+    if (!esPremium &&
+        seleccionados.length >= CatalogoCategorias.maxYoutubersGratis) {
+      _avisarTopeAlcanzado();
+      return;
+    }
+
+    setState(() => seleccionados.add(id));
+  }
+
+  Future<void> _avisarTopeAlcanzado() async {
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        icon: Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [AppColors.accentViolet, AppColors.accentCyan],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Icon(Icons.star_rounded, color: Colors.white, size: 30),
+        ),
+        title: Text(
+          'Ya elegiste ${CatalogoCategorias.maxYoutubersGratis} youtubers',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPearl,
+          ),
+        ),
+        content: Text(
+          'Para elegir todos los que quieras, tus papás tienen que '
+          'activar Serenity Premium.\n\n'
+          'Si quieres cambiar uno, primero quítale la marca a otro.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            height: 1.6,
+            color: AppColors.textMuted,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Entendido',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: AppColors.accentCyan,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> guardarYSalir() async {
@@ -188,6 +271,48 @@ class _ChildYoutubersGalleryScreenState
                                 height: 1.5,
                               ),
                             ),
+
+                            // Contador del tope. Que el niño sepa cuántos le
+                            // quedan ANTES de chocar contra el límite: mucho
+                            // menos frustrante que descubrirlo tocando.
+                            if (!esPremium) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentViolet
+                                      .withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: AppColors.accentViolet
+                                        .withOpacity(0.35),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      size: 14,
+                                      color: AppColors.accentViolet,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Puedes elegir '
+                                      '${seleccionados.length}'
+                                      ' de ${CatalogoCategorias.maxYoutubersGratis}',
+                                      style: GoogleFonts.poppins(
+                                        color: AppColors.accentViolet,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

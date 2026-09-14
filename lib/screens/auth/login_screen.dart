@@ -466,11 +466,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            // ✅ FIX: SingleChildScrollView evita el overflow (RenderFlex
-            // overflowed) cuando el teclado se abre y reduce el alto
-            // disponible para el diálogo.
-            child: SingleChildScrollView(
-              child: Column(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
@@ -710,7 +706,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ],
-              ),
             ),
           ),
         ),
@@ -745,10 +740,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           child: Padding(
             padding: const EdgeInsets.all(24),
-            // ✅ FIX: mismo overflow del teclado que en el diálogo de
-            // configurar contraseña — lo resolvemos igual con scroll.
-            child: SingleChildScrollView(
-              child: Column(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
@@ -910,7 +902,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ],
-              ),
             ),
           ),
         ),
@@ -1122,6 +1113,20 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
 
+  /// Cierra el teclado, deja que termine de bajar y recién ahí navega.
+  ///
+  /// Los 120 ms no son un número mágico ni una carrera contra el sistema: es
+  /// lo que tarda la animación del teclado en despejar el alto. Sin esa
+  /// espera el `unfocus()` y el `push()` ocurren en el mismo frame y la
+  /// pantalla nueva se sigue construyendo con el teclado a medio bajar.
+  Future<void> _navegarSinTeclado(BuildContext ctx, Widget destino) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+    if (!ctx.mounted) return;
+    await Navigator.push(ctx, MaterialPageRoute(builder: (_) => destino));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
@@ -1138,15 +1143,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   setState(() => obscurePassword = !obscurePassword),
               onLogin: iniciarSesion,
               onGoogleLogin: signInWithGoogle,
-              onForgotPassword: () => Navigator.push(
+              // ── POR QUÉ SE CIERRA EL TECLADO ANTES DE NAVEGAR ────────
+              //
+              // Al tocar "Regístrate" con el teclado abierto, la pantalla
+              // nueva se construía mientras el teclado seguía ocupando media
+              // pantalla. Durante esos milisegundos el alto disponible es
+              // mucho menor y aparecía la barra amarilla y negra de
+              // overflow, que se iba sola cuando el teclado terminaba de
+              // bajar.
+              //
+              // Cerrar el foco primero hace que el teclado baje ANTES de la
+              // transición, así que la pantalla nueva nace ya con la altura
+              // definitiva. Además la animación se ve más limpia: una cosa
+              // a la vez en vez de dos encimadas.
+              onForgotPassword: () => _navegarSinTeclado(
                 scaffoldContext,
-                MaterialPageRoute(
-                  builder: (_) => const ForgotPasswordScreen(),
-                ),
+                const ForgotPasswordScreen(),
               ),
-              onRegister: () => Navigator.push(
+              onRegister: () => _navegarSinTeclado(
                 scaffoldContext,
-                MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                const RegisterScreen(),
               ),
             ),
           ),

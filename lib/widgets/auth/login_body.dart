@@ -192,7 +192,12 @@ class _LoginCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Column(
+              // Expanded: una Row NO parte el texto en varias líneas, lo
+              // desborda. Sin esto, en una pantalla angosta o con la letra
+              // del sistema agrandada, este título sacaba la barra amarilla
+              // y negra de overflow.
+              Expanded(
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -211,6 +216,7 @@ class _LoginCard extends StatelessWidget {
                     ),
                   ),
                 ],
+                ),
               ),
             ],
           ),
@@ -413,12 +419,15 @@ class _CyanGradientButton extends StatelessWidget {
                 children: [
                   const Icon(Icons.login_rounded, color: Colors.white, size: 18),
                   const SizedBox(width: 8),
-                  Text(
-                    label,
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],

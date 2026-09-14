@@ -1,7 +1,5 @@
 package com.serenityapp.parental
 
-import android.app.ActivityManager
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -12,6 +10,32 @@ import android.view.WindowInsetsController
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ❌ SE ELIMINÓ EL MÉTODO "getForegroundApp"
+//
+// Devolvía qué app estaba al frente usando ActivityManager.getRunningTasks().
+// Se quitó por tres razones que se suman:
+//
+//   1. NUNCA se llamaba desde Dart. Era código muerto.
+//
+//   2. NI SIQUIERA FUNCIONABA. Desde Android 5 (2014) getRunningTasks() solo
+//      devuelve las tareas de tu propia app, por motivos de privacidad. Lo
+//      único que podía responder era "com.serenityapp.parental".
+//
+//   3. ES LA API QUE LOS ESCÁNERES ASOCIAN CON ESPIAR AL USUARIO. Play
+//      Protect bloqueó la instalación de esta app por su combinación de
+//      permisos; dejar dentro del APK código que consulta qué otras apps usa
+//      la persona empuja en la misma dirección, y aquí no aportaba nada.
+//
+// Con él se fue también el import de android.app.ActivityManager y el de
+// android.content.Context, que solo existían para esto.
+//
+// Si algún día hace falta saber qué app está al frente de verdad, la vía
+// moderna es UsageStatsManager — que exige el permiso PACKAGE_USAGE_STATS,
+// que el usuario debe conceder a mano en Ajustes, y que hay que justificar
+// ante Google. No es un cambio de una línea: es una decisión de producto.
+// ═══════════════════════════════════════════════════════════════════════════
 
 class MainActivity : FlutterFragmentActivity() {
 
@@ -41,18 +65,6 @@ class MainActivity : FlutterFragmentActivity() {
                             result.success(null)
                         } catch (e: Exception) {
                             result.error("LOCK_TASK_ERROR", e.message, null)
-                        }
-                    }
-
-                    "getForegroundApp" -> {
-                        try {
-                            val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                            @Suppress("DEPRECATION")
-                            val tasks = am.getRunningTasks(1)
-                            val pkg = tasks.firstOrNull()?.topActivity?.packageName ?: packageName
-                            result.success(pkg)
-                        } catch (e: Exception) {
-                            result.success(packageName)
                         }
                     }
 

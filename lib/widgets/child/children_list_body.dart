@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/formato_fecha.dart';
+import '../common/serenity_header.dart';
 
 class ChildrenListBody extends StatelessWidget {
   final String nombrePadre;
@@ -72,48 +73,14 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _IconBtn(icon: Icons.arrow_back_ios_new_rounded, onTap: onBack),
-          Column(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.accentCyan.withOpacity(0.15),
-                      blurRadius: 20,
-                    ),
-                  ],
-                ),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  width: 52,
-                  height: 52,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'SERENTY',
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textMuted,
-                  letterSpacing: 2.5,
-                ),
-              ),
-            ],
-          ),
-          _IconBtn(
-            icon: Icons.switch_account_outlined,
-            onTap: onCambiarRol,
-          ),
-        ],
+    return SerenityHeader(
+      izquierda: _IconBtn(
+        icon: Icons.arrow_back_ios_new_rounded,
+        onTap: onBack,
+      ),
+      derecha: _IconBtn(
+        icon: Icons.switch_account_outlined,
+        onTap: onCambiarRol,
       ),
     );
   }
@@ -195,7 +162,7 @@ class ListCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'MIS',
+            'MIS NIÑOS',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 22,

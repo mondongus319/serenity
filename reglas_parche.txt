@@ -1,0 +1,58 @@
+PARCHE 1 — ampliar camposDelPlan()
+──────────────────────────────────
+BUSCAR:
+
+    function camposDelPlan() {
+      return ['premium', 'premium_hasta', 'premium_origen'];
+    }
+
+REEMPLAZAR POR:
+
+    // Campos del plan. Los escribe SOLO una Cloud Function (que no pasa por
+    // estas reglas). Si el cliente pudiera tocarlos, un APK modificado se
+    // pondría Premium solo y todas las compuertas de la app serían adorno.
+    //
+    // Los tres últimos los agregó la integración con Play Billing. Ninguno
+    // decide por sí solo si hay Premium —eso lo deciden `premium` y
+    // `premium_hasta`— pero se protegen igual: son el rastro de qué compra
+    // dio el acceso, y un cliente que pudiera falsearlos ensuciaría la única
+    // pista que queda para investigar un cobro en disputa.
+    function camposDelPlan() {
+      return [
+        'premium',
+        'premium_hasta',
+        'premium_origen',
+        'premium_estado_play',
+        'premium_product_id',
+        'premium_actualizado_en'
+      ];
+    }
+
+
+PARCHE 2 — dejar constancia de compras_play
+───────────────────────────────────────────
+AGREGAR justo antes del bloque "── SOLO SERVIDOR ──":
+
+    // ── COMPRAS DE GOOGLE PLAY ───────────────────────────────────────────
+    //
+    // Un documento por `purchaseToken`, con el uid del padre que lo reclamó.
+    // Es lo que impide que una persona compre, saque su token del teléfono y
+    // se lo pase a diez amigos: la segunda cuenta que lo presente se rechaza.
+    //
+    // Cerrada por los dos lados a propósito:
+    //
+    //   · La app no lo necesita LEER. El estado del plan lo lee de
+    //     `padres/{id}`; esto es contabilidad interna del servidor.
+    //   · Si la app pudiera ESCRIBIR, el candado no serviría de nada:
+    //     bastaría con borrar el registro del dueño anterior para volver a
+    //     reclamar el mismo token.
+    //
+    // Las Cloud Functions entran con el SDK de administrador y no pasan por
+    // aquí, así que `verificarCompra` y `notificacionesPlay` funcionan igual.
+    //
+    // (Sin este bloque quedaría cubierta por el deny final de todas formas.
+    // Está escrito para que quien lea estas reglas sepa que la colección
+    // existe y que su cierre es deliberado, no un olvido.)
+    match /compras_play/{purchaseToken} {
+      allow read, write: if false;
+    }

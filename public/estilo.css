@@ -1,0 +1,286 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SERENITY — estilo de las páginas legales
+   Paleta tomada de la app: fondo profundo, cian y violeta de acento.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg: #0B0E1A;
+  --bg-card: #141829;
+  --bg-soft: #1B2036;
+  --cyan: #3DD9EB;
+  --violet: #9B6BFF;
+  --texto: #E8ECF5;
+  --texto-suave: #A7B0C4;
+  --borde: rgba(255, 255, 255, 0.08);
+  --ancho: 820px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image:
+    radial-gradient(900px 500px at 12% -8%, rgba(61, 217, 235, 0.10), transparent 60%),
+    radial-gradient(800px 500px at 88% 4%, rgba(155, 107, 255, 0.10), transparent 60%);
+  background-attachment: fixed;
+  color: var(--texto);
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+
+.envoltura {
+  max-width: var(--ancho);
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+/* ── Encabezado ──────────────────────────────────────────────── */
+
+.barra {
+  border-bottom: 1px solid var(--borde);
+  background: rgba(11, 14, 26, 0.85);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.barra .envoltura {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.3px;
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.marca .punto {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  box-shadow: 0 0 14px rgba(61, 217, 235, 0.65);
+  flex: none;
+}
+
+.barra nav {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.barra nav a {
+  color: var(--texto-suave);
+  text-decoration: none;
+  font-size: 0.92rem;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+
+.barra nav a:hover,
+.barra nav a[aria-current="page"] {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+}
+
+/* ── Portada ─────────────────────────────────────────────────── */
+
+.portada {
+  padding: 72px 0 40px;
+  text-align: center;
+}
+
+.portada h1 {
+  font-size: clamp(2rem, 6vw, 3rem);
+  margin: 0 0 14px;
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.portada p {
+  color: var(--texto-suave);
+  max-width: 560px;
+  margin: 0 auto;
+  font-size: 1.06rem;
+}
+
+.tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  margin-top: 44px;
+}
+
+.tarjeta {
+  display: block;
+  padding: 26px;
+  background: var(--bg-card);
+  border: 1px solid var(--borde);
+  border-radius: 18px;
+  text-decoration: none;
+  color: inherit;
+  text-align: left;
+  transition: transform .18s, border-color .18s, box-shadow .18s;
+}
+
+.tarjeta:hover {
+  transform: translateY(-3px);
+  border-color: rgba(61, 217, 235, 0.42);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
+}
+
+.tarjeta h2 {
+  margin: 0 0 8px;
+  font-size: 1.16rem;
+  color: var(--cyan);
+  border: 0;
+  padding: 0;
+}
+
+.tarjeta p {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+/* ── Documento ───────────────────────────────────────────────── */
+
+.doc { padding-top: 48px; }
+
+.doc h1 {
+  font-size: clamp(1.7rem, 4.6vw, 2.3rem);
+  line-height: 1.25;
+  margin: 0 0 10px;
+}
+
+.doc h2 {
+  font-size: 1.24rem;
+  margin: 52px 0 14px;
+  padding-top: 22px;
+  border-top: 1px solid var(--borde);
+  color: var(--cyan);
+}
+
+.doc h3 {
+  font-size: 1.04rem;
+  margin: 30px 0 10px;
+  color: var(--violet);
+}
+
+.doc p, .doc li { color: var(--texto-suave); }
+
+.doc strong { color: var(--texto); font-weight: 600; }
+
+.doc a { color: var(--cyan); text-decoration: underline; text-underline-offset: 3px; }
+
+.doc ul, .doc ol { padding-left: 22px; }
+
+.doc li { margin: 7px 0; }
+
+.doc hr { display: none; }
+
+.doc blockquote {
+  margin: 22px 0;
+  padding: 14px 20px;
+  background: var(--bg-soft);
+  border-left: 3px solid var(--violet);
+  border-radius: 0 12px 12px 0;
+}
+
+.doc blockquote p { margin: 0; }
+
+.doc code {
+  background: var(--bg-soft);
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 0.89em;
+  color: var(--cyan);
+}
+
+/* Tablas: en pantallas angostas se deslizan, no rompen la página. */
+
+.tabla-envoltura {
+  overflow-x: auto;
+  margin: 22px 0;
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+}
+
+.doc table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 420px;
+  font-size: 0.94rem;
+}
+
+.doc th, .doc td {
+  padding: 13px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--borde);
+  vertical-align: top;
+}
+
+.doc th {
+  background: var(--bg-soft);
+  color: var(--texto);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.doc tr:last-child td { border-bottom: 0; }
+
+.doc td { color: var(--texto-suave); }
+
+/* ── Pie ─────────────────────────────────────────────────────── */
+
+.pie {
+  border-top: 1px solid var(--borde);
+  margin-top: 70px;
+  padding: 30px 0 50px;
+  text-align: center;
+  color: var(--texto-suave);
+  font-size: 0.88rem;
+}
+
+.pie a { color: var(--cyan); text-decoration: none; }
+.pie a:hover { text-decoration: underline; }
+
+/* ── Pantallas pequeñas ──────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  body { font-size: 15.5px; }
+  .portada { padding-top: 48px; }
+  .barra .envoltura { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .barra nav { gap: 16px; }
+}
+
+/* ── Impresión ───────────────────────────────────────────────── */
+
+@media print {
+  body { background: #fff; color: #000; }
+  .barra, .pie { display: none; }
+  .doc h2, .doc h3 { color: #000; }
+  .doc p, .doc li, .doc td { color: #222; }
+  .doc a { color: #000; }
+}

@@ -279,12 +279,17 @@ class _RegisterCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                'Información Personal',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPearl,
+              // Expanded: una Row no parte el texto, lo desborda. Con la
+              // letra del sistema agrandada este título sacaba la barra
+              // amarilla y negra de overflow.
+              Expanded(
+                child: Text(
+                  'Información Personal',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPearl,
+                  ),
                 ),
               ),
             ],
@@ -591,12 +596,15 @@ class _CyanGradientButton extends StatelessWidget {
                     size: 18,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    'Crear Cuenta',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      'Crear Cuenta',
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
 import 'limite_tiempo_card.dart';
+import 'password_nino_card.dart';
+import 'ubicacion_card.dart';
+import 'uso_semanal_card.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -67,6 +70,40 @@ class ChildDetailBody extends StatelessWidget {
                           ninoId: ninoId,
                           nombreNino: nombreNino,
                         ),
+                        const SizedBox(height: 18),
+                        // ✅ La contraseña del perfil. NO es Premium: cobrarle
+                        // a un padre por recuperar el acceso al perfil de su
+                        // propio hijo sería cobrarle por un problema que le
+                        // creó la app.
+                        PasswordNinoCard(
+                          ninoId: ninoId,
+                          nombreNino: nombreNino,
+                        ),
+                        const SizedBox(height: 18),
+                        // ✅ Dónde está el niño. Igual que la de tiempo, se
+                        // muestra siempre: con candado en el plan gratis y
+                        // con el dato real en Premium.
+                        //
+                        // Esta tarjeta es la que justifica que la app pida
+                        // permiso de ubicación. Antes las coordenadas se
+                        // guardaban sin que ninguna pantalla las mostrara,
+                        // y recoger datos de un menor sin una función
+                        // visible que los use va contra la Política de
+                        // Familias de Google Play.
+                        UbicacionCard(
+                          ninoId: ninoId,
+                          nombreNino: nombreNino,
+                        ),
+                        const SizedBox(height: 18),
+                        // ✅ Reporte semanal de uso. Va de última porque es
+                        // la tarjeta que se lee, no la que se opera: las de
+                        // arriba responden "¿qué hago?" y esta responde
+                        // "¿cómo va?".
+                        UsoSemanalCard(
+                          ninoId: ninoId,
+                          nombreNino: nombreNino,
+                        ),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),

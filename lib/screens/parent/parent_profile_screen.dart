@@ -666,6 +666,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
             : parent.fechaNacimiento;
 
         return ParentProfileBody(
+          padreId: widget.userId,
           nombre: parent.nombre,
           correoActual: parent.correoActual,
           nombreCompleto: nombreCompleto,

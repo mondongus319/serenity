@@ -1,11 +1,55 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firestore_service.dart';
+import '../utils/mensajes_error.dart';
 
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ERRORES DE FIREBASE AUTH
+  //
+  // Antes, cualquier código no contemplado caía en `default: e.message`, que
+  // devuelve el texto **en inglés y crudo del SDK**. De ahí salía el famoso
+  // "A network error (such as timeout, interrupted connection or unreachable
+  // host) has occurred", que a un papá no le dice nada ni le sugiere qué
+  // hacer.
+  //
+  // ⚠️ Ese error NO significa que la cuenta esté en uso en otro teléfono.
+  // Serenity no limita las sesiones: `guardarSesion()` guarda una fila por
+  // dispositivo y varios teléfonos pueden usar la misma cuenta a la vez, que
+  // es justo lo que se espera cuando papá y mamá comparten el control. Es un
+  // fallo de conexión real entre ESE teléfono y los servidores de Google.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  static String _mensajeDeError(FirebaseAuthException e) =>
+      MensajesError.para(e);
+
+  /// Reintenta [accion] cuando falla por red.
+  ///
+  /// Un fallo de red en un celular casi nunca es permanente: es el segundo
+  /// en que el teléfono salta de wifi a datos, o la primera petición después
+  /// de despertar la pantalla. Reintentar dos veces con una pausa corta
+  /// resuelve la mayoría sin que el usuario se entere.
+  ///
+  /// Solo se reintenta `network-request-failed`. Reintentar una contraseña
+  /// incorrecta no la volvería correcta, y encima acercaría la cuenta al
+  /// bloqueo por demasiados intentos.
+  static Future<T> _conReintento<T>(Future<T> Function() accion) async {
+    const esperas = [Duration(milliseconds: 700), Duration(seconds: 2)];
+
+    for (var intento = 0;; intento++) {
+      try {
+        return await accion();
+      } on FirebaseAuthException catch (e) {
+        final reintentable = e.code == 'network-request-failed';
+        if (!reintentable || intento >= esperas.length) rethrow;
+        await Future.delayed(esperas[intento]);
+      }
+    }
+  }
 
 
   // ─── REGISTRO ─────────────────────────────────────────────────────────────
@@ -19,9 +63,11 @@ class AuthService {
     required String contrasena,
   }) async {
     try {
-      final cred = await _auth.createUserWithEmailAndPassword(
-        email: gmail,
-        password: contrasena,
+      final cred = await _conReintento(
+        () => _auth.createUserWithEmailAndPassword(
+          email: gmail,
+          password: contrasena,
+        ),
       );
       final user = cred.user!;
 
@@ -45,23 +91,9 @@ class AuthService {
         'email': gmail,
       };
     } on FirebaseAuthException catch (e) {
-      String msg;
-      switch (e.code) {
-        case 'email-already-in-use':
-          msg = 'Este correo ya está registrado';
-          break;
-        case 'weak-password':
-          msg = 'Contraseña muy débil (mínimo 6 caracteres)';
-          break;
-        case 'invalid-email':
-          msg = 'Correo electrónico inválido';
-          break;
-        default:
-          msg = e.message ?? 'Error al registrar';
-      }
-      return {'success': false, 'message': msg};
+      return {'success': false, 'message': _mensajeDeError(e)};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -71,9 +103,11 @@ class AuthService {
     required String contrasena,
   }) async {
     try {
-      final cred = await _auth.signInWithEmailAndPassword(
-        email: gmail,
-        password: contrasena,
+      final cred = await _conReintento(
+        () => _auth.signInWithEmailAndPassword(
+          email: gmail,
+          password: contrasena,
+        ),
       );
       final user = cred.user!;
 
@@ -92,7 +126,30 @@ class AuthService {
         };
       }
 
-      final datos = await FirestoreService.obtenerPadre(user.uid);
+      // El perfil se lee aparte de la autenticación, y hay que distinguir
+      // dos cosas que antes se confundían:
+      //
+      //   · la consulta FALLÓ (sin red, Firestore caído)  → error de conexión
+      //   · la consulta funcionó y el documento NO EXISTE → perfil borrado
+      //
+      // Antes, un fallo de red aquí subía como excepción y el usuario leía
+      // "Error: [cloud_firestore/unavailable]...". Y si `obtenerPadre`
+      // devolvía null por cualquier motivo, se le decía "Perfil no
+      // encontrado" y se le cerraba la sesión: a alguien con la cuenta
+      // perfectamente bien, en un ascensor sin señal, la app le daba a
+      // entender que su cuenta ya no existe.
+      Map<String, dynamic>? datos;
+      try {
+        datos = await FirestoreService.obtenerPadre(user.uid);
+      } catch (_) {
+        await _auth.signOut();
+        return {
+          'success': false,
+          'message': 'Entraste bien, pero no pudimos cargar tu perfil.\n\n'
+              'Revisa tu conexión e intenta de nuevo.',
+        };
+      }
+
       if (datos == null) {
         await _auth.signOut();
         return {'success': false, 'message': 'Perfil no encontrado'};
@@ -115,25 +172,9 @@ class AuthService {
         },
       };
     } on FirebaseAuthException catch (e) {
-      String msg;
-      switch (e.code) {
-        case 'user-not-found':
-        case 'wrong-password':
-        case 'invalid-credential':
-          msg = 'Correo o contraseña incorrectos';
-          break;
-        case 'user-disabled':
-          msg = 'Esta cuenta ha sido desactivada';
-          break;
-        case 'too-many-requests':
-          msg = 'Demasiados intentos. Intenta más tarde';
-          break;
-        default:
-          msg = e.message ?? 'Error al iniciar sesión';
-      }
-      return {'success': false, 'message': msg};
+      return {'success': false, 'message': _mensajeDeError(e)};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -151,7 +192,7 @@ class AuthService {
       await _auth.signOut();
       return {'success': true, 'message': 'Correo de verificación reenviado'};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -233,7 +274,11 @@ class AuthService {
         },
       };
     } catch (e) {
-      return {'success': false, 'message': 'Error con Google: $e'};
+      return {
+        'success': false,
+        'message': MensajesError.para(e,
+            respaldo: 'No pudimos entrar con Google. Intenta de nuevo.'),
+      };
     }
   }
 
@@ -285,11 +330,11 @@ class AuthService {
           msg = 'Demasiados intentos. Intenta más tarde';
           break;
         default:
-          msg = e.message ?? 'No se pudo vincular la cuenta';
+          msg = MensajesError.para(e, respaldo: 'No se pudo vincular la cuenta');
       }
       return {'success': false, 'message': msg};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -344,11 +389,11 @@ class AuthService {
               'Por seguridad, vuelve a iniciar sesión con Google antes de configurar tu contraseña';
           break;
         default:
-          msg = e.message ?? 'No se pudo configurar la contraseña';
+          msg = MensajesError.para(e, respaldo: 'No se pudo configurar la contraseña');
       }
       return {'success': false, 'message': msg};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -388,12 +433,12 @@ class AuthService {
           msg = 'Demasiados intentos. Intenta más tarde';
           break;
         default:
-          msg = e.message ?? 'No se pudo enviar el correo de recuperación';
+          msg = MensajesError.para(e, respaldo: 'No se pudo enviar el correo de recuperación');
       }
 
       return {'success': false, 'message': msg};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -410,7 +455,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       return {
         'success': false,
-        'message': e.message ?? 'Error al actualizar',
+        'message': MensajesError.para(e, respaldo: 'Error al actualizar'),
       };
     }
   }
@@ -427,7 +472,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       return {
         'success': false,
-        'message': e.message ?? 'Error al cambiar correo',
+        'message': MensajesError.para(e, respaldo: 'Error al cambiar correo'),
       };
     }
   }
@@ -456,10 +501,10 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       return {
         'success': false,
-        'message': e.message ?? 'No se pudo reautenticar con Google',
+        'message': MensajesError.para(e, respaldo: 'No se pudo reautenticar con Google'),
       };
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -495,11 +540,11 @@ class AuthService {
           msg = 'Correo inválido';
           break;
         default:
-          msg = e.message ?? 'No se pudo reautenticar';
+          msg = MensajesError.para(e, respaldo: 'No se pudo reautenticar');
       }
       return {'success': false, 'message': msg};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -525,10 +570,10 @@ class AuthService {
 
       return {
         'success': false,
-        'message': e.message ?? 'Error al eliminar usuario',
+        'message': MensajesError.para(e, respaldo: 'Error al eliminar usuario'),
       };
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 

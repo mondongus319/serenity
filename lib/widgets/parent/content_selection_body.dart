@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
+import '../common/dialogo_premium.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -10,10 +11,17 @@ class ContentSelectionBody extends StatelessWidget {
   final List<Map<String, dynamic>> categorias;
   final Set<String> seleccionadas;
   final bool isLoading;
+
+  /// Plan del padre. Las categorías premium se muestran SIEMPRE, pero
+  /// atenuadas y con candado si esto es false.
+  final bool esPremium;
   final bool isSaving;
   final VoidCallback onBack;
   final VoidCallback onGuardar;
   final VoidCallback onCanales;
+
+  /// Abre la lista de videos que verá este niño.
+  final VoidCallback onVerVideos;
   final void Function(String id) onToggle;
 
   const ContentSelectionBody({
@@ -22,10 +30,12 @@ class ContentSelectionBody extends StatelessWidget {
     required this.categorias,
     required this.seleccionadas,
     required this.isLoading,
+    required this.esPremium,
     required this.isSaving,
     required this.onBack,
     required this.onGuardar,
     required this.onCanales,
+    required this.onVerVideos,
     required this.onToggle,
   });
 
@@ -37,8 +47,11 @@ class ContentSelectionBody extends StatelessWidget {
       // ── BOTONES FIJOS ───────────────────────────────────────────────
       bottomNavigationBar: _BottomBar(
         isSaving: isSaving,
+        nombreNino: nombreNino,
         onGuardar: onGuardar,
         onCanales: onCanales,
+        onVerVideos: onVerVideos,
+        esPremium: esPremium,
       ),
 
       body: Container(
@@ -75,6 +88,7 @@ class ContentSelectionBody extends StatelessWidget {
                         categorias: categorias,
                         seleccionadas: seleccionadas,
                         onToggle: onToggle,
+                        esPremium: esPremium,
                       ),
               ),
             ],
@@ -213,11 +227,13 @@ class _CategoryGrid extends StatelessWidget {
   final List<Map<String, dynamic>> categorias;
   final Set<String> seleccionadas;
   final void Function(String) onToggle;
+  final bool esPremium;
 
   const _CategoryGrid({
     required this.categorias,
     required this.seleccionadas,
     required this.onToggle,
+    required this.esPremium,
   });
 
   @override
@@ -237,12 +253,16 @@ class _CategoryGrid extends StatelessWidget {
         final isSelected = seleccionadas.contains(id);
         final color = cat['color'] as Color;
 
+        // Bloqueada = es una categoría de pago y el padre no tiene plan.
+        final bloqueada = cat['premium'] == true && !esPremium;
+
         return CategoryCard(
           cat: cat,
           id: id,
-          isSelected: isSelected,
+          isSelected: isSelected && !bloqueada,
           color: color,
           onToggle: onToggle,
+          bloqueada: bloqueada,
         );
       },
     );
@@ -259,6 +279,10 @@ class CategoryCard extends StatelessWidget {
   final Color color;
   final void Function(String) onToggle;
 
+  /// Categoría de pago sin plan activo. Se dibuja atenuada, con candado, y
+  /// al tocarla abre el diálogo de Premium en vez de seleccionarse.
+  final bool bloqueada;
+
   const CategoryCard({
     super.key,
     required this.cat,
@@ -266,13 +290,25 @@ class CategoryCard extends StatelessWidget {
     required this.isSelected,
     required this.color,
     required this.onToggle,
+    this.bloqueada = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => onToggle(id),
-      child: AnimatedContainer(
+      onTap: () {
+        if (bloqueada) {
+          mostrarDialogoPremium(
+            context,
+            motivo: '${cat['nombre']} es parte de Premium',
+          );
+          return;
+        }
+        onToggle(id);
+      },
+      child: Opacity(
+        opacity: bloqueada ? 0.5 : 1.0,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOut,
         decoration: BoxDecoration(
@@ -364,8 +400,32 @@ class CategoryCard extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Candado de Premium. La categoría se sigue viendo: el papá debe
+            // entender qué contenido existe y qué obtiene si paga.
+            if (bloqueada)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [AppColors.accentViolet, AppColors.accentCyan],
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.lock_rounded,
+                    color: Colors.white,
+                    size: 13,
+                  ),
+                ),
+              ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -376,13 +436,23 @@ class CategoryCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _BottomBar extends StatelessWidget {
   final bool isSaving;
+  final String nombreNino;
   final VoidCallback onGuardar;
   final VoidCallback onCanales;
+  final VoidCallback onVerVideos;
+
+  /// Gestionar canales propios es Premium: cada canal que agrega un padre
+  /// consume cuota real de la API de YouTube, así que es la única función del
+  /// plan que se paga sola.
+  final bool esPremium;
 
   const _BottomBar({
     required this.isSaving,
+    required this.nombreNino,
     required this.onGuardar,
     required this.onCanales,
+    required this.onVerVideos,
+    required this.esPremium,
   });
 
   @override
@@ -408,16 +478,19 @@ class _BottomBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Ver los videos de ESTE niño. Va aquí y no en una pestaña global
+          // porque la lista depende de sus categorías: con dos hijos con
+          // categorías distintas, el padre necesita verlas por separado.
           GestureDetector(
-            onTap: onCanales,
+            onTap: onVerVideos,
             child: Container(
               width: double.infinity,
               height: 46,
               decoration: BoxDecoration(
-                color: AppColors.accentViolet.withOpacity(0.12),
+                color: AppColors.accentCyan.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: AppColors.accentViolet.withOpacity(0.35),
+                  color: AppColors.accentCyan.withOpacity(0.35),
                   width: 1.5,
                 ),
               ),
@@ -426,20 +499,99 @@ class _BottomBar extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.subscriptions_outlined,
-                    color: AppColors.accentViolet,
+                    Icons.video_library_outlined,
+                    color: AppColors.accentCyan,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    'Gestionar canales de YouTube',
-                    style: GoogleFonts.poppins(
-                      color: AppColors.accentViolet,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      'Ver los videos de $nombreNino',
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: AppColors.accentCyan,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          GestureDetector(
+            // El botón se sigue viendo aunque esté bloqueado: el papá debe
+            // saber que la función existe. La pantalla la decide onCanales.
+            onTap: onCanales,
+            child: Opacity(
+              opacity: esPremium ? 1.0 : 0.55,
+              child: Container(
+                width: double.infinity,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.accentViolet.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.accentViolet.withOpacity(0.35),
+                    width: 1.5,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      esPremium
+                          ? Icons.subscriptions_outlined
+                          : Icons.lock_rounded,
+                      color: AppColors.accentViolet,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    // Flexible: con el ícono, el texto y la etiqueta PREMIUM
+                    // esta fila rozaba el ancho de un celular de 360dp y se
+                    // desbordaba en pantallas más angostas.
+                    Flexible(
+                      child: Text(
+                        'Gestionar canales de YouTube',
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: AppColors.accentViolet,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (!esPremium) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          gradient: const LinearGradient(
+                            colors: [
+                              AppColors.accentViolet,
+                              AppColors.accentCyan
+                            ],
+                          ),
+                        ),
+                        child: Text(
+                          'PREMIUM',
+                          style: GoogleFonts.poppins(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../servicces/premium_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/catalogo_categorias.dart';
+import '../common/dialogo_premium.dart';
+import '../common/serenity_header.dart';
 
 const _dangerSoft = Color(0xFFBE7D8A);
 const _dangerBorder = Color(0xFF6B3F49);
 
 class ParentProfileBody extends StatelessWidget {
+  /// Necesario para escuchar el plan del padre en vivo.
+  final String padreId;
+
   final String nombre;
   final String correoActual;
   final String nombreCompleto;
@@ -22,6 +29,7 @@ class ParentProfileBody extends StatelessWidget {
 
   const ParentProfileBody({
     super.key,
+    required this.padreId,
     required this.nombre,
     required this.correoActual,
     required this.nombreCompleto,
@@ -64,7 +72,9 @@ class ParentProfileBody extends StatelessWidget {
                       child: Column(
                         children: [
                           _AvatarSection(nombre: nombre),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 22),
+                          _TarjetaPlan(padreId: padreId),
+                          const SizedBox(height: 16),
                           _DataCard(
                             correoActual: correoActual,
                             nombreCompleto: nombreCompleto,
@@ -91,6 +101,317 @@ class ParentProfileBody extends StatelessWidget {
   }
 }
 
+// ─── TARJETA DE PLAN ─────────────────────────────────────────────────────────
+//
+// Escucha el plan en vivo: si el padre compra Premium, la tarjeta cambia sola
+// sin salir de la pantalla.
+class _TarjetaPlan extends StatelessWidget {
+  final String padreId;
+
+  const _TarjetaPlan({required this.padreId});
+
+  String _fecha(DateTime d) {
+    const meses = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+    return '${d.day} de ${meses[d.month - 1]} de ${d.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<EstadoPremium>(
+      stream: PremiumService.streamEstado(padreId),
+      builder: (context, snap) {
+        // Mientras no se sepa se asume gratis: nunca mostrar "Premium" por
+        // un instante a quien no lo tiene.
+        final estado = snap.data ?? EstadoPremium.gratis;
+        return estado.activo
+            ? _PlanPremium(estado: estado, fecha: _fecha)
+            : const _PlanGratis();
+      },
+    );
+  }
+}
+
+class _PlanPremium extends StatelessWidget {
+  final EstadoPremium estado;
+  final String Function(DateTime) fecha;
+
+  const _PlanPremium({required this.estado, required this.fecha});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        // Borde con degradado: un contenedor exterior de 2px que el interior
+        // deja asomar. Es lo que le da el aire de "plan de pago" sin gritar.
+        gradient: const LinearGradient(
+          colors: [AppColors.accentViolet, AppColors.accentCyan],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentViolet.withOpacity(0.22),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [AppColors.accentViolet, AppColors.accentCyan],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: const Icon(Icons.workspace_premium_rounded,
+                      color: Colors.white, size: 21),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Serenity Premium',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPearl,
+                        ),
+                      ),
+                      Text(
+                        'Tu plan actual',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22C55E).withOpacity(0.16),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF22C55E).withOpacity(0.45),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    'ACTIVO',
+                    style: GoogleFonts.poppins(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF22C55E),
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 15),
+            Container(height: 1, color: Colors.white.withOpacity(0.06)),
+            const SizedBox(height: 13),
+
+            // La lista vive en CatalogoCategorias, junto a los topes del
+            // plan. Aquí solo se dibuja: así el diálogo Premium y esta
+            // tarjeta no pueden decir cosas distintas.
+            ..._LineaBeneficio.desdeLista(
+                CatalogoCategorias.beneficiosPremium),
+
+            if (estado.hasta != null) ...[
+              const SizedBox(height: 13),
+              Row(
+                children: [
+                  Icon(Icons.event_rounded,
+                      size: 13, color: AppColors.textMuted),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Se renueva el ${fecha(estado.hasta!)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10.5,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanGratis extends StatelessWidget {
+  const _PlanGratis();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.borderSoft, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.accentCyan.withOpacity(0.12),
+                  border: Border.all(
+                    color: AppColors.accentCyan.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: const Icon(Icons.shield_outlined,
+                    color: AppColors.accentCyan, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Plan Gratis',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPearl,
+                      ),
+                    ),
+                    Text(
+                      'Tu plan actual',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+          Container(height: 1, color: Colors.white.withOpacity(0.06)),
+          const SizedBox(height: 13),
+
+          ..._LineaBeneficio.desdeLista(CatalogoCategorias.beneficiosGratis),
+
+          const SizedBox(height: 15),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => mostrarDialogoPremium(
+                context,
+                motivo: 'Desbloquea todo Serenity',
+              ),
+              icon: const Icon(Icons.workspace_premium_rounded, size: 18),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accentViolet,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                elevation: 0,
+              ),
+              label: Text(
+                'Conocer Premium',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LineaBeneficio extends StatelessWidget {
+  final String texto;
+  final bool ultimo;
+
+  const _LineaBeneficio(this.texto, {this.ultimo = false});
+
+  /// Dibuja una lista completa marcando sola la última línea, que es la que
+  /// no lleva separación abajo. Hacerlo a mano significaba acordarse de mover
+  /// el `ultimo: true` cada vez que se agregaba un beneficio al final —y la
+  /// primera vez que se olvidara, la tarjeta quedaría con un espacio de más
+  /// sin que nadie supiera por qué.
+  static List<Widget> desdeLista(List<String> lineas) => [
+        for (var i = 0; i < lineas.length; i++)
+          _LineaBeneficio(lineas[i], ultimo: i == lineas.length - 1),
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: ultimo ? 0 : 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.check_circle_rounded,
+              size: 14, color: AppColors.accentCyan),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                height: 1.35,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── HEADER ───────────────────────────────────────────────────────────────────
 class _ProfileHeader extends StatelessWidget {
   final VoidCallback onSwitchProfile;
@@ -99,38 +420,11 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const SizedBox(width: 44),
-          Column(
-            children: [
-              Image.asset(
-                'assets/images/logo.png',
-                width: 46,
-                height: 46,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'SERENTY',
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textMuted,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-          _HeaderIconButton(
-            icon: Icons.switch_account_rounded,
-            tooltip: 'Cambiar de perfil',
-            onTap: onSwitchProfile,
-          ),
-        ],
+    return SerenityHeader(
+      derecha: _HeaderIconButton(
+        icon: Icons.switch_account_rounded,
+        tooltip: 'Cambiar de perfil',
+        onTap: onSwitchProfile,
       ),
     );
   }

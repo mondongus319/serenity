@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 import '../../providers/content_provider.dart';
 import '../../../../widgets/parent/content_selection_body.dart';
 import 'channel_management_screen.dart';
+import 'videos_preview_screen.dart';
+import '../../utils/catalogo_categorias.dart';
+import '../../servicces/premium_service.dart';
+import '../../widgets/common/dialogo_premium.dart';
 
 class ContentSelectionScreen extends StatefulWidget {
   final String idNino;
@@ -22,68 +26,16 @@ class ContentSelectionScreen extends StatefulWidget {
 }
 
 class _ContentSelectionScreenState extends State<ContentSelectionScreen> {
-  static const List<Map<String, dynamic>> categorias = [
-    {
-      'id': 'cat_1',
-      'nombre': 'Música',
-      'icon': Icons.music_note,
-      'color': Color(0xFF9C27B0)
-    },
-    {
-      'id': 'cat_2',
-      'nombre': 'Deportes',
-      'icon': Icons.sports_basketball,
-      'color': Color(0xFFE8601C)
-    },
-    {
-      'id': 'cat_3',
-      'nombre': 'Educación',
-      'icon': Icons.school,
-      'color': Color(0xFF4CAF50)
-    },
-    {
-      'id': 'cat_4',
-      'nombre': 'Ciencia Tecnología',
-      'icon': Icons.science,
-      'color': Color(0xFF00BCD4)
-    },
-    {
-      'id': 'cat_5',
-      'nombre': 'Documentales',
-      'icon': Icons.movie_outlined,
-      'color': Color(0xFF607D8B)
-    },
-    {
-      'id': 'cat_6',
-      'nombre': 'Familia Valores',
-      'icon': Icons.family_restroom,
-      'color': Color(0xFFE91E63)
-    },
-    {
-      'id': 'cat_7',
-      'nombre': 'Motivación',
-      'icon': Icons.emoji_events,
-      'color': Color(0xFFFF9800)
-    },
-    {
-      'id': 'cat_8',
-      'nombre': 'Trivias Datos Curiosos',
-      'icon': Icons.lightbulb_outline,
-      'color': Color(0xFFFFEB3B)
-    },
-    {
-      'id': 'cat_9',
-      'nombre': 'Cultura General',
-      'icon': Icons.public,
-      'color': Color(0xFF8B6F47)
-    },
-    {
-      'id': 'cat_10',
-      'nombre': 'Experimentos',
-      'icon': Icons.biotech,
-      'color': Color(0xFF3F51B5)
-    },
-  ];
+  // ✅ Ya no se declara aquí. Viene del catálogo único
+  // (lib/utils/catalogo_categorias.dart). Los mapas traen las mismas claves
+  // 'id', 'nombre', 'icon' y 'color' que esta pantalla ya usaba, más
+  // 'premium'.
+  //
+  // De paso se corrigieron tres nombres que estaban desincronizados con el
+  // resto de la app: 'Ciencia Tecnología', 'Familia Valores' y
+  // 'Trivias Datos Curiosos' ahora llevan el '&' como en las demás pantallas.
+  static List<Map<String, dynamic>> get categorias =>
+      CatalogoCategorias.comoMapas;
 
   @override
   void initState() {
@@ -183,27 +135,81 @@ class _ContentSelectionScreenState extends State<ContentSelectionScreen> {
     }
   }
 
-  void irACanales() => Navigator.push(
+  /// Gestionar canales propios es Premium.
+  ///
+  /// La comprobación se hace aquí y no en el botón porque este es el único
+  /// camino real hacia la pantalla: si mañana se agrega otra entrada, basta
+  /// con que también pase por aquí. Y se vuelve a consultar el plan en el
+  /// momento del toque, no se confía en lo que la UI creía hace un rato.
+  Future<void> irACanales() async {
+    final esPremium = await PremiumService.esPremium(widget.padreId);
+    if (!mounted) return;
+
+    if (!esPremium) {
+      await mostrarDialogoPremium(
         context,
-        MaterialPageRoute(
-          builder: (_) => ChannelManagementScreen(padreId: widget.padreId),
-        ),
+        motivo: 'Agrega los canales de YouTube\nque tú elijas',
       );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChannelManagementScreen(
+          padreId: widget.padreId,
+          // Sin el niño, un canal agregado aquí aparecía en TODOS los hijos.
+          ninoId: widget.idNino,
+          nombreNino: widget.nombreNino,
+        ),
+      ),
+    );
+  }
+
+  /// Abre la lista de videos de ESTE niño.
+  ///
+  /// Antes era una pestaña global con un selector de hijo. Vive aquí porque
+  /// la lista depende de las categorías de un niño concreto: con dos hijos
+  /// con categorías distintas, verlas por separado es el punto.
+  void irAVideos() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VideosPreviewScreen(
+          padreId: widget.padreId,
+          ninoId: widget.idNino,
+          nombreNino: widget.nombreNino,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<ContentProvider>(
       builder: (context, content, _) {
-        return ContentSelectionBody(
-          nombreNino: widget.nombreNino,
-          categorias: categorias,
-          seleccionadas: content.seleccionadas,
-          isLoading: content.isLoadingSeleccion,
-          isSaving: content.isSaving,
-          onBack: () => Navigator.pop(context),
-          onGuardar: guardarCategorias,
-          onToggle: (id) => content.toggleCategoria(id),
-          onCanales: irACanales,
+        // El plan se escucha en vivo: si el papá compra, los candados de las
+        // 6 categorías Premium se abren solos, sin salir de esta pantalla.
+        return StreamBuilder<bool>(
+          stream: PremiumService.stream(widget.padreId),
+          builder: (context, planSnap) {
+            return ContentSelectionBody(
+              nombreNino: widget.nombreNino,
+              categorias: categorias,
+              seleccionadas: content.seleccionadas,
+              isLoading: content.isLoadingSeleccion,
+              // Mientras no se sepa, se asume gratis: nunca mostrar una
+              // categoría de pago abierta, ni por un instante.
+              esPremium: planSnap.data == true,
+              isSaving: content.isSaving,
+              onBack: () => Navigator.pop(context),
+              onGuardar: guardarCategorias,
+              onToggle: (id) => content.toggleCategoria(id),
+              onCanales: irACanales,
+              onVerVideos: irAVideos,
+            );
+          },
         );
       },
     );

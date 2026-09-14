@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
+import '../common/serenity_header.dart';
 
 class ParentTermsBody extends StatelessWidget {
   final String userName;
@@ -176,54 +177,11 @@ class _TermsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const SizedBox(width: 44),
-
-          // Logo centrado
-          Column(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.accentCyan.withOpacity(0.15),
-                      blurRadius: 20,
-                      spreadRadius: 3,
-                    ),
-                  ],
-                ),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  width: 46,
-                  height: 46,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'SERENTY',
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textMuted,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-
-          // Botón cambiar perfil
-          _HeaderIconButton(
-            icon: Icons.switch_account_rounded,
-            tooltip: 'Cambiar de perfil',
-            onTap: onSwitchProfile,
-          ),
-        ],
+    return SerenityHeader(
+      derecha: _HeaderIconButton(
+        icon: Icons.switch_account_rounded,
+        tooltip: 'Cambiar de perfil',
+        onTap: onSwitchProfile,
       ),
     );
   }

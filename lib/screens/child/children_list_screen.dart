@@ -217,6 +217,31 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
     final ninoId = (nino['id'] ?? '').toString();
     final nombreNino = (nino['nombre'] ?? '').toString();
 
+    // ── COMPUERTA DEL PLAN ────────────────────────────────────────────────
+    //
+    // Se revisa ANTES de pedir la contraseña. Sin esto quedaba un hueco real:
+    // el bloqueo por plan vivía solo en la pantalla del padre, así que quien
+    // supiera la contraseña de un perfil bloqueado entraba igual desde el
+    // dispositivo del niño.
+    //
+    // Y va antes y no después a propósito: pedir una contraseña, validarla, y
+    // solo entonces decir que no se puede entrar sería cruel.
+    final permitidos =
+        await FirestoreService.ninosPermitidos(widget.padreId);
+    final habilitado = permitidos.any((n) => n['id'].toString() == ninoId);
+
+    if (!mounted) return;
+
+    if (!habilitado) {
+      await _mostrarDialogoError(
+        titulo: 'Perfil no disponible',
+        mensaje: 'El plan actual no incluye este perfil.\n\n'
+            'No se borró nada: pídele a tus papás que activen '
+            'Serenity Premium y vuelve a estar disponible.',
+      );
+      return;
+    }
+
     final password = await PasswordDialog.show(
       context: context,
       title: 'Contraseña requerida',
@@ -243,6 +268,55 @@ class _ChildrenListScreenState extends State<ChildrenListScreen> {
     Navigator.pop(context);
 
     if (valido) {
+      // ── UBICACIÓN OBLIGATORIA ─────────────────────────────────────────
+      //
+      // Aquí SÍ se exige, y aquí sí se justifica: la ubicación del niño es
+      // lo que el padre ve en la tarjeta de su perfil. Es una función de la
+      // app, no un dato guardado "por si acaso" —que es lo que era cuando
+      // se le pedía al padre y no se mostraba en ninguna parte.
+      //
+      // Va DESPUÉS de la contraseña a propósito. Pedirle a un niño que
+      // active el GPS antes de demostrar que el perfil es suyo sería
+      // molestar a cualquiera que solo estaba mirando la lista.
+      //
+      // Y se pide SIEMPRE, con plan gratis o Premium. Lo que se paga es
+      // VER la ubicación, no que el teléfono la reporte. Así, el día que el
+      // padre active Premium, el dato ya está fresco desde el primer
+      // momento en vez de aparecer vacío hasta el siguiente reporte.
+      final Position? posicion =
+          await LocationService.obtenerUbicacionObligatoria(context);
+
+      if (posicion == null) {
+        if (!mounted) return;
+        await _mostrarDialogoError(
+          titulo: 'Ubicación requerida',
+          mensaje: 'Serenity necesita la ubicación de este dispositivo '
+              'para que tus papás puedan saber dónde estás.\n\n'
+              'Activa el permiso de ubicación y el GPS, y vuelve a '
+              'intentarlo.',
+        );
+        return;
+      }
+
+      // Se guarda de una vez, sin esperar al primer reporte periódico: así
+      // el padre ve un punto apenas el niño entra.
+      try {
+        await FirestoreService.guardarUbicacionNino(
+          ninoId,
+          posicion.latitude,
+          posicion.longitude,
+          precisionMetros: posicion.accuracy,
+        );
+      } catch (e) {
+        // Si falla el guardado NO se bloquea la entrada: el permiso —que es
+        // lo que se estaba exigiendo— ya se concedió, y el reporte
+        // periódico de ChildHomeScreen lo reintenta en minutos. Dejar a un
+        // niño fuera de la app por un fallo de red sería absurdo.
+        debugPrint('guardarUbicacionNino al entrar: $e');
+      }
+
+      if (!mounted) return;
+
       await ChildStateService.saveNinoRegistrado(
         idNino: ninoId,
         nombreNino: nombreNino,

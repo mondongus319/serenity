@@ -3,11 +3,24 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../servicces/firestore_service.dart';
 import '../../servicces/youtube_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/catalogo_categorias.dart';
 
 class ChannelManagementScreen extends StatefulWidget {
   final String padreId;
 
-  const ChannelManagementScreen({super.key, required this.padreId});
+  /// A qué hijo pertenecen estos canales.
+  ///
+  /// Antes los canales solo guardaban `id_padre`, así que uno agregado para
+  /// un hijo aparecía en todos. Cada niño tiene su propio contenido.
+  final String ninoId;
+  final String nombreNino;
+
+  const ChannelManagementScreen({
+    super.key,
+    required this.padreId,
+    required this.ninoId,
+    required this.nombreNino,
+  });
 
   @override
   State<ChannelManagementScreen> createState() =>
@@ -18,26 +31,11 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
   Map<String, List<Map<String, dynamic>>> _canalesCustom = {};
   bool _loading = true;
 
-  static const List<Map<String, dynamic>> _categorias = [
-    {'id': 'cat_1', 'nombre': 'Música', 'icon': Icons.music_note},
-    {'id': 'cat_2', 'nombre': 'Deportes', 'icon': Icons.sports_basketball},
-    {'id': 'cat_3', 'nombre': 'Educación', 'icon': Icons.school},
-    {
-      'id': 'cat_4',
-      'nombre': 'Ciencia & Tecnología',
-      'icon': Icons.science
-    },
-    {'id': 'cat_5', 'nombre': 'Documentales', 'icon': Icons.movie_outlined},
-    {'id': 'cat_6', 'nombre': 'Familia & Valores', 'icon': Icons.family_restroom},
-    {'id': 'cat_7', 'nombre': 'Motivación', 'icon': Icons.emoji_events},
-    {
-      'id': 'cat_8',
-      'nombre': 'Trivias & Datos Curiosos',
-      'icon': Icons.lightbulb_outline
-    },
-    {'id': 'cat_9', 'nombre': 'Cultura General', 'icon': Icons.public},
-    {'id': 'cat_10', 'nombre': 'Experimentos', 'icon': Icons.biotech},
-  ];
+  // ✅ Ya no se declara aquí. Viene del catálogo único
+  // (lib/utils/catalogo_categorias.dart). Los mapas traen las mismas claves
+  // 'id', 'nombre' e 'icon' que esta pantalla ya usaba, más 'premium'.
+  static List<Map<String, dynamic>> get _categorias =>
+      CatalogoCategorias.comoMapas;
 
   @override
   void initState() {
@@ -48,7 +46,8 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
   Future<void> _cargarCanales() async {
     setState(() => _loading = true);
     final todos =
-        await FirestoreService.obtenerTodosCanalesCustom(widget.padreId);
+        await FirestoreService.obtenerTodosCanalesCustom(
+            widget.padreId, widget.ninoId);
     final mapa = <String, List<Map<String, dynamic>>>{};
     for (final c in todos) {
       // ✅ FIX: cast duro `as String` reemplazado por lectura tolerante.
@@ -325,6 +324,7 @@ class _ChannelManagementScreenState extends State<ChannelManagementScreen> {
                               try {
                                 await FirestoreService.agregarCanalCustom(
                                   padreId: widget.padreId,
+                                  ninoId: widget.ninoId,
                                   catId: catId,
                                   channelUrl: url,
                                   nombreCanal: nombre,

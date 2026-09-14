@@ -41,9 +41,34 @@ dependencies:
   # que va contra los Términos de Servicio y se rompe cuando YouTube cambia.
   # Sustituido por la API oficial (YouTube Data v3) desde Cloud Functions.
   local_auth: ^2.3.0
+  # Reproduce el video de bienvenida que se ve la primera vez que se abre la
+  # app. Es un archivo local del propio APK: no descarga nada ni necesita
+  # internet, así que funciona aunque el usuario abra la app sin señal.
+  video_player: ^2.8.6
+  # Google Play Billing. Es el plugin oficial de Flutter; no se usó RevenueCat
+  # ni similares porque el proyecto ya tiene Cloud Functions donde verificar la
+  # compra, y un intermediario más significaría darle los datos de ingresos —y
+  # eventualmente una comisión— a un tercero que aquí no aporta nada.
+  in_app_purchase: ^3.2.0
   provider: ^6.1.2
-  flutter_overlay_window: ^0.5.0
-  flutter_foreground_task: 8.17.0
+  # ❌ ELIMINADAS: flutter_overlay_window y flutter_foreground_task
+  #
+  # Ninguna de las dos se importaba en un solo archivo de lib/. Pero sus
+  # manifiestos SÍ se fusionaban con el de la app y le metían permisos:
+  # SYSTEM_ALERT_WINDOW (dibujar sobre otras apps), FOREGROUND_SERVICE y
+  # FOREGROUND_SERVICE_SPECIAL_USE.
+  #
+  # Esos permisos, junto a los de ubicación y cámara, hacían que Play
+  # Protect bloqueara la instalación por parecerse a software espía. Y son
+  # justo los que la revisión de Play mira con lupa en una app que maneja
+  # datos de menores.
+  #
+  # Quitarlas de aquí es lo que de verdad los elimina: borrarlos del
+  # AndroidManifest no sirve si el plugin los sigue declarando en el suyo,
+  # porque la fusión de manifiestos vuelve a agregarlos.
+  #
+  # El modo kiosco no las usaba: funciona con startLockTask() del sistema,
+  # a través del MethodChannel de MainActivity.kt.
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +89,30 @@ flutter:
   uses-material-design: true
 
   assets:
+    # ── FUENTES EMPAQUETADAS ────────────────────────────────────────────
+    #
+    # Sin esto, google_fonts DESCARGA Poppins por internet la primera vez
+    # que se usa cada peso, y la guarda en el teléfono. Consecuencias:
+    #
+    #   · Un usuario nuevo sin señal veía la app con la fuente del sistema.
+    #   · El primer arranque gastaba datos bajando tipografías.
+    #   · El texto podía cambiar de forma a mitad de pantalla, al llegar la
+    #     descarga y volver a pintar.
+    #
+    # Van declaradas aquí en `assets:` y NO en `fonts:` a propósito: así es
+    # como google_fonts las encuentra —busca en el manifiesto de recursos
+    # archivos con el patrón Poppins-<Variante>.ttf—. Puestas en `fonts:` no
+    # las vería y seguiría descargándolas.
+    #
+    # Son exactamente los 7 pesos que usa la app, contados uno por uno sobre
+    # las 413 llamadas a GoogleFonts.poppins() que hay en lib/. Empaquetar
+    # los 18 que existen sumaría 2,8 MB al APK por variantes que nadie usa.
+    - assets/google_fonts/
+    # ⚠️ El video de bienvenida va en assets/video/intro.mp4
+    #    Debe ser MP4 con H.264 + AAC: es lo único que reproducen TODOS los
+    #    Android. Un MP4 con H.265/HEVC se ve en un teléfono nuevo y falla en
+    #    uno de gama baja, que es justo el que más va a tener esta app.
+    - assets/video/
     - assets/images/
     - assets/images/animales/
     - assets/images/icons/

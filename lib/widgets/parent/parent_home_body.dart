@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/formato_fecha.dart';
+import '../common/serenity_header.dart';
 
 
 class ParentHomeBody extends StatelessWidget {
@@ -14,6 +15,11 @@ class ParentHomeBody extends StatelessWidget {
   final VoidCallback onAddChild;
   final void Function(dynamic nino) onTapChild;
 
+  /// Eliminar el perfil de un hijo. Se dispara con una pulsación larga sobre
+  /// la tarjeta, no con un botón visible: es una acción destructiva y no
+  /// debe quedar a un toque de distancia del gesto normal de entrar.
+  final void Function(dynamic nino) onEliminarChild;
+
 
   const ParentHomeBody({
     super.key,
@@ -23,6 +29,7 @@ class ParentHomeBody extends StatelessWidget {
     required this.onSwitchProfile,
     required this.onAddChild,
     required this.onTapChild,
+    required this.onEliminarChild,
   });
 
 
@@ -63,6 +70,7 @@ class ParentHomeBody extends StatelessWidget {
                   userName: userName,
                   onAddChild: onAddChild,
                   onTapChild: onTapChild,
+                  onEliminarChild: onEliminarChild,
                 ),
               ),
             ),
@@ -92,58 +100,20 @@ class HomeHeader extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
 
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          HeaderIconButton(
-            icon: themeProvider.modoOscuro
-                ? Icons.light_mode_rounded
-                : Icons.dark_mode_rounded,
-            tooltip: themeProvider.modoOscuro
-                ? 'Cambiar a modo claro'
-                : 'Cambiar a modo oscuro',
-            onTap: () => context.read<ThemeProvider>().alternarModo(),
-          ),
-          Column(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.accentCyan.withOpacity(0.15),
-                      blurRadius: 20,
-                    ),
-                  ],
-                ),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  width: 52,
-                  height: 52,
-                  fit: BoxFit.contain,
-                  gaplessPlayback: true,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'SERENTY',
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textMuted,
-                  letterSpacing: 2.5,
-                ),
-              ),
-            ],
-          ),
-          HeaderIconButton(
-            icon: Icons.switch_account_outlined,
-            tooltip: 'Cambiar perfil',
-            onTap: onSwitchProfile,
-          ),
-        ],
+    return SerenityHeader(
+      izquierda: HeaderIconButton(
+        icon: themeProvider.modoOscuro
+            ? Icons.light_mode_rounded
+            : Icons.dark_mode_rounded,
+        tooltip: themeProvider.modoOscuro
+            ? 'Cambiar a modo claro'
+            : 'Cambiar a modo oscuro',
+        onTap: () => context.read<ThemeProvider>().alternarModo(),
+      ),
+      derecha: HeaderIconButton(
+        icon: Icons.switch_account_outlined,
+        tooltip: 'Cambiar perfil',
+        onTap: onSwitchProfile,
       ),
     );
   }
@@ -209,6 +179,7 @@ class ChildrenCard extends StatelessWidget {
   final String userName;
   final VoidCallback onAddChild;
   final void Function(dynamic nino) onTapChild;
+  final void Function(dynamic nino) onEliminarChild;
 
 
   const ChildrenCard({
@@ -218,6 +189,7 @@ class ChildrenCard extends StatelessWidget {
     required this.userName,
     required this.onAddChild,
     required this.onTapChild,
+    required this.onEliminarChild,
   });
 
 
@@ -288,6 +260,42 @@ class ChildrenCard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           AddChildButton(onTap: onAddChild),
+
+          // Pista de la pulsación larga. Sin esto nadie descubriría cómo
+          // eliminar un perfil: un gesto oculto sin señal no existe para el
+          // usuario. Solo se muestra si hay perfiles que eliminar.
+          //
+          // ⚠️ El texto va dentro de Flexible. Un Row NO envuelve texto: con
+          // los dos padding (24 de pantalla + 22 de tarjeta) quedan ~268px
+          // útiles en un celular de 360dp, y la frase completa a 11px se
+          // pasaba de largo. Con Flexible salta de línea en vez de
+          // desbordarse, y sigue cuadrando aunque el usuario tenga la fuente
+          // del sistema más grande.
+          if (ninos.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.touch_app_outlined,
+                  size: 13,
+                  color: AppColors.textMuted.withOpacity(0.7),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'Mantén presionado para eliminar',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: AppColors.textMuted.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
           const SizedBox(height: 16),
           Container(
             height: 1,
@@ -331,6 +339,7 @@ class ChildrenCard extends StatelessWidget {
                                 (nino['fecha_nacimiento'] ?? '').toString(),
                             activo: nino['id_padre'] != null,
                             onTap: () => onTapChild(nino),
+                            onEliminar: () => onEliminarChild(nino),
                           );
                         },
                       ),
@@ -463,6 +472,7 @@ class DarkChildTile extends StatelessWidget {
   final String fechaNacimiento;
   final bool activo;
   final VoidCallback onTap;
+  final VoidCallback onEliminar;
 
 
   const DarkChildTile({
@@ -471,6 +481,7 @@ class DarkChildTile extends StatelessWidget {
     required this.fechaNacimiento,
     required this.activo,
     required this.onTap,
+    required this.onEliminar,
   });
 
 
@@ -478,6 +489,10 @@ class DarkChildTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      // Eliminar exige mantener presionado. Es destructivo: si estuviera en
+      // un botón junto a la tarjeta, un toque mal dado borraría el perfil de
+      // un hijo. La pantalla del padre muestra además una confirmación.
+      onLongPress: onEliminar,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),

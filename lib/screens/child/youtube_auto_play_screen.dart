@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:math';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../servicces/firestore_service.dart';
+import '../../servicces/videos_nino_service.dart';
 import '../../utils/app_colors.dart';
 import 'child_youtubers_gallery_screen.dart';
 
@@ -51,6 +55,32 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
   Map<String, dynamic>? videoBuscado;
   bool reproducirVideoBuscado = false;
 
+  // ═════════════════════════════════════════════════════════════════════
+  // ESCUCHA DE CAMBIOS DEL PADRE
+  //
+  // Cuando el padre cambia las categorías desde su teléfono, la lista del
+  // niño se rehace sola, sin cerrar ni reiniciar nada.
+  //
+  // ⚠️ EL DETALLE QUE HACE QUE ESTO NO SEA UN DESASTRE
+  //
+  // El documento del niño se escribe MUCHO por su cuenta: el consumo de
+  // tiempo cada minuto, la ubicación cada 10, los latidos de sesión. Si se
+  // recargara en cada notificación del stream, la lista se rearmaría cada
+  // minuto —y como armarla consulta la API de YouTube por cada canal que el
+  // padre agregó, en una tarde se quemaría la cuota diaria entera.
+  //
+  // Por eso NO se reacciona al stream: se reacciona al CAMBIO de dos campos
+  // concretos. Todo lo demás que se escriba en ese documento se ignora.
+  // ═════════════════════════════════════════════════════════════════════
+
+  StreamSubscription<DocumentSnapshot>? _suscripcionNino;
+  Timer? _debounce;
+
+  /// Huella de lo último que se cargó: categorías y youtubers.
+  String? _huellaCargada;
+
+  bool _recargandoPorCambio = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,8 +88,189 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     _catalogoBusquedaBase =
         List<Map<String, dynamic>>.from(widget.catalogoBusqueda);
     iniciarControlador(indice);
+    _armarVigia();
     cargarAnimalesYEscoger();
     searchController.addListener(onSearchChanged);
+    _escucharCambiosDelPadre();
+  }
+
+  // ── ESCUCHA ────────────────────────────────────────────────────────────
+
+  void _escucharCambiosDelPadre() {
+    _suscripcionNino =
+        FirestoreService.streamNino(widget.ninoId).listen((doc) {
+      if (!doc.exists) return;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+
+      final huella = _huellaDe(data);
+
+      // Primera notificación: solo se apunta lo que ya está cargado. No se
+      // recarga, porque la lista que se está reproduciendo se armó con
+      // exactamente estos datos hace un instante.
+      if (_huellaCargada == null) {
+        _huellaCargada = huella;
+        return;
+      }
+
+      if (huella == _huellaCargada) return; // un latido, no un cambio real
+
+      _huellaCargada = huella;
+
+      // Se espera un momento por si vienen varias escrituras seguidas: así
+      // un padre que guarda categorías y youtubers casi a la vez provoca
+      // una sola recarga y no dos.
+      _debounce?.cancel();
+      _debounce = Timer(
+        const Duration(milliseconds: 900),
+        () => _recargarPorCambio(data),
+      );
+    });
+  }
+
+  /// Resume en un texto los campos que SÍ deben provocar una recarga.
+  ///
+  /// Se ordenan antes de unirlos: Firestore no garantiza el orden de un
+  /// array, y una lista reordenada sin cambiar de contenido no es un cambio.
+  String _huellaDe(Map<String, dynamic> data) {
+    List<String> lista(String campo) {
+      final v = data[campo];
+      if (v is! List) return const [];
+      return v.map((e) => e.toString()).toList()..sort();
+    }
+
+    return '${lista('categorias_permitidas').join(',')}'
+        '|${lista('youtubers_seleccionados').join(',')}';
+  }
+
+  /// Rehace la lista con las categorías nuevas, sin cortar la reproducción.
+  Future<void> _recargarPorCambio(Map<String, dynamic> datosNino) async {
+    if (_recargandoPorCambio || !mounted) return;
+    _recargandoPorCambio = true;
+
+    final padreId = (datosNino['id_padre'] ?? '').toString();
+    if (padreId.isEmpty) {
+      _recargandoPorCambio = false;
+      return;
+    }
+
+    final idEnPantalla = _videos.isNotEmpty
+        ? (videoActual['video_id'] ?? '').toString()
+        : '';
+
+    try {
+      final datos = await VideosNinoService.obtener(
+        ninoId: widget.ninoId,
+        padreId: padreId,
+      );
+
+      if (!mounted) return;
+
+      final delCatalogo = List<Map<String, dynamic>>.from(datos.catalogo)
+        ..shuffle();
+      final delPadre = List<Map<String, dynamic>>.from(datos.canalesPadre)
+        ..shuffle();
+      final deYoutubers = List<Map<String, dynamic>>.from(datos.youtubers)
+        ..shuffle();
+
+      final nuevos = VideosNinoService.mezclarConPrioridad(
+        catalogo: delCatalogo,
+        canalesPadre: delPadre,
+        youtubers: deYoutubers,
+      );
+
+      // Sin videos: el padre quitó todas las categorías. Se sale a la
+      // pantalla anterior, que ya sabe explicarlo con sus palabras.
+      if (nuevos.isEmpty) {
+        if (mounted) {
+          controller.pause();
+          Navigator.pop(context);
+        }
+        return;
+      }
+
+      // ── LA DECISIÓN QUE IMPORTA ───────────────────────────────────────
+      //
+      // Si el video que está sonando SIGUE permitido, no se toca: cortarle
+      // un video a la mitad a un niño porque su papá activó una categoría
+      // nueva sería un castigo por algo bueno.
+      //
+      // Si YA NO está permitido, se corta. El padre quitó esa categoría a
+      // propósito, y dejar terminar "solo este" convertiría el control
+      // parental en una sugerencia.
+      final indiceNuevo = idEnPantalla.isEmpty
+          ? -1
+          : nuevos.indexWhere(
+              (v) => (v['video_id'] ?? '').toString() == idEnPantalla,
+            );
+
+      final sigueValiendo = indiceNuevo >= 0;
+
+      setState(() {
+        _videos = nuevos;
+        _catalogoBusquedaBase = [...delCatalogo, ...delPadre];
+        indice = sigueValiendo ? indiceNuevo : 0;
+        reproducirVideoBuscado = false;
+        videoBuscado = null;
+        mostrarSiguiente = false;
+        avanzando = false;
+      });
+
+      if (!sigueValiendo) {
+        // Se cambia el video CON EL MISMO controlador, no creando uno nuevo.
+        //
+        // `iniciarControlador()` construye un YoutubePlayerController y lo
+        // asigna al campo. Llamarlo aquí dejaría el anterior vivo y sin
+        // liberar —una fuga por cada cambio de categoría— y además el
+        // YoutubePlayerBuilder del build seguiría apuntando al viejo, así
+        // que el video ni siquiera cambiaría en pantalla.
+        //
+        // `load()` es lo que ya usa el resto del archivo para pasar de un
+        // video a otro.
+        yaInicio = true;
+        controller.load(idDeIndice(0));
+        _armarVigia();
+      }
+
+      _avisarAlNino(
+        sigueValiendo
+            ? '¡Tienes videos nuevos!'
+            : 'Tus papás cambiaron tus categorías',
+      );
+    } catch (e) {
+      // Un fallo aquí NO puede cortarle los videos al niño: se queda con la
+      // lista que ya tenía y se reintentará al siguiente cambio.
+      debugPrint('recargarPorCambio error: $e');
+    } finally {
+      _recargandoPorCambio = false;
+    }
+  }
+
+  void _avisarAlNino(String texto) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.bgCard,
+        duration: const Duration(seconds: 3),
+        content: Row(
+          children: [
+            const Icon(Icons.auto_awesome_rounded,
+                size: 18, color: AppColors.accentCyan),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                texto,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPearl,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -70,6 +281,9 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
 
   @override
   void dispose() {
+    _vigia?.cancel();
+    _debounce?.cancel();
+    _suscripcionNino?.cancel();
     searchController
       ..removeListener(onSearchChanged)
       ..dispose();
@@ -161,6 +375,49 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     )..addListener(escucharEstado);
   }
 
+  // ═════════════════════════════════════════════════════════════════════
+  // VIDEOS QUE SE QUEDAN PEGADOS
+  //
+  // Antes solo se atendían los códigos 101 y 150 (el dueño desactivó
+  // insertar el video). Los demás dejaban al niño mirando una pantalla
+  // negra para siempre, porque el reproductor nunca llega a `ended` y el
+  // avance automático nunca se dispara:
+  //
+  //   2   → el ID del video no es válido
+  //   5   → falló el reproductor HTML5
+  //   100 → el video se borró, se hizo privado o no existe   ← el más común
+  //   101 · 150 → el dueño no permite insertarlo
+  //
+  // El 100 es el que más se ve: el catálogo se llenó hace semanas y desde
+  // entonces algunos videos se borraron de YouTube. Estaban en la lista,
+  // pero ya no se pueden ver.
+  //
+  // Además hay fallos que NO reportan código: el reproductor se queda
+  // cargando sin decir nada. Para esos está el vigía de abajo.
+  // ═════════════════════════════════════════════════════════════════════
+
+  static const Set<int> _erroresQueNoSeArreglan = {2, 5, 100, 101, 150};
+
+  /// Cuánto se espera a que un video arranque antes de darlo por perdido.
+  ///
+  /// 15 segundos es generoso para una conexión lenta. Y si de verdad
+  /// tardara más, saltarlo sigue siendo mejor: 15 segundos de pantalla
+  /// negra para un niño ya es un video roto, aunque técnicamente fuera a
+  /// cargar en el segundo 20.
+  static const Duration _esperaMaxima = Duration(seconds: 15);
+
+  Timer? _vigia;
+
+  void _armarVigia() {
+    _vigia?.cancel();
+    _vigia = Timer(_esperaMaxima, () {
+      if (!mounted || avanzando) return;
+      debugPrint('Vigía: el video ${idDeIndice(indice)} no arrancó, se salta');
+      avanzando = true;
+      irAlSiguiente();
+    });
+  }
+
   void escucharEstado() {
     if (!mounted) return;
     final v = controller.value;
@@ -170,7 +427,13 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
       Future.microtask(controller.play);
     }
 
-    if ((v.errorCode == 101 || v.errorCode == 150) && !avanzando) {
+    // Empezó a sonar: el vigía ya no hace falta.
+    if (v.playerState == PlayerState.playing) {
+      _vigia?.cancel();
+      _vigia = null;
+    }
+
+    if (_erroresQueNoSeArreglan.contains(v.errorCode) && !avanzando) {
       avanzando = true;
       irAlSiguiente();
       return;
@@ -183,12 +446,27 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
   }
 
   Future<void> irAlSiguiente() async {
-    if (!mounted || _videos.isEmpty) return;
+    _vigia?.cancel();
+
+    // ⚠️ Estos dos `return` tenían una fuga grave: quien llama pone
+    // `avanzando = true` ANTES de invocar este método, así que salir por
+    // aquí sin devolverlo a false dejaba la bandera trabada para siempre...
+    // y con ella trabado el avance automático del resto de la sesión. El
+    // niño terminaba viendo el mismo video una y otra vez sin entender por
+    // qué, y sin forma de salir.
+    if (!mounted || _videos.isEmpty) {
+      avanzando = false;
+      return;
+    }
 
     setState(() => mostrarSiguiente = true);
 
     await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted || _videos.isEmpty) return;
+
+    if (!mounted || _videos.isEmpty) {
+      avanzando = false;
+      return;
+    }
 
     final siguiente = (indice + 1) % _videos.length;
 
@@ -205,7 +483,20 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
     });
 
     controller.load(idDeIndice(siguiente));
+    _armarVigia();
     escogerAnimalAleatorio();
+  }
+
+  /// El botón de "Siguiente" que ve el niño.
+  ///
+  /// Antes NO existía: los únicos botones eran Volver, Canales y Buscar. Si
+  /// un video se quedaba pegado, el niño no tenía absolutamente nada que
+  /// tocar para pasar al siguiente. Los arreglos de arriba hacen que eso casi
+  /// nunca pase; este botón es para el "casi".
+  void saltarVideoManualmente() {
+    if (avanzando || _videos.isEmpty) return;
+    avanzando = true;
+    irAlSiguiente();
   }
 
   void onSearchChanged() {
@@ -349,7 +640,38 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
       }
     }
 
-    final nuevaLista = mapaFinal.values.toList();
+    // ── SE VUELVE A INTERCALAR, NO SE PEGA Y YA ─────────────────────────
+    //
+    // Antes esto devolvía `mapaFinal.values` tal cual: el video actual,
+    // después TODO el catálogo, y los youtubers al final. Con eso, en
+    // cuanto el niño entraba una vez a la galería de youtubers, los
+    // canales que el padre agregó dejaban de tener su 25% garantizado y se
+    // hundían entre cientos de videos del catálogo.
+    //
+    // Es decir: la función de pago se apagaba sola por visitar una
+    // pantalla. Aquí se rearma con la misma mezcla del arranque.
+    final delCatalogo = <Map<String, dynamic>>[];
+    final delPadre = <Map<String, dynamic>>[];
+    final deYoutubers = <Map<String, dynamic>>[];
+
+    for (final v in mapaFinal.values) {
+      switch ((v['origen'] ?? '').toString()) {
+        case 'youtuber':
+          deYoutubers.add(v);
+          break;
+        case 'canal_padre':
+          delPadre.add(v);
+          break;
+        default:
+          delCatalogo.add(v);
+      }
+    }
+
+    final nuevaLista = VideosNinoService.mezclarConPrioridad(
+      catalogo: delCatalogo,
+      canalesPadre: delPadre,
+      youtubers: deYoutubers,
+    );
 
     if (!mounted) return;
 
@@ -482,6 +804,17 @@ class _YoutubeAutoPlayScreenState extends State<YoutubeAutoPlayScreen> {
                                       ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 10),
+                                // La salida de emergencia cuando un video no
+                                // arranca. Va resaltado mientras el video
+                                // está trabado, para que el niño lo vea justo
+                                // cuando lo necesita.
+                                BotonAccion(
+                                  icono: Icons.skip_next_rounded,
+                                  label: 'Siguiente video',
+                                  onTap: saltarVideoManualmente,
+                                  anchoCompleto: true,
                                 ),
                                 const SizedBox(height: 10),
                                 BotonAccion(

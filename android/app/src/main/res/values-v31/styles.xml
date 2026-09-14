@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ANDROID 12 Y SUPERIOR
+
+  Desde Android 12 el sistema dibuja SU PROPIA pantalla de arranque con el
+  ícono de la app, y no se puede quitar: es parte del sistema operativo, no
+  de la app. Cualquier app que instales hace lo mismo.
+
+  Lo que sí se puede es elegir de qué color es el fondo. Antes quedaba negro
+  (lo heredaba del tema oscuro), así que el arranque se veía como dos
+  pantallas: el logo sobre negro y después el azul de Serenity.
+
+  Con el mismo azul en las dos, el ícono aparece sobre el fondo de la app y
+  la transición deja de notarse.
+-->
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
+    </style>
+
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+</resources>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../servicces/firestore_service.dart';
 import '../servicces/youtube_service.dart';
+import '../utils/mensajes_error.dart';
 
 class ContentProvider extends ChangeNotifier {
   // ── SELECCIÓN DE CATEGORÍAS (ContentSelectionScreen) ─────────────────────
@@ -38,7 +39,7 @@ class ContentProvider extends ChangeNotifier {
     } catch (e) {
       isSaving = false;
       notifyListeners();
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -58,6 +59,11 @@ class ContentProvider extends ChangeNotifier {
   }
 
   // ── YOUTUBE (ChildYoutubeScreen) ──────────────────────────────────────────
+  //
+  // ⚠️ CÓDIGO MUERTO: `cargarCategoriasYoutube()` no la llama nadie. La
+  // pantalla del niño arma sus videos con VideosNinoService. Se mantiene
+  // compilando —por eso lleva `ninoId`— pero si alguien la revive, ojo:
+  // duplica lógica que ya vive en VideosNinoService.
   List<Map<String, dynamic>> categoriasYoutube = [];
   List<Map<String, dynamic>> videos = [];
   String? categoriaSeleccionada;
@@ -80,10 +86,12 @@ class ContentProvider extends ChangeNotifier {
           cats[0]['id'].toString(),
           cats[0]['nombre'].toString(),
           padreId,
+          ninoId,
         );
       }
     } catch (e) {
-      errorYoutube = 'Error al cargar categorías: $e';
+      errorYoutube = MensajesError.para(e,
+          respaldo: 'No pudimos cargar las categorías.');
       loadingCategorias = false;
       notifyListeners();
     }
@@ -93,20 +101,21 @@ class ContentProvider extends ChangeNotifier {
     String idCategoria,
     String nombreCategoria,
     String padreId,
+    String ninoId,
   ) async {
     categoriaSeleccionada = nombreCategoria;
     loadingVideos = true;
     videos = [];
     notifyListeners();
     try {
-      videos = await _obtenerVideos(idCategoria, padreId);
+      videos = await _obtenerVideos(idCategoria, padreId, ninoId);
     } catch (_) {}
     loadingVideos = false;
     notifyListeners();
   }
 
   Future<List<Map<String, dynamic>>> _obtenerVideos(
-      String catId, String padreId) async {
+      String catId, String padreId, String ninoId) async {
     final List<Map<String, dynamic>> todos = [];
 
     // ✅ FIX: el canal por defecto y los canales custom del padre ahora usan
@@ -121,7 +130,7 @@ class ContentProvider extends ChangeNotifier {
     }
 
     final customs =
-        await FirestoreService.obtenerCanalesCustom(padreId, catId);
+        await FirestoreService.obtenerCanalesCustom(padreId, ninoId, catId);
     for (final c in customs) {
       // ✅ FIX: se quitó el cast duro `as String`, igual que en
       // ChannelManagementScreen, para no lanzar TypeError si un documento

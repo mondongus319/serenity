@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../servicces/firestore_service.dart';
+import '../../utils/catalogo_categorias.dart';
+import '../../widgets/common/dialogo_premium.dart';
 import '../../widgets/parent/parent_verification_body.dart';
+import '../../utils/mensajes_error.dart';
 
 class ParentVerificationScreen extends StatefulWidget {
   final String email;
@@ -258,6 +261,15 @@ class _ParentVerificationScreenState
         );
         if (!mounted) return;
         Navigator.pop(context);
+      } else if (resultado['necesitaPremium'] == true) {
+        // No es un error del papá: llegó al tope del plan gratis. Se le
+        // muestra la oferta, no una alerta roja de fallo. La diferencia
+        // importa: un error rojo dice "hiciste algo mal", y no lo hizo.
+        await mostrarDialogoPremium(
+          context,
+          motivo:
+              'Agrega hasta ${CatalogoCategorias.maxHijosPremium} hijos',
+        );
       } else {
         await _mostrarDialogoMensaje(
           icono: Icons.error_outline_rounded,
@@ -273,7 +285,7 @@ class _ParentVerificationScreenState
         icono: Icons.error_outline_rounded,
         colorIcono: Colors.redAccent,
         titulo: 'Error inesperado',
-        mensaje: 'Error: $e',
+        mensaje: MensajesError.para(e),
       );
     }
   }

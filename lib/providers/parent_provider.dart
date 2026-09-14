@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../servicces/auth_service.dart';
 import '../servicces/firestore_service.dart';
+import '../utils/mensajes_error.dart';
 
 class ParentProvider extends ChangeNotifier {
   final AuthService authService = AuthService();
@@ -120,7 +121,7 @@ class ParentProvider extends ChangeNotifier {
     } catch (e) {
       isSaving = false;
       notifyListeners();
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -168,7 +169,7 @@ class ParentProvider extends ChangeNotifier {
         password: passwordActual,
       );
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -207,7 +208,7 @@ class ParentProvider extends ChangeNotifier {
         'message': 'Cuenta eliminada correctamente',
       };
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -217,7 +218,7 @@ class ParentProvider extends ChangeNotifier {
           .timeout(const Duration(seconds: 10));
       return {'success': true};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 

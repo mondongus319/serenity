@@ -236,7 +236,7 @@ class LocationService {
             Text('GPS Desactivado'),
           ]),
           content: const Text(
-            'Para continuar, debes activar el GPS de tu dispositivo.',
+            'Activa el GPS para que tus papás puedan ver dónde estás.',
             style: TextStyle(fontSize: 16),
           ),
           actions: [
@@ -268,7 +268,8 @@ class LocationService {
             Expanded(child: Text('Permiso Requerido')),
           ]),
           content: const Text(
-            'Serenity necesita acceso a tu ubicación para funcionar correctamente.',
+            'Serenity le muestra a tus papás dónde estás mientras usas la '
+            'app. Por eso necesita el permiso de ubicación.',
             style: TextStyle(fontSize: 16),
           ),
           actions: [

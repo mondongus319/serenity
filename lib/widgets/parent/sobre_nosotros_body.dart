@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
+import '../common/serenity_header.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -139,42 +140,9 @@ class SobreNosotrosBody extends StatelessWidget {
 class _SobreHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.accentCyan.withOpacity(0.15),
-                  blurRadius: 20,
-                  spreadRadius: 3,
-                ),
-              ],
-            ),
-            child: Image.asset(
-              'assets/images/logo.png',
-              width: 46,
-              height: 46,
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            'SERENTY',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textMuted,
-              letterSpacing: 2.0,
-            ),
-          ),
-        ],
-      ),
-    );
+    // Antes esta era la única con el logo AL LADO del texto y a 16px,
+    // el doble de grande que las demás. Ahora usa el mismo encabezado.
+    return const SerenityHeader();
   }
 }
 

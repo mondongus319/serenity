@@ -463,15 +463,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  // ── SELECTOR DE FECHA DE NACIMIENTO ──────────────────────────────────────
+  //
+  // POR QUÉ SE SENTÍA TRABADO
+  //
+  // No estaba trabado: estaba mal configurado y obligaba a un recorrido
+  // absurdo. Se abría en el **calendario de días** sobre enero de 2000, y
+  // para llegar a su año de nacimiento el usuario tenía que tocar el año,
+  // desplazarse por una cuadrícula de **125 años** (1900 en adelante), y
+  // recién ahí elegir mes y día. Eso, con el teclado todavía abierto
+  // peleándose con el diálogo, se siente como si la app se hubiera colgado.
+  //
+  // Tres arreglos:
+  //
+  //   1. Cierra el teclado ANTES de abrir el diálogo. Abrir un diálogo
+  //      mientras el teclado se está bajando produce dos animaciones
+  //      encimadas, que es de donde venía la sensación de tirones.
+  //
+  //   2. Abre directo en el selector de AÑO. Para una fecha de nacimiento el
+  //      año es lo primero que uno sabe; el día es lo último. El calendario
+  //      de días arriba de todo estaba invirtiendo el orden natural.
+  //
+  //   3. El rango arranca en 1925 y no en 1900. Nadie que se registre en una
+  //      app de control parental nació hace más de un siglo, y cada década
+  //      de más es puro desplazamiento inútil.
+
+  static const int _anioMasAntiguo = 1925;
+
   Future<void> seleccionarFecha() async {
-    DateTime? fechaSeleccionada = await showDatePicker(
+    // Ver punto 1 del comentario de arriba.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+
+    final hoy = DateTime.now();
+
+    // Si ya había una fecha escrita se vuelve a abrir en ella, para que
+    // corregir un dedazo no obligue a buscar el año otra vez desde cero.
+    final DateTime inicial = _fechaEscritaONull() ?? DateTime(hoy.year - 30);
+
+    final DateTime? fechaSeleccionada = await showDatePicker(
       context: context,
-      initialDate: DateTime(2000),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
+      initialDate: inicial,
+      firstDate: DateTime(_anioMasAntiguo),
+      lastDate: hoy,
+      // Ver punto 2.
+      initialDatePickerMode: DatePickerMode.year,
+      helpText: 'Tu fecha de nacimiento',
+      cancelText: 'Cancelar',
+      confirmText: 'Listo',
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.dark(
+          // Antes era `ColorScheme.dark` fijo, así que en modo claro el
+          // calendario salía oscuro y desentonaba con el resto de la app.
+          colorScheme: (AppColors.modoOscuro
+                  ? const ColorScheme.dark()
+                  : const ColorScheme.light())
+              .copyWith(
             primary: AppColors.accentCyan,
             onPrimary: Colors.white,
             secondary: AppColors.accentViolet,
@@ -494,7 +542,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
           '${fechaSeleccionada.day.toString().padLeft(2, '0')}/'
           '${fechaSeleccionada.month.toString().padLeft(2, '0')}/'
           '${fechaSeleccionada.year}';
+      if (mounted) setState(() {});
     }
+  }
+
+  /// Relee lo que ya está en el campo, en formato dd/MM/yyyy.
+  ///
+  /// Devuelve null ante cualquier cosa rara en vez de reventar: el campo es
+  /// de solo lectura, pero un valor viejo o corrupto no puede impedir que se
+  /// abra el calendario.
+  DateTime? _fechaEscritaONull() {
+    final partes = fechaNacimientoController.text.trim().split('/');
+    if (partes.length != 3) return null;
+    final d = int.tryParse(partes[0]);
+    final m = int.tryParse(partes[1]);
+    final a = int.tryParse(partes[2]);
+    if (d == null || m == null || a == null) return null;
+    if (a < _anioMasAntiguo || a > DateTime.now().year) return null;
+    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+
+    final fecha = DateTime(a, m, d);
+    // DateTime(2025, 2, 31) no falla: se corre al 3 de marzo. Si la fecha
+    // reconstruida no coincide con lo escrito, el dato no era válido.
+    if (fecha.day != d || fecha.month != m || fecha.year != a) return null;
+    if (fecha.isAfter(DateTime.now())) return null;
+    return fecha;
   }
 
   @override

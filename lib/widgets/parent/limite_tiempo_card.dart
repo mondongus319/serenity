@@ -9,7 +9,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../servicces/firestore_service.dart';
 import '../../servicces/limite_tiempo_service.dart';
+import '../../servicces/premium_service.dart';
 import '../../utils/app_colors.dart';
+import '../common/dialogo_premium.dart';
 
 /// Tarjeta que ve el padre dentro del perfil de su hijo.
 ///
@@ -76,45 +78,191 @@ class _LimiteTiempoCardState extends State<LimiteTiempoCard> {
 
         final data = snap.data!.data() as Map<String, dynamic>? ?? {};
 
-        final limiteActivo = data['limite_activo'] == true;
-        final limiteMinutos = (data['limite_minutos'] as num?)?.toInt();
-        final sesionActiva = data['sesion_activa'] == true;
-        final ultimoLatido = data['ultimo_latido'] as Timestamp?;
-
-        // El consumo solo cuenta si corresponde al día de hoy. Así, si el
-        // niño no ha abierto la app desde ayer, el padre ve la cuota llena
-        // sin tener que esperar a que el dispositivo reporte el reinicio.
-        final fechaGuardada = data['limite_fecha'] as String?;
-        final esDeHoy = !LimiteTiempoService.debeReiniciarse(fechaGuardada);
-        final consumido =
-            esDeHoy ? ((data['consumido_segundos'] as num?)?.toInt() ?? 0) : 0;
-
-        if (!limiteActivo) {
-          return _Contenedor(child: _sinLimite(consumido, esDeHoy));
-        }
-
-        final restante = LimiteTiempoService.restanteSegundos(
-          limiteActivo: limiteActivo,
-          limiteMinutos: limiteMinutos,
-          consumidoSegundos: consumido,
-          sesionActiva: sesionActiva && esDeHoy,
-          segundosDesdeUltimoLatido:
-              _segundosDesdeLatido(ultimoLatido, sesionActiva && esDeHoy),
-        );
-
-        return _Contenedor(
-          child: _conLimite(
-            restante: restante ?? 0,
-            limiteMinutos: limiteMinutos ?? 0,
-            consumido: consumido,
-            sesionActiva: sesionActiva && esDeHoy,
-          ),
+        // El control de tiempo es Premium. La tarjeta NO se esconde: se
+        // muestra con candado, para que el padre entienda qué obtiene si
+        // paga. Esconderla haría que crea que la app no tiene la función.
+        final padreId = data['id_padre']?.toString() ?? '';
+        return StreamBuilder<bool>(
+          stream: PremiumService.stream(padreId),
+          builder: (context, planSnap) {
+            // Mientras no se sepa, se asume gratis: nunca mostrar el control
+            // desbloqueado por un instante a quien no ha pagado.
+            final esPremium = planSnap.data == true;
+            if (!esPremium) {
+              return _Contenedor(child: _bloqueadoPorPlan());
+            }
+            return _conPlanActivo(data);
+          },
         );
       },
     );
   }
 
+  /// El contenido real de la tarjeta, ya con el plan confirmado.
+  Widget _conPlanActivo(Map<String, dynamic> data) {
+    final limiteActivo = data['limite_activo'] == true;
+    final limiteMinutos = (data['limite_minutos'] as num?)?.toInt();
+    final sesionActiva = data['sesion_activa'] == true;
+    final ultimoLatido = data['ultimo_latido'] as Timestamp?;
+
+    // El consumo solo cuenta si corresponde al día de hoy. Así, si el
+    // niño no ha abierto la app desde ayer, el padre ve la cuota llena
+    // sin tener que esperar a que el dispositivo reporte el reinicio.
+    final fechaGuardada = data['limite_fecha'] as String?;
+    final esDeHoy = !LimiteTiempoService.debeReiniciarse(fechaGuardada);
+    final consumido =
+        esDeHoy ? ((data['consumido_segundos'] as num?)?.toInt() ?? 0) : 0;
+
+    if (!limiteActivo) {
+      return _Contenedor(child: _sinLimite(consumido, esDeHoy));
+    }
+
+    final restante = LimiteTiempoService.restanteSegundos(
+      limiteActivo: limiteActivo,
+      limiteMinutos: limiteMinutos,
+      consumidoSegundos: consumido,
+      sesionActiva: sesionActiva && esDeHoy,
+      segundosDesdeUltimoLatido:
+          _segundosDesdeLatido(ultimoLatido, sesionActiva && esDeHoy),
+    );
+
+    return _Contenedor(
+      child: _conLimite(
+        restante: restante ?? 0,
+        limiteMinutos: limiteMinutos ?? 0,
+        consumido: consumido,
+        sesionActiva: sesionActiva && esDeHoy,
+      ),
+    );
+  }
+
   // ── ESTADOS ───────────────────────────────────────────────────────────────
+
+  /// Lo que ve un padre del plan gratis.
+  ///
+  /// Muestra la función, no la esconde. Un candado sobre algo que se entiende
+  /// convierte; una función invisible solo hace creer que la app no la tiene.
+  Widget _bloqueadoPorPlan() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [AppColors.accentViolet, AppColors.accentCyan],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: const Icon(Icons.lock_rounded,
+                    size: 16, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Control de tiempo',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPearl,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    colors: [AppColors.accentViolet, AppColors.accentCyan],
+                  ),
+                ),
+                child: Text(
+                  'PREMIUM',
+                  style: GoogleFonts.poppins(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          Text(
+            'Decide cuánto tiempo\nal día usa ${widget.nombreNino}',
+            style: GoogleFonts.poppins(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPearl,
+              height: 1.3,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          ...[
+            'Límite diario de 15 minutos a 4 horas',
+            'Contador en vivo mientras ve videos',
+            'Te avisamos cuando le quede poco',
+            'La app se cierra sola al terminar',
+          ].map(
+            (linea) => Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check_rounded,
+                      size: 15, color: AppColors.accentCyan),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      linea,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _mostrarPremium,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accentViolet,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              child: Text(
+                'Ver planes',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
 
   Widget _cargando() => Row(
         children: [
@@ -364,12 +512,25 @@ class _LimiteTiempoCardState extends State<LimiteTiempoCard> {
     // ¿Viene de "sin límite" o está cambiando uno que ya existía?
     //
     // Esta distinción es la que evita un bug feo: el tiempo gastado mientras
-    // el niño estaba SIN límite no debe descontarse de un límite puesto
-    // después. Poner un límite por primera vez arranca de cero; cambiar uno
-    // que ya existía conserva lo consumido (que es justo lo que permite
-    // recortar la sesión poniendo un límite bajo).
-    final esNuevoLimite = limiteActual == null;
-    final consumidoParaCalculo = esNuevoLimite ? 0 : consumidoActual;
+    // ── EL CONTADOR SIEMPRE ARRANCA DE CERO ─────────────────────────
+    //
+    // Antes solo se reiniciaba al poner un límite POR PRIMERA VEZ; cambiar
+    // uno existente conservaba lo consumido, porque el modelo mental era
+    // "este es el total del día".
+    //
+    // Ese modelo confundía justo cuando más importa. El caso real: al niño
+    // le queda 1 minuto, el papá entra a cambiar el límite y elige 15... y
+    // el niño se queda igual de bloqueado, porque ya llevaba 59 de los 60
+    // y 15 es menos que eso. El papá acababa de darle tiempo y la app
+    // seguía diciéndole que no.
+    //
+    // Ahora el gesto significa lo que parece: **"a partir de ahora, tanto
+    // tiempo"**. Se elige 15 y el contador dice 15.
+    //
+    // Los dos gestos quedan bien separados:
+    //   · "Cambiar tiempo" → reinicia el contador con el valor elegido
+    //   · "+15 minutos"    → suma al total del día, sin reiniciar nada
+    const consumidoParaCalculo = 0;
 
     final elegido = await showDialog<int>(
       context: context,
@@ -409,13 +570,9 @@ class _LimiteTiempoCardState extends State<LimiteTiempoCard> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      esNuevoLimite
-                          ? (consumidoActual > 0
-                              ? 'Hoy lleva ${LimiteTiempoService.formatoReloj(consumidoActual)} sin límite · el nuevo empieza de cero'
-                              : 'Hoy todavía no ha usado la app')
-                          : (consumidoActual > 0
-                              ? 'Hoy lleva ${LimiteTiempoService.formatoReloj(consumidoActual)} de uso'
-                              : 'Hoy todavía no ha usado la app'),
+                      consumidoActual > 0
+                          ? 'Hoy lleva ${LimiteTiempoService.formatoReloj(consumidoActual)} de uso · el contador empieza de nuevo'
+                          : 'Hoy todavía no ha usado la app',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 12,
@@ -567,11 +724,13 @@ class _LimiteTiempoCardState extends State<LimiteTiempoCard> {
       ninoId: widget.ninoId,
       limiteMinutos: elegido,
       fechaHoy: LimiteTiempoService.fechaDeHoy(),
-      // Un límite nuevo arranca el contador de cero; cambiar uno existente
-      // conserva lo que ya llevaba consumido.
-      reiniciarConsumo: esNuevoLimite,
+      // Siempre de cero: ver la nota larga arriba.
+      reiniciarConsumo: true,
     );
-    _avisar('Límite actualizado a ${LimiteTiempoService.etiquetaMinutos(elegido)}');
+    _avisar(
+      '${widget.nombreNino} tiene '
+      '${LimiteTiempoService.etiquetaMinutos(elegido)} desde ahora',
+    );
   }
 
   /// El gesto de "déjalo un ratito más": suma al total del día.
@@ -593,6 +752,21 @@ class _LimiteTiempoCardState extends State<LimiteTiempoCard> {
       fechaHoy: LimiteTiempoService.fechaDeHoy(),
     );
     _avisar('${widget.nombreNino} vuelve a tener tiempo ilimitado');
+  }
+
+  /// Punto único donde se abrirá la pantalla de compra.
+  ///
+  /// Todavía no existe: falta integrar Play Billing, y eso no se puede hacer
+  /// hasta haber subido a Play Console un bundle que ya incluya la librería.
+  /// El diálogo vive en `widgets/common/dialogo_premium.dart` y lo comparten
+  /// todas las compuertas, para no tener que cazar copias cuando cambie el
+  /// precio o el discurso.
+  Future<void> _mostrarPremium() async {
+    if (!mounted) return;
+    await mostrarDialogoPremium(
+      context,
+      motivo: 'Controla cuánto tiempo al día\nusa la app ${widget.nombreNino}',
+    );
   }
 
   void _avisar(String mensaje) {

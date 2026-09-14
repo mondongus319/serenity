@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../servicces/auth_service.dart';
 import '../../servicces/firestore_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/mensajes_error.dart';
 
 class CambiarCorreoScreen extends StatefulWidget {
   final String userId;
@@ -175,7 +176,8 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
       setState(() => isLoading = false);
       await _mostrarDialogoMensaje(
         titulo: 'Error inesperado',
-        mensaje: 'Error: $e',
+        mensaje: MensajesError.para(e,
+            respaldo: 'No pudimos cambiar tu correo.'),
         icono: Icons.error_outline_rounded,
         colorIcono: Colors.redAccent,
       );
@@ -234,7 +236,8 @@ class _CambiarCorreoScreenState extends State<CambiarCorreoScreen> {
       setState(() => verificando = false);
       await _mostrarDialogoMensaje(
         titulo: 'Error inesperado',
-        mensaje: 'Error: $e',
+        mensaje: MensajesError.para(e,
+            respaldo: 'No pudimos cambiar tu correo.'),
         icono: Icons.error_outline_rounded,
         colorIcono: Colors.redAccent,
       );

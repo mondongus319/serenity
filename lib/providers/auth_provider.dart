@@ -4,6 +4,7 @@ import '../servicces/auth_service.dart';
 import '../servicces/firestore_service.dart';
 import '../servicces/device_id_service.dart';
 import '../servicces/notification_service.dart';
+import '../utils/mensajes_error.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -67,9 +68,9 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       isLoading = false;
-      errorMessage = e.toString();
+      errorMessage = MensajesError.para(e);
       notifyListeners();
-      return {'success': false, 'message': 'Error de conexión: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -139,9 +140,9 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       isLoadingGoogle = false;
-      errorMessage = e.toString();
+      errorMessage = MensajesError.para(e);
       notifyListeners();
-      return {'success': false, 'message': 'Error inesperado: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -190,9 +191,9 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       isLoadingGoogle = false;
-      errorMessage = e.toString();
+      errorMessage = MensajesError.para(e);
       notifyListeners();
-      return {'success': false, 'message': 'Error de conexión: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -216,9 +217,9 @@ class AuthProvider extends ChangeNotifier {
       return resultado;
     } catch (e) {
       isSettingPassword = false;
-      errorMessage = e.toString();
+      errorMessage = MensajesError.para(e);
       notifyListeners();
-      return {'success': false, 'message': 'Error de conexión: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -305,9 +306,9 @@ class AuthProvider extends ChangeNotifier {
       return resultado;
     } catch (e) {
       isLoading = false;
-      errorMessage = e.toString();
+      errorMessage = MensajesError.para(e);
       notifyListeners();
-      return {'success': false, 'message': 'Error de conexión: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 
@@ -344,9 +345,9 @@ class AuthProvider extends ChangeNotifier {
       return resultado;
     } catch (e) {
       isLoading = false;
-      errorMessage = e.toString();
+      errorMessage = MensajesError.para(e);
       notifyListeners();
-      return {'success': false, 'message': 'Error de conexión: $e'};
+      return {'success': false, 'message': MensajesError.para(e)};
     }
   }
 

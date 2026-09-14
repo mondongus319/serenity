@@ -4,9 +4,7 @@ import 'package:flutter/services.dart' show rootBundle, AssetManifest;
 import 'package:serenity_app/screens/child/children_list_screen.dart';
 import '/servicces/firestore_service.dart';
 import '/servicces/device_id_service.dart';
-import '/servicces/location_service.dart';
 import '/servicces/notification_service.dart';
-import 'package:geolocator/geolocator.dart';
 import '/screens/parent/parent_main_screen.dart';
 import '../../widgets/auth/role_selection_body.dart';
 import '../../utils/app_colors.dart';
@@ -190,31 +188,24 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
         debugPrint('guardarSesion error: $e');
       }
 
-      if (!mounted) return;
-
-      final Position? position =
-          await LocationService.obtenerUbicacionObligatoria(context);
-
-      if (position == null) {
-        if (!mounted) return;
-        await _mostrarDialogoMensaje(
-          icono: Icons.location_off_outlined,
-          colorIcono: Colors.redAccent,
-          titulo: 'Ubicación requerida',
-          mensaje: 'No puedes continuar sin conceder permisos de ubicación',
-        );
-        return;
-      }
-
-      try {
-        await FirestoreService.guardarUbicacionPadre(
-          widget.userId,
-          position.latitude,
-          position.longitude,
-        );
-      } catch (e) {
-        debugPrint('guardarUbicacionPadre error: $e');
-      }
+      // ── AQUÍ ANTES SE EXIGÍA LA UBICACIÓN DEL PADRE ────────────────────
+      //
+      // Se quitó, y por dos razones distintas:
+      //
+      // 1. Las coordenadas del padre se guardaban en `padres/{id}` y NINGUNA
+      //    pantalla las mostraba jamás. Recoger datos de localización sin una
+      //    función visible que los use va contra la política de Google Play.
+      //
+      // 2. Bloquear el ingreso a quien negara el permiso hacía la app
+      //    inutilizable por una autorización que no es esencial para lo que
+      //    la app hace. Eso también es motivo de rechazo en revisión.
+      //
+      // La ubicación que sí importa —y sí se muestra, en la tarjeta del
+      // perfil del hijo— es la del NIÑO. Esa se sigue pidiendo, y se pide
+      // donde tiene sentido: al entrar al perfil del niño.
+      //
+      // No borrar los campos `latitud`/`longitud` que ya estén en `padres`:
+      // eso es una migración aparte, no un cambio de pantalla.
 
       if (!mounted) return;
 

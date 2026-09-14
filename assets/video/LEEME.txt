@@ -1,0 +1,46 @@
+intro.mp4 — video de bienvenida (se ve una sola vez, en la primera apertura)
+
+QUÉ SE LE HIZO AL ARCHIVO ORIGINAL
+──────────────────────────────────
+
+1. SE LE QUITARON LAS FRANJAS NEGRAS
+
+   El original era 1080x1920 (vertical completo), pero la imagen real solo
+   ocupaba 1080x868 en el centro: el 55% del video eran franjas negras
+   pegadas al archivo.
+
+   Eso pesaba en dos sentidos. Se estaban comprimiendo y guardando pixeles
+   negros, y en pantalla la imagen se veía como una banda pequeña metida
+   dentro de un rectángulo negro, encima del letterbox que ya agrega el
+   teléfono. Recortadas, la app dibuja el video sobre su propio fondo azul y
+   se ve como una tarjeta centrada, no como un error.
+
+2. SE RECOMPRIMIÓ
+
+       original   7.31 MB   (6.8 Mbps, muchísimo para 9 segundos)
+       ahora      1.34 MB   (-82%)
+
+   H.264 perfil Main, CRF 23, preset slow, yuv420p, audio AAC 128 kbps.
+   Se comparó el texto de los subtítulos cuadro a cuadro contra el original
+   y no se nota diferencia; CRF 26 bajaba a 0.99 MB pero empezaba a
+   ensuciar los bordes de las letras.
+
+   Esos 6 MB de menos los descarga CADA persona que instale la app.
+
+SI ALGÚN DÍA SE CAMBIA EL VIDEO
+───────────────────────────────
+
+  · MP4 con video H.264 y audio AAC. NO H.265/HEVC: se ve en teléfonos
+    nuevos y falla en los de gama baja.
+  · Sin franjas negras pegadas. La app pone su propio fondo.
+  · Que se entienda SIN sonido. Este lo cumple: lleva los subtítulos
+    quemados en la imagen.
+  · El nombre tiene que seguir siendo intro.mp4 (ver _ruta en
+    lib/screens/auth/intro_video_screen.dart).
+
+Comando usado:
+
+  ffmpeg -i original.mp4 -vf "crop=1080:868:0:508" \
+    -c:v libx264 -profile:v main -level 4.0 -pix_fmt yuv420p \
+    -crf 23 -preset slow -c:a aac -b:a 128k -ac 2 \
+    -movflags +faststart intro.mp4

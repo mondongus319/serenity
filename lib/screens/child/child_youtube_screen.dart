@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../servicces/firestore_service.dart';
-import '../../servicces/youtube_service.dart';
+import '../../servicces/videos_nino_service.dart';
 import '../../utils/app_colors.dart';
 import 'youtube_auto_play_screen.dart';
+import '../../utils/mensajes_error.dart';
 
 class ChildYoutubeScreen extends StatefulWidget {
   final String idNino;
@@ -26,10 +30,58 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
   String? error;
   bool cargando = false;
 
+  // Escucha los cambios que hace el padre mientras el niño está en esta
+  // pantalla. El caso real: el niño abre la app antes de que su papá le haya
+  // configurado las categorías, ve el mensaje de "pídele que lo haga", el
+  // papá las configura desde su teléfono... y sin esto el niño tendría que
+  // adivinar que hay que salir y volver a entrar.
+  StreamSubscription<DocumentSnapshot>? _suscripcionNino;
+  String? _huellaCargada;
+
   @override
   void initState() {
     super.initState();
     cargarYLanzar();
+    _escucharCambiosDelPadre();
+  }
+
+  @override
+  void dispose() {
+    _suscripcionNino?.cancel();
+    super.dispose();
+  }
+
+  void _escucharCambiosDelPadre() {
+    _suscripcionNino =
+        FirestoreService.streamNino(widget.idNino).listen((doc) {
+      if (!doc.exists || !mounted) return;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+
+      // Mismo cuidado que en la pantalla del reproductor: el documento del
+      // niño se escribe cada minuto por el consumo de tiempo y cada diez por
+      // la ubicación. Si se reaccionara a cada notificación, esto reintentaría
+      // sin parar. Solo cuentan estos dos campos.
+      final cat = (data['categorias_permitidas'] as List?)
+              ?.map((e) => e.toString())
+              .toList()
+            ?..sort();
+      final you = (data['youtubers_seleccionados'] as List?)
+              ?.map((e) => e.toString())
+              .toList()
+            ?..sort();
+      final huella = '${cat?.join(',') ?? ''}|${you?.join(',') ?? ''}';
+
+      if (_huellaCargada == null) {
+        _huellaCargada = huella;
+        return;
+      }
+      if (huella == _huellaCargada) return;
+      _huellaCargada = huella;
+
+      // Solo reintenta si el niño está parado en el error. Si ya está viendo
+      // videos, de esto se encarga el reproductor sin sacarlo de ahí.
+      if (error != null && !cargando) cargarYLanzar();
+    });
   }
 
   Future<void> cargarYLanzar() async {
@@ -44,22 +96,17 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
     }
 
     try {
-      setEstado('Calculando tu edad...');
-      final datoNino = await FirestoreService.obtenerNino(widget.idNino);
-
-      final fechaNac =
-          (datoNino?['fecha_nacimiento'] as String?)?.trim() ?? '';
-
-      final rangoEdad = fechaNac.isNotEmpty
-          ? (FirestoreService.calcularRangoEdad(fechaNac) ?? '3-5')
-          : '3-5';
-
-      setEstado('Cargando categorías...');
-      final categorias = await FirestoreService.obtenerCategoriasNino(
-        widget.idNino,
+      // ✅ El armado de la lista ya no vive aquí: lo hace
+      // VideosNinoService, el mismo servicio que usa la vista previa del
+      // padre. Si las dos pantallas armaran la lista por separado, al padre
+      // se le mostraría algo distinto de lo que ve su hijo.
+      final datos = await VideosNinoService.obtener(
+        ninoId: widget.idNino,
+        padreId: widget.padreId,
+        onProgreso: setEstado,
       );
 
-      if (categorias.isEmpty) {
+      if (datos.categorias.isEmpty) {
         setError(
           'Tu papá/mamá todavía no ha configurado categorías para ti. Pídele que lo haga.',
         );
@@ -67,105 +114,14 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         return;
       }
 
-      final categoriasIdsNino = categorias
-          .map((c) => c['id']?.toString() ?? '')
-          .where((id) => id.isNotEmpty)
-          .toSet();
+      // Los tres orígenes van por separado: los canales que agregó el padre
+      // tienen cuota propia en el orden de reproducción, no se revuelven con
+      // el catálogo. Es una función de pago y tiene que notarse.
+      final delCatalogo = List<Map<String, dynamic>>.from(datos.catalogo);
+      final delPadre = List<Map<String, dynamic>>.from(datos.canalesPadre);
+      final deYoutubers = List<Map<String, dynamic>>.from(datos.youtubers);
 
-      setEstado('Buscando videos para ti...');
-      final Map<String, Map<String, dynamic>> catalogoMap = {};
-
-      for (final cat in categorias) {
-        final catId = cat['id']?.toString() ?? '';
-        if (catId.isEmpty) continue;
-
-        final videos = await FirestoreService.obtenerVideosCatalogo(
-          categoriaId: catId,
-          rangoEdad: rangoEdad,
-        );
-
-        for (final v in videos) {
-          final vid = (v['video_id'] ?? '').toString();
-          if (vid.isNotEmpty) {
-            catalogoMap[vid] = Map<String, dynamic>.from(v);
-          }
-        }
-      }
-
-      final Map<String, Map<String, dynamic>> canalesPadreMap = {};
-      final Map<String, Map<String, dynamic>> extrasMap = {};
-
-      setEstado('Cargando youtubers seleccionados...');
-      final youtubersIds = await FirestoreService.obtenerYoutubersNino(
-        widget.idNino,
-      );
-
-      if (youtubersIds.isNotEmpty) {
-        final videosYoutubers = await FirestoreService.obtenerVideosYoutubers(
-          youtubersIds,
-        );
-
-        for (final v in videosYoutubers) {
-          final vid = (v['video_id'] ?? '').toString();
-          if (vid.isEmpty) continue;
-
-          if (!catalogoMap.containsKey(vid) && !extrasMap.containsKey(vid)) {
-            final video = Map<String, dynamic>.from(v);
-            video['origen'] = 'youtuber';
-            extrasMap[vid] = video;
-          }
-        }
-      }
-
-      setEstado('Cargando canales agregados por tu papá/mamá...');
-      final todosCanalesCustom =
-          await FirestoreService.obtenerTodosCanalesCustom(widget.padreId);
-
-      final canalesCustomDelPadre = todosCanalesCustom.where((c) {
-        final catId = (c['id_categoria'] ?? '').toString();
-        return categoriasIdsNino.contains(catId);
-      }).toList();
-
-      for (final canal in canalesCustomDelPadre) {
-        final channelUrl = (canal['channel_url'] ?? '').toString().trim();
-        if (channelUrl.isEmpty) continue;
-
-        try {
-          final videosCustom = await YoutubeService.obtenerVideosDeCanal(
-            channelUrl,
-            maxVideos: 100,
-          );
-
-          for (final v in videosCustom) {
-            final vid = (v['video_id'] ?? '').toString();
-            if (vid.isEmpty) continue;
-
-            if (!catalogoMap.containsKey(vid) &&
-                !extrasMap.containsKey(vid) &&
-                !canalesPadreMap.containsKey(vid)) {
-              final video = Map<String, dynamic>.from(v);
-
-              video['categoria'] =
-                  canal['nombre_canal']?.toString().trim().isNotEmpty == true
-                      ? canal['nombre_canal'].toString().trim()
-                      : 'Canal agregado';
-
-              video['origen'] = 'canal_padre';
-              canalesPadreMap[vid] = video;
-            }
-          }
-        } catch (_) {}
-      }
-
-      final Map<String, Map<String, dynamic>> catalogoExtendidoMap = {
-        ...catalogoMap,
-        ...canalesPadreMap,
-      };
-
-      final catalogo = catalogoExtendidoMap.values.toList();
-      final extras = extrasMap.values.toList();
-
-      if (catalogo.isEmpty && extras.isEmpty) {
+      if (delCatalogo.isEmpty && delPadre.isEmpty && deYoutubers.isEmpty) {
         setError(
           'Aún no hay videos disponibles para tus categorías. Vuelve más tarde.',
         );
@@ -173,12 +129,24 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         return;
       }
 
-      catalogo.shuffle();
-      extras.shuffle();
+      // Se revuelve dentro de cada origen para que el orden cambie en cada
+      // sesión, pero las proporciones entre orígenes se mantienen.
+      delCatalogo.shuffle();
+      delPadre.shuffle();
+      deYoutubers.shuffle();
 
-      final todos = mezclarVideos3x1(
-        catalogo: catalogo,
-        extras: extras,
+      // ── EL BUSCADOR TIENE QUE VER LO MISMO QUE EL REPRODUCTOR ───────
+      //
+      // Antes esta lista era solo `[...delCatalogo, ...delPadre]`, sin los
+      // youtubers. O sea que un niño podía estar viendo un video de un
+      // youtuber, escribir su nombre en el buscador y no encontrar nada.
+      // Peor: son justo los que él mismo eligió, los que más va a buscar.
+      final catalogo = [...delCatalogo, ...delPadre, ...deYoutubers];
+
+      final todos = VideosNinoService.mezclarConPrioridad(
+        catalogo: delCatalogo,
+        canalesPadre: delPadre,
+        youtubers: deYoutubers,
       );
 
       if (todos.isEmpty) {
@@ -217,36 +185,15 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
 
       Navigator.pop(context);
     } catch (e) {
-      setError('ERROR: $e');
+      setError(MensajesError.para(e,
+          respaldo: 'No pudimos cargar los videos.'));
       cargando = false;
     }
   }
 
-  List<Map<String, dynamic>> mezclarVideos3x1({
-    required List<Map<String, dynamic>> catalogo,
-    required List<Map<String, dynamic>> extras,
-  }) {
-    final List<Map<String, dynamic>> resultado = [];
-    int iCatalogo = 0;
-    int iExtra = 0;
-
-    while (iCatalogo < catalogo.length || iExtra < extras.length) {
-      int agregadosCatalogo = 0;
-
-      while (agregadosCatalogo < 3 && iCatalogo < catalogo.length) {
-        resultado.add(catalogo[iCatalogo]);
-        iCatalogo++;
-        agregadosCatalogo++;
-      }
-
-      if (iExtra < extras.length) {
-        resultado.add(extras[iExtra]);
-        iExtra++;
-      }
-    }
-
-    return resultado;
-  }
+  // ✅ La mezcla se eliminó de aquí: ahora es
+  // VideosNinoService.mezclarConPrioridad(), que le da cuota garantizada a
+  // los canales que el padre agregó.
 
   void setEstado(String msg) {
     if (!mounted) return;

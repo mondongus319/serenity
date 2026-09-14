@@ -7,7 +7,6 @@ import 'parent_terms_screen.dart';
 import 'sobre_nosotros_screen.dart';
 import 'parent_profile_screen.dart';
 import '../../servicces/firestore_service.dart';
-import '../../servicces/location_service.dart';
 import '../../providers/theme_provider.dart';
 import '../../utils/app_colors.dart';
 
@@ -43,7 +42,6 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
   void initState() {
     super.initState();
     stopwatch.start();
-    enviarUbicacionUnaVez();
   }
 
 
@@ -93,19 +91,11 @@ class _ParentMainScreenState extends State<ParentMainScreen> {
   }
 
 
-  Future<void> enviarUbicacionUnaVez() async {
-    try {
-      final position = await LocationService.obtenerUbicacionSilenciosa();
-      if (position == null || !mounted) return;
-
-
-      await FirestoreService.guardarUbicacionPadre(
-        widget.userId,
-        position.latitude,
-        position.longitude,
-      );
-    } catch (_) {}
-  }
+  // ❌ ELIMINADO: enviarUbicacionUnaVez()
+  //
+  // Reportaba la ubicación del PADRE cada vez que abría la app. Ese dato no
+  // se mostraba en ninguna pantalla, así que se estaba rastreando al usuario
+  // para nada. La ubicación que la app sí usa —y sí muestra— es la del niño.
 
 
   void onTabTap(int index) {
@@ -217,14 +207,19 @@ class DarkBottomNav extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          // ⚠️ Cada pestaña va dentro de Expanded, no con spaceAround. Con 4
+          // cabían por poco; con 5, el ancho fijo de cada una sumaba más que
+          // la pantalla y la barra se desbordaba. Así se reparten el espacio
+          // disponible sea cual sea el número de pestañas.
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(
               items.length,
-              (i) => NavTabItem(
-                item: items[i],
-                isSelected: currentIndex == i,
-                onTap: () => onTap(i),
+              (i) => Expanded(
+                child: NavTabItem(
+                  item: items[i],
+                  isSelected: currentIndex == i,
+                  onTap: () => onTap(i),
+                ),
               ),
             ),
           ),
@@ -269,7 +264,7 @@ class NavTabItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(
@@ -310,6 +305,9 @@ class NavTabItem extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,

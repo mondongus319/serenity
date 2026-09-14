@@ -1,4 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0F172A</color>
+    <!-- Fondo del ícono adaptativo (Android 8+). Antes era #0F172A, el azul
+         oscuro de la app. Pasó a blanco para que el ícono se vea igual a la
+         imagen de marca: el logo azul y verde sobre blanco.
+
+         Ojo: este color SOLO afecta al ícono del lanzador. No tiene nada que
+         ver con los colores de la interfaz, que viven en
+         lib/utils/app_colors.dart. -->
+    <color name="ic_launcher_background">#FFFFFF</color>
+
+    <!-- Fondo de TODAS las pantallas de arranque: la del sistema (Android 12+)
+         y la que Android dibuja mientras carga el motor de Flutter.
+
+         Es el mismo #0F172A de AppColors.bgPrimary. Si algún día cambia el
+         azul de la app, hay que cambiarlo aquí también: son dos mundos
+         distintos (Dart y recursos de Android) y no se enteran el uno del
+         otro. Si se desincronizan, vuelve a verse el salto de color al
+         abrir. -->
+    <color name="splash_background">#0F172A</color>
 </resources>

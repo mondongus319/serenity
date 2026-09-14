@@ -6,7 +6,9 @@ import '../../servicces/firestore_service.dart';
 import '../../servicces/device_id_service.dart';
 import '../../servicces/notification_service.dart';
 import '../../servicces/child_state_service.dart';
+import '../../servicces/intro_service.dart';
 import '../child/child_home_screen.dart';
+import 'intro_video_screen.dart';
 import 'login_screen.dart';
 import '../parent/parent_main_screen.dart';
 import '../../utils/app_colors.dart';
@@ -38,9 +40,34 @@ class SplashScreen extends StatefulWidget {
 
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
+  late final AnimationController _controllerEstrellas;
   late final AnimationController _controller;
-  static const Duration _totalDuration = Duration(milliseconds: 2800);
+
+  // ═════════════════════════════════════════════════════════════════════
+  // CUÁNTO DURA EL ARRANQUE
+  //
+  // Antes: animación de 2800 ms y una espera FIJA de 2400 ms antes de
+  // empezar a decidir a dónde ir. Con eso, en un teléfono rápido y con buena
+  // señal, el usuario miraba un temporizador —no una carga—, y sumado a la
+  // pantalla que dibuja Android antes, el arranque se sentía como dos esperas
+  // encadenadas.
+  //
+  // Ahora la misma secuencia (logo → nombre → subtítulo) va al doble de
+  // velocidad, y el trabajo real arranca en cuanto termina de dibujarse. No
+  // se recorta nada: se ve completa, solo que ágil.
+  //
+  // Los porcentajes de _segment() no se tocan porque son relativos al total:
+  // al bajar el total, cada etapa se acelera sola en la misma proporción.
+  static const Duration _totalDuration = Duration(milliseconds: 1400);
+
+  /// Lo mínimo que se queda en pantalla.
+  ///
+  /// Coincide con el largo de la animación para que nunca se corte a la
+  /// mitad. Si la carga tarda MÁS, la pantalla se queda el tiempo que haga
+  /// falta: esto es un piso, no un techo.
+  static const Duration _esperaMinima = Duration(milliseconds: 1400);
+
   late final List<Star> _stars;
 
 
@@ -55,8 +82,20 @@ class _SplashScreenState extends State<SplashScreen>
           speed: rng.nextDouble() * 0.6 + 0.4,
           phase: rng.nextDouble() * math.pi * 2,
         ));
+    // `forward()` y no `repeat()`: en bucle, una carga que tardara más que la
+    // animación hacía que el logo se desvaneciera y volviera a aparecer desde
+    // cero, como si la app se hubiera reiniciado sola. Ahora la secuencia
+    // llega al final y se queda ahí, quieta, hasta que haya a dónde ir.
+    //
+    // Las estrellas sí necesitan movimiento continuo, así que tienen su
+    // propio controlador en bucle.
     _controller = AnimationController(vsync: this, duration: _totalDuration)
-      ..repeat();
+      ..forward();
+
+    _controllerEstrellas = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
     _boot();
   }
 
@@ -64,6 +103,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void dispose() {
     _controller.dispose();
+    _controllerEstrellas.dispose();
     super.dispose();
   }
 
@@ -76,7 +116,17 @@ class _SplashScreenState extends State<SplashScreen>
 
 
   Future<void> _boot() async {
-    await Future.delayed(const Duration(milliseconds: 2400));
+    // Se arranca el cronómetro ANTES de esperar: así el trabajo de red y el
+    // tiempo mínimo en pantalla corren en paralelo en vez de sumarse. Antes
+    // eran 2400 ms de espera Y DESPUÉS las consultas; ahora la animación se
+    // reproduce mientras las consultas ya están en camino.
+    final desde = DateTime.now();
+
+    Future<void> esperarLoQueFalte() async {
+      final transcurrido = DateTime.now().difference(desde);
+      final falta = _esperaMinima - transcurrido;
+      if (falta > Duration.zero) await Future.delayed(falta);
+    }
 
 
     String deviceId = '';
@@ -119,6 +169,7 @@ class _SplashScreenState extends State<SplashScreen>
           },
         );
         if (ninoEnFirestore != null && ninoEnFirestore['activo'] == true) {
+          await esperarLoQueFalte();
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
@@ -175,6 +226,7 @@ class _SplashScreenState extends State<SplashScreen>
               debugPrint('guardarSesion error: $e');
             }
           }
+          await esperarLoQueFalte();
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
@@ -194,11 +246,48 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
 
-    // 3. FALLBACK — Login
+    // 3. FALLBACK — Login (con el video de bienvenida la primera vez)
+    await esperarLoQueFalte();
     if (!mounted) return;
+    await _irALogin();
+  }
+
+  /// Lleva al login, pasando antes por el video de bienvenida si es la
+  /// primera vez que se abre la app en este teléfono.
+  ///
+  /// ── POR QUÉ EL VIDEO VA AQUÍ Y NO ANTES ────────────────────────────────
+  ///
+  /// Solo llega a este punto quien NO tiene sesión guardada, ni de niño ni de
+  /// padre. Es decir, alguien que acaba de instalar la app.
+  ///
+  /// Ponerlo antes —nada más abrir— se lo pondría también a un papá que ya
+  /// usa Serenity todos los días y solo quiere ver el tiempo de su hijo. Y a
+  /// un niño en modo kiosco, que no tiene por qué ver un video dirigido a
+  /// adultos.
+  Future<void> _irALogin() async {
+    final yaLoVio = await IntroService.yaLoVio();
+    if (!mounted) return;
+
+    if (yaLoVio) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      return;
+    }
+
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(
+        builder: (ctx) => IntroVideoScreen(
+          // pushReplacement otra vez: el video no debe quedar en la pila. Si
+          // quedara, el botón "atrás" del login lo traería de vuelta.
+          onTerminar: () => Navigator.pushReplacement(
+            ctx,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
+        ),
+      ),
     );
   }
 
@@ -210,9 +299,13 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: AppColors.bgPrimary,
       body: SafeArea(
         child: AnimatedBuilder(
-          animation: _controller,
+          animation: Listenable.merge([_controller, _controllerEstrellas]),
           builder: (context, _) {
             final t = _controller.value;
+            // Las estrellas laten con su propio reloj, que sí va en bucle:
+            // si usaran `t`, se congelarían al terminar la animación de
+            // entrada y la pantalla quedaría muerta mientras carga.
+            final tEstrellas = _controllerEstrellas.value;
             final logoOpacity =
                 _segment(t, 0.0, 0.35, curve: Curves.easeOut);
             final logoScale = _lerpD(0.82, 1.0, logoOpacity);
@@ -283,12 +376,12 @@ class _SplashScreenState extends State<SplashScreen>
                 // Estrellas animadas
                 ..._stars.map((star) {
                   final floatY =
-                      math.sin(t * math.pi * 2 * star.speed + star.phase) *
+                      math.sin(tEstrellas * math.pi * 2 * star.speed + star.phase) *
                           8.0;
                   final pulse = (0.3 +
                           0.5 *
                               math
-                                  .sin(t * math.pi * 2 * star.speed +
+                                  .sin(tEstrellas * math.pi * 2 * star.speed +
                                       star.phase +
                                       math.pi / 2)
                                   .abs())

@@ -1502,3 +1502,414 @@ exports.avisarLimiteTiempo = onDocumentUpdated(
     return null;
   }
 );
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VINCULAR UN NIÑO A SU PADRE
+//
+// Antes esto lo hacía la app: buscaba en `ninos` por `codigo_vinculacion` y
+// escribía `id_padre`. Con las reglas de seguridad puestas eso dejó de
+// funcionar, y por una razón de fondo: **las reglas de Firestore no filtran
+// resultados**, exigen que la consulta demuestre de antemano que solo puede
+// traer documentos permitidos. Una búsqueda por código recorre niños de
+// otras familias, así que no hay forma de demostrarlo.
+//
+// Aquí se resuelve de raíz: esta función corre con el SDK de administrador,
+// que no pasa por las reglas, y devuelve únicamente el resultado.
+//
+// Y trae un beneficio grande: **el tope de hijos pasa a ser seguridad real**.
+// Cuando vivía en Dart, un APK modificado lo saltaba sin esfuerzo.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Deben coincidir con lib/utils/catalogo_categorias.dart
+const MAX_HIJOS_GRATIS  = 1;
+const MAX_HIJOS_PREMIUM = 5;
+
+function planVigente(datosPadre) {
+  if (!datosPadre || datosPadre.premium !== true) return false;
+  const hasta = datosPadre.premium_hasta;
+  if (!hasta) return true;                       // sin vencimiento
+  if (typeof hasta.toDate !== "function") return false;
+  return hasta.toDate() > new Date();
+}
+
+exports.vincularNino = onCall(
+  { timeoutSeconds: 30, memory: "256MiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    }
+
+    const padreId = request.auth.uid;
+    const codigo = (request.data?.codigo ?? "").toString().trim().toUpperCase();
+
+    if (!codigo) {
+      throw new HttpsError("invalid-argument", "Falta el código.");
+    }
+
+    // ── 1. Buscar el niño entre los que NO tienen dueño ───────────────────
+    const q = await db
+      .collection("ninos")
+      .where("id_padre", "==", null)
+      .where("codigo_vinculacion", "==", codigo)
+      .limit(2)                       // 2 para poder detectar repetidos
+      .get();
+
+    if (q.empty) {
+      return { success: false, message: "Código inválido o no encontrado" };
+    }
+
+    // Los códigos ya no se verifican al crearse (esa consulta también
+    // chocaba con las reglas). Con 6 caracteres de 36 hay 2.176 millones de
+    // combinaciones, así que un choque es rarísimo — pero si pasa, es más
+    // seguro rechazar que vincular al niño equivocado.
+    if (q.size > 1) {
+      return {
+        success: false,
+        message:
+          "Ese código está repetido. Genera uno nuevo en el dispositivo del niño.",
+      };
+    }
+
+    const docNino = q.docs[0];
+
+    // ── 2. El plan del padre ──────────────────────────────────────────────
+    const padreSnap = await db.collection("padres").doc(padreId).get();
+    const esPremium = planVigente(padreSnap.data());
+    const tope = esPremium ? MAX_HIJOS_PREMIUM : MAX_HIJOS_GRATIS;
+
+    // ── 3. Cuántos hijos tiene ya ─────────────────────────────────────────
+    const actuales = await db
+      .collection("ninos")
+      .where("id_padre", "==", padreId)
+      .where("activo", "==", true)
+      .get();
+
+    // Los eliminados no ocupan cupo: si el padre borró un perfil, esperaría
+    // poder agregar otro.
+    const vivos = actuales.docs.filter((d) => d.data().eliminado !== true).length;
+
+    if (vivos >= tope) {
+      return {
+        success: false,
+        necesitaPremium: !esPremium,
+        message: esPremium
+          ? `Llegaste al máximo de ${tope} hijos en tu plan.`
+          : `El plan gratis permite ${tope} hijo. Activa Premium para agregar más.`,
+      };
+    }
+
+    // ── 4. Vincular ───────────────────────────────────────────────────────
+    await docNino.ref.update({
+      activo: true,
+      id_padre: padreId,
+      fecha_vinculacion: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      id: docNino.id,
+      nombre: docNino.data().nombre ?? "",
+    };
+  }
+);
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GOOGLE PLAY BILLING — verificación de compras
+//
+// ⚠️ ESTE ES EL ÚNICO SITIO DE TODO EL PROYECTO QUE PUEDE ESCRIBIR `premium`.
+//
+// La app NO lo escribe, y las reglas de Firestore se lo prohíben al cliente.
+// El motivo: `billing_service.dart` corre en el teléfono del usuario, y un APK
+// modificado puede hacerle emitir una compra inventada. Lo único que no se
+// puede falsificar es el `purchaseToken`, porque se contrasta aquí contra los
+// servidores de Google.
+//
+// ── CÓMO SE AUTENTICA CONTRA LA API DE PLAY ──────────────────────────────
+//
+// Sin archivo de llaves. Se usa la cuenta de servicio que ya tiene la propia
+// Cloud Function (Application Default Credentials), pidiendo el permiso
+// `androidpublisher`. Guardar un JSON de credenciales en el repo sería meter
+// una llave maestra en el control de versiones.
+//
+// ⚠️ REQUIERE UN PASO MANUAL, UNA SOLA VEZ:
+//
+//   1. Play Console → Configuración → Acceso a la API
+//   2. Vincular el proyecto de Google Cloud de Firebase
+//   3. Darle a la cuenta de servicio de las funciones el permiso
+//      "Ver datos financieros" y "Administrar pedidos y suscripciones"
+//
+// Sin eso, la API responde 401 y NINGUNA compra se activa. Es el paso que
+// más gente olvida, y el síntoma es exactamente el mismo que un token
+// inválido.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const { GoogleAuth } = require("google-auth-library");
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+
+// Tiene que coincidir con el applicationId del build.gradle.kts.
+const PACKAGE_NAME = "com.serenityapp.parental";
+
+const IDS_DE_SUSCRIPCION = ["premium_mensual", "premium_anual"];
+
+// Estados en los que el padre SÍ tiene derecho a Premium.
+//
+// CANCELED está en la lista a propósito: significa que apagó la renovación
+// automática, no que perdió el acceso. Sigue teniendo lo que pagó hasta la
+// fecha de vencimiento, y quitárselo antes sería robarle los días que ya
+// pagó. La fecha se respeta sola porque se guarda en `premium_hasta`.
+const ESTADOS_CON_ACCESO = new Set([
+  "SUBSCRIPTION_STATE_ACTIVE",
+  "SUBSCRIPTION_STATE_CANCELED",
+  "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+]);
+
+const authPlay = new GoogleAuth({
+  scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+});
+
+/// Le pregunta a Google por una suscripción.
+async function consultarSuscripcion(purchaseToken) {
+  const cliente = await authPlay.getClient();
+  const { token } = await cliente.getAccessToken();
+
+  const url =
+    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+    `${PACKAGE_NAME}/purchases/subscriptionsv2/tokens/` +
+    encodeURIComponent(purchaseToken);
+
+  const r = await axios.get(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: 20000,
+    validateStatus: () => true,
+  });
+
+  if (r.status === 404) return { noExiste: true };
+  if (r.status !== 200) {
+    throw new Error(`API de Play respondió ${r.status}: ${JSON.stringify(r.data)}`);
+  }
+  return { datos: r.data };
+}
+
+/// Saca la fecha de vencimiento del primer renglón de la suscripción.
+function vencimientoDe(datos) {
+  const renglon = datos?.lineItems?.[0];
+  const iso = renglon?.expiryTime;
+  if (!iso) return null;
+  const fecha = new Date(iso);
+  return isNaN(fecha.getTime()) ? null : fecha;
+}
+
+/// Escribe el plan en el documento del padre.
+async function aplicarPlan({ padreId, datos, purchaseToken, productId }) {
+  const estado = datos?.subscriptionState ?? "";
+  const vence = vencimientoDe(datos);
+  const activo = ESTADOS_CON_ACCESO.has(estado) && vence !== null && vence > new Date();
+
+  await db.collection("padres").doc(padreId).set(
+    {
+      premium: activo,
+      premium_hasta: vence ? admin.firestore.Timestamp.fromDate(vence) : null,
+      premium_origen: "play",
+      premium_estado_play: estado,
+      premium_product_id: productId ?? null,
+      premium_actualizado_en: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return { activo, vence, estado };
+}
+
+exports.verificarCompra = onCall(
+  { timeoutSeconds: 60, memory: "256MiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    }
+
+    const padreId = request.auth.uid;
+    const productId = (request.data?.productId ?? "").toString().trim();
+    const purchaseToken = (request.data?.purchaseToken ?? "").toString().trim();
+
+    if (!purchaseToken) {
+      throw new HttpsError("invalid-argument", "Falta el token de compra.");
+    }
+    if (!IDS_DE_SUSCRIPCION.includes(productId)) {
+      throw new HttpsError("invalid-argument", "Producto desconocido.");
+    }
+
+    // ── 1. ¿Este token ya es de otra cuenta? ──────────────────────────────
+    //
+    // Sin esto hay un agujero real: una persona compra, extrae su token del
+    // teléfono y se lo pasa a diez amigos. Cada uno llama a esta función y
+    // los diez quedan Premium con una sola suscripción pagada.
+    //
+    // El token se guarda junto al dueño la primera vez. Si vuelve a llegar
+    // con otro uid, se rechaza.
+    const refCompra = db.collection("compras_play").doc(purchaseToken);
+    const compraPrevia = await refCompra.get();
+
+    if (compraPrevia.exists && compraPrevia.data().id_padre !== padreId) {
+      throw new HttpsError(
+        "permission-denied",
+        "Esta compra ya está asociada a otra cuenta."
+      );
+    }
+
+    // ── 2. Preguntarle a Google ───────────────────────────────────────────
+    let respuesta;
+    try {
+      respuesta = await consultarSuscripcion(purchaseToken);
+    } catch (e) {
+      console.error("verificarCompra: fallo contra la API de Play", e);
+      // `internal` y no un mensaje amable: que el cliente lo trate como algo
+      // reintentable, no como "tu pago es inválido". La compra puede ser
+      // perfectamente buena y lo que falló ser la API o el permiso de la
+      // cuenta de servicio.
+      throw new HttpsError("internal", "No pudimos confirmar con Google Play.");
+    }
+
+    if (respuesta.noExiste) {
+      return { success: false, message: "Esa compra no existe en Google Play." };
+    }
+
+    const datos = respuesta.datos;
+
+    // ── 3. Aplicar ────────────────────────────────────────────────────────
+    const resultado = await aplicarPlan({
+      padreId,
+      datos,
+      purchaseToken,
+      productId,
+    });
+
+    await refCompra.set(
+      {
+        id_padre: padreId,
+        product_id: productId,
+        estado_play: resultado.estado,
+        vence: resultado.vence
+          ? admin.firestore.Timestamp.fromDate(resultado.vence)
+          : null,
+        actualizado_en: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    if (!resultado.activo) {
+      return {
+        success: false,
+        message: "Esa suscripción no está activa en este momento.",
+      };
+    }
+
+    return { success: true, hasta: resultado.vence?.toISOString() ?? null };
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTIFICACIONES DE PLAY EN TIEMPO REAL (RTDN)
+//
+// POR QUÉ HACEN FALTA, SI YA SE VERIFICA AL COMPRAR
+//
+// Porque casi todo lo que pasa después de la compra ocurre **sin que la app
+// esté abierta**:
+//
+//   · la renovación mensual
+//   · el cobro que falla porque la tarjeta venció
+//   · la cancelación desde la Play Store (no desde Serenity)
+//   · un reembolso
+//
+// Sin esto, un padre que canceló hace tres meses seguiría con Premium hasta
+// que alguien abriera la app, y uno cuya renovación falló perdería el acceso
+// solo cuando `premium_hasta` venciera.
+//
+// ⚠️ PASO MANUAL, UNA SOLA VEZ:
+//   1. Crear un tema de Pub/Sub llamado `play-billing`
+//   2. Darle permiso de publicar a `google-play-developer-notifications@system.gserviceaccount.com`
+//   3. Play Console → Monetización → Configuración → Notificaciones para
+//      desarrolladores en tiempo real → pegar el nombre del tema
+// ═══════════════════════════════════════════════════════════════════════════
+
+exports.notificacionesPlay = onMessagePublished(
+  { topic: "play-billing", timeoutSeconds: 60, memory: "256MiB" },
+  async (evento) => {
+    let aviso;
+    try {
+      aviso = evento.data.message.json;
+    } catch (e) {
+      console.error("notificacionesPlay: mensaje ilegible", e);
+      return;
+    }
+
+    const sub = aviso?.subscriptionNotification;
+    if (!sub?.purchaseToken) {
+      // También llegan avisos de prueba y de compras únicas. No son un error.
+      console.log("notificacionesPlay: aviso sin suscripción, se ignora");
+      return;
+    }
+
+    const purchaseToken = sub.purchaseToken;
+
+    // ¿De quién es este token? Lo sabemos porque verificarCompra lo guardó.
+    const refCompra = db.collection("compras_play").doc(purchaseToken);
+    const compra = await refCompra.get();
+
+    if (!compra.exists) {
+      // Puede pasar legítimamente: el aviso de la compra llega antes de que
+      // la app alcance a llamar a verificarCompra. Se ignora sin ruido; la
+      // app lo va a registrar en segundos.
+      console.log("notificacionesPlay: token todavía sin dueño conocido");
+      return;
+    }
+
+    const padreId = compra.data().id_padre;
+    if (!padreId) return;
+
+    let respuesta;
+    try {
+      respuesta = await consultarSuscripcion(purchaseToken);
+    } catch (e) {
+      console.error("notificacionesPlay: fallo contra la API de Play", e);
+      // Se relanza para que Pub/Sub reintente: perder este aviso significa
+      // dejar a alguien con un plan que ya no paga, o sin el que sí paga.
+      throw e;
+    }
+
+    if (respuesta.noExiste) {
+      await db.collection("padres").doc(padreId).set(
+        {
+          premium: false,
+          premium_estado_play: "NO_EXISTE",
+          premium_actualizado_en: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return;
+    }
+
+    const resultado = await aplicarPlan({
+      padreId,
+      datos: respuesta.datos,
+      purchaseToken,
+      productId: compra.data().product_id,
+    });
+
+    await refCompra.set(
+      {
+        estado_play: resultado.estado,
+        vence: resultado.vence
+          ? admin.firestore.Timestamp.fromDate(resultado.vence)
+          : null,
+        actualizado_en: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    console.log(
+      `notificacionesPlay: ${padreId} → ${resultado.estado}, activo=${resultado.activo}`
+    );
+  }
+);

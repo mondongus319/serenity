@@ -1,6 +1,39 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      ══════════════════════════════════════════════════════════════════
+      PERMISOS: SOLO LOS QUE SE USAN
+
+      Play Protect bloqueaba la instalación de esta app. No por un error,
+      sino por la COMBINACIÓN de permisos que pedía: para un escáner
+      automático, usage stats + ventana flotante + arranque + exención de
+      batería + ubicación + cámara es la huella típica del software espía.
+
+      Serenity es un control parental legítimo, pero el escáner no lo sabe:
+      solo ve una app nueva, sin instalaciones, pidiendo todo eso.
+
+      Se quitaron CINCO permisos tras comprobar uno por uno que NADA los
+      usaba, ni en Dart ni en MainActivity.kt:
+
+        · SYSTEM_ALERT_WINDOW                    (dibujar sobre otras apps)
+        · PACKAGE_USAGE_STATS                    (qué apps usa el teléfono)
+        · REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+        · FOREGROUND_SERVICE
+        · FOREGROUND_SERVICE_SPECIAL_USE
+
+      Los tres primeros son los que más pesan en esa huella, y ninguno
+      hacía nada: venían de `flutter_overlay_window` y
+      `flutter_foreground_task`, dos dependencias que no se importaban en
+      ningún archivo de lib/.
+
+      El modo kiosco NO los necesita: usa startLockTask() del sistema, que
+      no pide permiso ninguno.
+
+      ⚠️ Antes de agregar un permiso aquí, comprobar que algo lo usa. Cada
+      uno de más acerca la app a un rechazo en la revisión de Play.
+      ══════════════════════════════════════════════════════════════════
+    -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -10,13 +43,63 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!--
+      ══════════════════════════════════════════════════════════════════
+      ⚠️ ID DE PUBLICIDAD — SE ELIMINA A PROPÓSITO
+
+      Nadie escribió este permiso aquí. Llega solo: `firebase_messaging`
+      arrastra play-services-measurement, y el manifiesto de esa librería
+      declara `AD_ID`. La fusión de manifiestos lo mete en el APK final sin
+      avisar, y al revisar el build de release ahí estaba.
+
+      POR QUÉ IMPORTA EN ESTA APP EN CONCRETO
+
+      La Política de Familias de Google Play prohíbe transmitir el
+      identificador de publicidad en apps dirigidas a menores. Serenity la
+      compra un adulto, pero el niño usa media app: hay un modo infantil
+      completo con videos. Si en Play Console se declara que los menores
+      están en el público objetivo —y hay que declararlo, porque es verdad—
+      este permiso es causa de rechazo.
+
+      Lo peor es que ni siquiera se usa: aquí no hay anuncios, ni atribución
+      de campañas, ni Analytics deliberado. Es un permiso heredado que no
+      aporta nada y que solo puede hacer daño en la revisión.
+
+      `tools:node="remove"` le dice a la fusión de manifiestos que lo
+      descarte aunque una librería lo pida. Es la forma que documenta
+      Google para este caso exacto.
+
+      ⚠️ Para comprobar que de verdad se fue hay que mirar el manifiesto
+      FUSIONADO, no este archivo:
+      build/app/outputs/logs/manifest-merger-release-report.txt
+      ══════════════════════════════════════════════════════════════════
+    -->
     <uses-permission
-        android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+
+    <!--
+      Los dos hermanos del anterior, del Privacy Sandbox de Android 13+.
+      Los declara la misma librería de medición, para la atribución de
+      campañas publicitarias.
+      
+      Se quitan por el mismo motivo y con el mismo criterio: aquí no hay
+      campañas que atribuir. Dejarlos obligaría a justificar en la revisión
+      de Familias por qué una app de control parental pide acceso al
+      identificador de publicidad del teléfono, y la respuesta honesta
+      —"no lo pide, viene de arrastre"— no es una defensa: es un motivo
+      para quitarlo.
+      
+      No rompen nada: quien los usa es Firebase Analytics, que este proyecto
+      no usa deliberadamente. Firebase Messaging funciona sin ellos.
+    -->
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove" />
 
     <application
         android:name="${applicationName}"
@@ -56,23 +139,7 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Serenity muestra control parental cuando el niño intenta salir" />
-        </service>
 
-        <service
-            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Serenity mantiene activo el modo niño en segundo plano" />
-        </service>
 
         <meta-data
             android:name="flutterEmbedding"

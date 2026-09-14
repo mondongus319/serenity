@@ -1,0 +1,304 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SERENITY — REGLAS DE FIRESTORE
+//
+// Principio: cada quien solo ve y toca LO SUYO.
+//
+// Las Cloud Functions usan el SDK de administrador y NO pasan por estas
+// reglas. Por eso `videos_catalogo`, `videos_youtubers`, `canales_youtubers`,
+// `canales_admin`, `estado_fetch`, `fetch_logs` y `compras_play` pueden quedar
+// cerradas a la app: las llena el servidor.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// QUÉ CAMBIÓ RESPECTO A LAS REGLAS ORIGINALES
+//
+// 1. `ninos` tenía `allow read: if true`. Cualquiera en internet, sin
+//    cuenta, podía descargarse nombre, fecha de nacimiento, password_hash,
+//    código de vinculación y COORDENADAS GPS de todos los niños.
+//
+// 2. `padres` tenía `allow read, write: if request.auth != null`, o sea que
+//    cualquier usuario registrado leía y escribía el documento de cualquier
+//    otro. De ahí salía el hueco del premium: bastaba escribir
+//    `premium: true` en tu propio documento.
+//
+// 3. `ninos` permitía `delete` a cualquier usuario registrado.
+//
+// 4. `tiempo_uso` dejaba leer el historial de uso de CUALQUIER niño.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// QUÉ CAMBIÓ EN ESTA REVISIÓN
+//
+// 5. `ninos` separó `get` de `list`. Antes, la cláusula que permite leer un
+//    niño sin dueño (necesaria para vincular) también permitía CONSULTAR la
+//    colección filtrando por `id_padre == null`. Es decir: cualquier usuario
+//    con cuenta podía listar todos los perfiles aún sin vincular y leerles
+//    nombre, fecha de nacimiento, contraseña y código. Con el código se
+//    vincula el hijo de otra familia a la cuenta propia.
+//
+// 6. `ninos` perdió la vía de vinculación desde el cliente en `update`. Hoy
+//    vincula la Cloud Function `vincularNino`, que además verifica el tope
+//    de hijos del plan. La regla vieja dejaba que cualquiera se adjudicara
+//    un niño sin dueño escribiendo su propio uid.
+//
+// 7. `sesiones` se cerró. Exigía un cambio de código, y ese cambio ya está:
+//    el documento se guarda con `device_id` como id, así que `guardarSesion`
+//    ya no consulta la colección y nadie necesita poder listarla.
+//
+// ⚠️ EL PUNTO 7 SOLO FUNCIONA CON EL CÓDIGO NUEVO DE `guardarSesion`.
+//    Si despliegas estas reglas con la versión vieja, guardar la sesión
+//    falla y el padre deja de recibir notificaciones push.
+// ═══════════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── AYUDAS ───────────────────────────────────────────────────────────
+    //
+    // ⚠️ Las cuatro van al MISMO nivel, una detrás de otra. En las reglas de
+    // Firestore no se pueden anidar funciones: si a una se le escapa una
+    // llave y la siguiente queda dentro, el error que sale es
+    // "Invalid function name", que no dice nada sobre la llave.
+
+    function conCuenta() {
+      return request.auth != null;
+    }
+
+    function miUid() {
+      return request.auth.uid;
+    }
+
+    // Campos del plan. Los escribe SOLO una Cloud Function. Si el cliente
+    // pudiera tocarlos, un APK modificado se pondría Premium solo y todas las
+    // compuertas de la app serían adorno.
+    //
+    // Los tres últimos los agregó Play Billing. Ninguno decide por sí solo si
+    // hay Premium —eso lo deciden `premium` y `premium_hasta`— pero se
+    // protegen igual: son el rastro de qué compra dio el acceso, la única
+    // pista que queda para investigar un cobro en disputa.
+    function camposDelPlan() {
+      return ['premium', 'premium_hasta', 'premium_origen',
+              'premium_estado_play', 'premium_product_id',
+              'premium_actualizado_en'];
+    }
+
+    function noTocaElPlan() {
+      return !request.resource.data.diff(resource.data)
+                .affectedKeys().hasAny(camposDelPlan());
+    }
+
+    // ── PADRES ───────────────────────────────────────────────────────────
+    match /padres/{padreId} {
+      // Solo tu propio documento. Antes cualquiera leía el de todos:
+      // correo, nombre completo, fecha de nacimiento y ubicación.
+      allow read: if conCuenta() && padreId == miUid();
+
+      allow create: if conCuenta()
+                    && padreId == miUid()
+                    && !request.resource.data.keys().hasAny(camposDelPlan());
+
+      allow update: if conCuenta()
+                    && padreId == miUid()
+                    && noTocaElPlan();
+
+      // La cuenta se marca `eliminado: true`, no se borra el documento.
+      allow delete: if false;
+    }
+
+    // ── NIÑOS ────────────────────────────────────────────────────────────
+    //
+    // Aquí `read` se parte en sus dos operaciones reales, y esa separación
+    // es TODO el arreglo:
+    //
+    //   · `get`  = traer UN documento del que ya conoces el id.
+    //   · `list` = consultar la colección y recibir varios.
+    //
+    // El agujero nunca estuvo en `get`: estaba en `list`. La pantalla de
+    // registro del niño crea el perfil y se queda escuchando ESE documento
+    // —`streamNino(ninoId)`, un `get`— hasta que el padre lo vincula. Para
+    // eso necesita poder leer un niño con `id_padre == null`.
+    //
+    // Pero esa misma cláusula, en un `list`, dejaba consultar
+    // `where('id_padre', isEqualTo: null)` y bajarse TODOS los perfiles sin
+    // vincular del sistema, con contraseña y código incluidos.
+    //
+    // Separándolas, para leer un niño sin dueño hay que conocer de antemano
+    // su id de documento —20 caracteres aleatorios que genera Firestore— y
+    // ya no se puede enumerar la colección.
+    match /ninos/{ninoId} {
+
+      // Un documento suelto: el tuyo, o el que está esperando vinculación.
+      allow get: if conCuenta() && (
+                   resource.data.id_padre == miUid() ||
+                   resource.data.id_padre == null
+                 );
+
+      // Consultas: SOLO los tuyos. Las tres consultas reales de la app
+      // (`ninosOrdenados`, `ninosPermitidos` y la del perfil) ya filtran por
+      // `where('id_padre', isEqualTo: padreId)`, así que Firestore puede
+      // demostrarlas seguras y siguen funcionando igual.
+      allow list: if conCuenta() && resource.data.id_padre == miUid();
+
+      // Un perfil nace sin dueño y desactivado.
+      allow create: if conCuenta()
+                    && request.resource.data.id_padre == null
+                    && request.resource.data.activo == false;
+
+      // Solo el dueño.
+      //
+      // ❌ SE ELIMINÓ LA VINCULACIÓN DESDE EL CLIENTE. La regla anterior
+      // permitía que cualquier usuario con cuenta se adjudicara un niño sin
+      // dueño con solo escribir su propio uid. Hoy vincula la Cloud Function
+      // `vincularNino`, que entra con el SDK de administrador —no pasa por
+      // estas reglas— y de paso verifica el tope de hijos del plan, cosa que
+      // el cliente no podía hacer de forma confiable.
+      allow update: if conCuenta() && resource.data.id_padre == miUid();
+
+      // Nunca se borra: se marca `eliminado: true`. Así no quedan colgando
+      // las referencias del historial de uso ni de las sesiones.
+      allow delete: if false;
+    }
+
+    // ── CANALES QUE AGREGA EL PADRE ──────────────────────────────────────
+    match /canales/{canalId} {
+      allow read: if conCuenta() && resource.data.id_padre == miUid();
+      allow create: if conCuenta()
+                    && request.resource.data.id_padre == miUid();
+      allow update, delete: if conCuenta()
+                            && resource.data.id_padre == miUid();
+    }
+
+    // ── CATÁLOGO ─────────────────────────────────────────────────────────
+    // Lo llenan las Cloud Functions. La app solo lee, y con cuenta: este
+    // catálogo curado es el producto, no hay razón para regalarlo a quien
+    // no ha entrado.
+    match /canales_youtubers/{docId} {
+      allow read: if conCuenta();
+      allow write: if false;
+    }
+
+    match /videos_catalogo/{docId} {
+      allow read: if conCuenta();
+      allow write: if false;
+    }
+
+    match /videos_youtubers/{docId} {
+      allow read: if conCuenta();
+      allow write: if false;
+    }
+
+    // ── SESIONES ─────────────────────────────────────────────────────────
+    //
+    // Guarda el token de notificaciones de cada dispositivo. Antes estaba
+    // abierta a cualquier usuario con cuenta, o sea que un usuario
+    // registrado podía listar la colección y bajarse los `device_token` de
+    // todos los demás.
+    //
+    // Estaba así porque `guardarSesion()` buscaba con
+    // `where('device_id', ...)`, y una consulta que Firestore no puede
+    // demostrar segura obliga a abrir el `list` entero.
+    //
+    // El código nuevo no consulta: guarda en
+    // `sesiones/{device_id}_{tipo_usuario}`, un id que el propio dispositivo
+    // ya conoce. Sin consulta, no hace falta `list`.
+    //
+    //   · LECTURA CERRADA DEL TODO. La app nunca lee esta colección:
+    //     `validarSesion()` no se llamaba desde ninguna parte. Quien sí lee
+    //     es `notificarAlPadre()` en las Cloud Functions, con el SDK de
+    //     administrador, que no pasa por aquí.
+    //   · ESCRITURA SOLO DE LO PROPIO: `id_usuario` tiene que ser tu uid.
+    //     Así nadie apunta la sesión de otro a su cuenta ni le borra el
+    //     token para dejarlo sin notificaciones.
+    match /sesiones/{sesionId} {
+      allow read: if false;
+
+      allow create, update: if conCuenta()
+                            && request.resource.data.id_usuario == miUid();
+
+      allow delete: if false;
+    }
+
+    // ── TIEMPO DE USO (colección antigua) ────────────────────────────────
+    //
+    // ⚠️ Tenía `allow read: if conCuenta()`, o sea que cualquier usuario
+    // registrado podía leer el historial de uso de CUALQUIER niño. Se cerró.
+    //
+    // Nada en la app la lee: los documentos no llevan `id_padre`, así que no
+    // hay forma de escribir una regla que distinga al dueño. El reporte
+    // semanal usa `uso_diario`, que sí lo lleva. Esta colección se conserva
+    // solo para no perder lo ya escrito.
+    match /tiempo_uso/{registroId} {
+      allow read: if false;
+      allow create: if conCuenta();
+      allow update, delete: if false;
+    }
+
+    // ── USO DIARIO (alimenta el reporte semanal) ─────────────────────────
+    //
+    // Un documento por niño y por mes: `uso_diario/{ninoId}_{yyyy-MM}`, con
+    // un mapa `dias` de "yyyy-MM-dd" a segundos.
+    //
+    // `id_padre` va guardado dentro del documento a propósito. Sin él, la
+    // regla tendría que hacer un get() al documento del niño para saber de
+    // quién es, y eso cuesta una lectura extra por cada documento leído.
+    //
+    // El dispositivo del niño escribe con la sesión del padre (al modo niño
+    // se entra después de que el padre inicia sesión), así que `miUid()`
+    // sirve tanto para leer como para escribir.
+    match /uso_diario/{docId} {
+      // `resource == null` cubre el mes que todavía no existe: sin eso, leer
+      // un mes sin uso devolvería PERMISSION_DENIED en vez de "no está".
+      allow read: if conCuenta() && (
+                    resource == null ||
+                    resource.data.id_padre == miUid()
+                  );
+
+      allow create: if conCuenta()
+                    && request.resource.data.id_padre == miUid();
+
+      // No se puede cambiar de dueño en una actualización.
+      allow update: if conCuenta()
+                    && resource.data.id_padre == miUid()
+                    && request.resource.data.id_padre == miUid();
+
+      // El historial de uso no se borra desde la app.
+      allow delete: if false;
+    }
+
+    // ── COMPRAS DE GOOGLE PLAY ───────────────────────────────────────────
+    //
+    // Un documento por `purchaseToken`, con el uid del padre que lo reclamó.
+    // Es lo que impide que una persona compre, saque su token del teléfono y
+    // se lo pase a diez amigos: la segunda cuenta que lo presente se rechaza.
+    //
+    // Cerrada por los dos lados a propósito:
+    //
+    //   · La app no lo necesita LEER. El estado del plan lo lee de
+    //     `padres/{id}`; esto es contabilidad interna del servidor.
+    //   · Si la app pudiera ESCRIBIR, el candado no serviría de nada:
+    //     bastaría con borrar el registro del dueño anterior para volver a
+    //     reclamar el mismo token.
+    //
+    // `verificarCompra` y `notificacionesPlay` entran con el SDK de
+    // administrador y no pasan por aquí, así que funcionan igual.
+    match /compras_play/{purchaseToken} {
+      allow read, write: if false;
+    }
+
+    // ── SOLO SERVIDOR ────────────────────────────────────────────────────
+    // fetch_logs, estado_fetch, canales_admin y categoria_contenido no los
+    // toca la app. Las Cloud Functions entran por el SDK de administrador,
+    // que no pasa por estas reglas.
+    match /fetch_logs/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── TODO LO DEMÁS: DENEGADO ──────────────────────────────────────────
+    // Red de seguridad. Si mañana alguien crea una colección nueva y olvida
+    // ponerle reglas, queda cerrada en vez de abierta. Esta regla no anula
+    // los permisos de arriba: en Firestore los `allow` se suman.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

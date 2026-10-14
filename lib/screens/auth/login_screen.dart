@@ -10,6 +10,7 @@ import '../../servicces/notification_service.dart';
 import '../../../widgets/auth/login_body.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/sesion.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -246,184 +247,190 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: 1.5,
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.accentCyan.withOpacity(0.12),
-                      border: Border.all(
-                        color: AppColors.accentCyan.withOpacity(0.35),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accentCyan.withOpacity(0.2),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.cake_outlined,
-                      color: AppColors.accentCyan,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '¡Un paso más, $primerNombre!',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPearl,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Para completar tu registro con Google necesitamos tu fecha de nacimiento.',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: ctx,
-                        initialDate: DateTime(2000),
-                        firstDate: DateTime(1920),
-                        lastDate: DateTime.now(),
-                        locale: const Locale('es', 'CO'),
-                        builder: (context, child) => Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: ColorScheme.dark(
-                              primary: AppColors.accentCyan,
-                              onPrimary: Colors.white,
-                              surface: AppColors.bgCard,
-                              onSurface: AppColors.textPearl,
-                            ),
-                            textButtonTheme: TextButtonThemeData(
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.accentCyan,
-                              ),
-                            ),
-                            dialogBackgroundColor: AppColors.bgPrimary,
-                          ),
-                          child: child!,
-                        ),
-                      );
-                      if (picked != null) {
-                        setDlg(() => fechaSeleccionada = picked);
-                      }
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+            // El teclado aparece encima de este diálogo. Sin scroll, la
+            // `Column` conserva su alto mientras el `Dialog` recibe menos
+            // espacio, y Flutter pinta el rayado de overflow. Con scroll el
+            // contenido se desplaza en vez de desbordarse.
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
-                        color: AppColors.bgPrimary,
-                        borderRadius: BorderRadius.circular(12),
+                        shape: BoxShape.circle,
+                        color: AppColors.accentCyan.withOpacity(0.12),
                         border: Border.all(
-                          color: fechaSeleccionada != null
-                              ? AppColors.accentCyan.withOpacity(0.6)
-                              : Colors.white.withOpacity(0.1),
+                          color: AppColors.accentCyan.withOpacity(0.35),
                           width: 1.5,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today_rounded,
-                            color: fechaSeleccionada != null
-                                ? AppColors.accentCyan
-                                : AppColors.textMuted,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            fechaSeleccionada != null
-                                ? '${fechaSeleccionada!.day.toString().padLeft(2, '0')}/${fechaSeleccionada!.month.toString().padLeft(2, '0')}/${fechaSeleccionada!.year}'
-                                : 'Seleccionar fecha',
-                            style: GoogleFonts.poppins(
-                              color: fechaSeleccionada != null
-                                  ? AppColors.textPearl
-                                  : AppColors.textMuted,
-                              fontSize: 14,
-                              fontWeight: fechaSeleccionada != null
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accentCyan.withOpacity(0.2),
+                            blurRadius: 20,
+                            spreadRadius: 2,
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  GestureDetector(
-                    onTap: fechaSeleccionada == null
-                        ? null
-                        : () {
-                            final f = fechaSeleccionada!;
-                            final fechaDB =
-                                '${f.year}-${f.month.toString().padLeft(2, '0')}-${f.day.toString().padLeft(2, '0')}';
-                            Navigator.pop(ctx, fechaDB);
-                          },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: double.infinity,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        gradient: fechaSeleccionada != null
-                            ? const LinearGradient(
-                                colors: [
-                                  AppColors.accentViolet,
-                                  AppColors.accentCyan,
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )
-                            : null,
-                        color: fechaSeleccionada == null
-                            ? Colors.white.withOpacity(0.05)
-                            : null,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: fechaSeleccionada != null
-                            ? [
-                                BoxShadow(
-                                  color:
-                                      AppColors.accentViolet.withOpacity(0.35),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ]
-                            : null,
+                      child: const Icon(
+                        Icons.cake_outlined,
+                        color: AppColors.accentCyan,
+                        size: 28,
                       ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Confirmar',
-                        style: GoogleFonts.poppins(
-                          color: fechaSeleccionada != null
-                              ? Colors.white
-                              : AppColors.textMuted,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '¡Un paso más, $primerNombre!',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPearl,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Para completar tu registro con Google necesitamos tu fecha de nacimiento.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    GestureDetector(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: DateTime(2000),
+                          firstDate: DateTime(1920),
+                          lastDate: DateTime.now(),
+                          locale: const Locale('es', 'CO'),
+                          builder: (context, child) => Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.dark(
+                                primary: AppColors.accentCyan,
+                                onPrimary: Colors.white,
+                                surface: AppColors.bgCard,
+                                onSurface: AppColors.textPearl,
+                              ),
+                              textButtonTheme: TextButtonThemeData(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.accentCyan,
+                                ),
+                              ),
+                              dialogBackgroundColor: AppColors.bgPrimary,
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (picked != null) {
+                          setDlg(() => fechaSeleccionada = picked);
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.bgPrimary,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: fechaSeleccionada != null
+                                ? AppColors.accentCyan.withOpacity(0.6)
+                                : Colors.white.withOpacity(0.1),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              color: fechaSeleccionada != null
+                                  ? AppColors.accentCyan
+                                  : AppColors.textMuted,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              fechaSeleccionada != null
+                                  ? '${fechaSeleccionada!.day.toString().padLeft(2, '0')}/${fechaSeleccionada!.month.toString().padLeft(2, '0')}/${fechaSeleccionada!.year}'
+                                  : 'Seleccionar fecha',
+                              style: GoogleFonts.poppins(
+                                color: fechaSeleccionada != null
+                                    ? AppColors.textPearl
+                                    : AppColors.textMuted,
+                                fontSize: 14,
+                                fontWeight: fechaSeleccionada != null
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    GestureDetector(
+                      onTap: fechaSeleccionada == null
+                          ? null
+                          : () {
+                              final f = fechaSeleccionada!;
+                              final fechaDB =
+                                  '${f.year}-${f.month.toString().padLeft(2, '0')}-${f.day.toString().padLeft(2, '0')}';
+                              Navigator.pop(ctx, fechaDB);
+                            },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: double.infinity,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          gradient: fechaSeleccionada != null
+                              ? const LinearGradient(
+                                  colors: [
+                                    AppColors.accentViolet,
+                                    AppColors.accentCyan,
+                                  ],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                )
+                              : null,
+                          color: fechaSeleccionada == null
+                              ? Colors.white.withOpacity(0.05)
+                              : null,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: fechaSeleccionada != null
+                              ? [
+                                  BoxShadow(
+                                    color:
+                                        AppColors.accentViolet.withOpacity(0.35),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Confirmar',
+                          style: GoogleFonts.poppins(
+                            color: fechaSeleccionada != null
+                                ? Colors.white
+                                : AppColors.textMuted,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -464,248 +471,267 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 1.5,
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.accentCyan.withOpacity(0.12),
-                    border: Border.all(
-                      color: AppColors.accentCyan.withOpacity(0.35),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.lock_outline_rounded,
-                    color: AppColors.accentCyan,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Crea una contraseña, $primerNombre',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPearl,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Así podrás iniciar sesión también con tu correo y '
-                  'contraseña, sin depender de Google.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bgPrimary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: passCtrl,
-                    obscureText: obscure1,
-                    autofocus: true,
-                    style: GoogleFonts.poppins(
-                      color: AppColors.textPearl,
-                      fontSize: 14,
-                    ),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      hintText: 'Nueva contraseña (mín. 6 caracteres)',
-                      hintStyle: GoogleFonts.poppins(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.lock_outline_rounded,
-                        color: AppColors.accentCyan,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscure1
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: AppColors.textMuted,
-                          size: 18,
-                        ),
-                        onPressed: () => setDlg(() => obscure1 = !obscure1),
+          // El teclado aparece encima de este diálogo. Sin scroll, la
+          // `Column` conserva su alto mientras el `Dialog` recibe menos
+          // espacio, y Flutter pinta el rayado de overflow. Con scroll el
+          // contenido se desplaza en vez de desbordarse.
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.accentCyan.withOpacity(0.12),
+                      border: Border.all(
+                        color: AppColors.accentCyan.withOpacity(0.35),
+                        width: 1.5,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bgPrimary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
-                      width: 1.5,
+                    child: const Icon(
+                      Icons.lock_outline_rounded,
+                      color: AppColors.accentCyan,
+                      size: 28,
                     ),
                   ),
-                  child: TextField(
-                    controller: passConfirmCtrl,
-                    obscureText: obscure2,
-                    style: GoogleFonts.poppins(
-                      color: AppColors.textPearl,
-                      fontSize: 14,
-                    ),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      hintText: 'Confirma la contraseña',
-                      hintStyle: GoogleFonts.poppins(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.lock_outline_rounded,
-                        color: AppColors.accentCyan,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscure2
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: AppColors.textMuted,
-                          size: 18,
-                        ),
-                        onPressed: () => setDlg(() => obscure2 = !obscure2),
-                      ),
-                    ),
-                    onSubmitted: (_) {},
-                  ),
-                ),
-                if (errorLocal != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   Text(
-                    errorLocal!,
+                    'Crea una contraseña, $primerNombre',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                      color: Colors.redAccent,
-                      fontSize: 12,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPearl,
                     ),
                   ),
-                ],
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: guardando ? null : () => Navigator.pop(ctx),
-                        child: Container(
-                          height: 48,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(14),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Así podrás iniciar sesión también con tu correo y '
+                    'contraseña, sin depender de Google.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.bgPrimary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: passCtrl,
+                      obscureText: obscure1,
+                      autofocus: true,
+                      style: GoogleFonts.poppins(
+                        color: AppColors.textPearl,
+                        fontSize: 14,
+                      ),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        hintText: 'Nueva contraseña (mín. 6 caracteres)',
+                        hintStyle: GoogleFonts.poppins(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppColors.accentCyan,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscure1
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: AppColors.textMuted,
+                            size: 18,
                           ),
-                          child: Text(
-                            'Ahora no',
-                            style: GoogleFonts.poppins(
-                              color: AppColors.textMuted,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          onPressed: () => setDlg(() => obscure1 = !obscure1),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: guardando
-                            ? null
-                            : () async {
-                                final p1 = passCtrl.text.trim();
-                                final p2 = passConfirmCtrl.text.trim();
-
-                                if (p1.length < 6) {
-                                  setDlg(() => errorLocal =
-                                      'La contraseña debe tener mínimo 6 caracteres');
-                                  return;
-                                }
-                                if (p1 != p2) {
-                                  setDlg(() =>
-                                      errorLocal = 'Las contraseñas no coinciden');
-                                  return;
-                                }
-
-                                setDlg(() {
-                                  guardando = true;
-                                  errorLocal = null;
-                                });
-
-                                final auth = context.read<AuthProvider>();
-                                final resultado = await auth
-                                    .establecerPasswordCuentaGoogle(p1);
-
-                                if (resultado['success'] == true) {
-                                  if (ctx.mounted) Navigator.pop(ctx);
-                                } else {
-                                  setDlg(() {
-                                    guardando = false;
-                                    errorLocal = resultado['message'] ??
-                                        'No se pudo configurar la contraseña';
-                                  });
-                                }
-                              },
-                        child: Container(
-                          height: 48,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                AppColors.accentViolet,
-                                AppColors.accentCyan,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: guardando
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text(
-                                  'Guardar',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.bgPrimary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: passConfirmCtrl,
+                      obscureText: obscure2,
+                      style: GoogleFonts.poppins(
+                        color: AppColors.textPearl,
+                        fontSize: 14,
+                      ),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
                         ),
+                        hintText: 'Confirma la contraseña',
+                        hintStyle: GoogleFonts.poppins(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppColors.accentCyan,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscure2
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: AppColors.textMuted,
+                            size: 18,
+                          ),
+                          onPressed: () => setDlg(() => obscure2 = !obscure2),
+                        ),
+                      ),
+                      onSubmitted: (_) {},
+                    ),
+                  ),
+                  if (errorLocal != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorLocal!,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: Colors.redAccent,
+                        fontSize: 12,
                       ),
                     ),
                   ],
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: guardando ? null : () => Navigator.pop(ctx),
+                          child: Container(
+                            height: 48,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              'Ahora no',
+                              style: GoogleFonts.poppins(
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: guardando
+                              ? null
+                              : () async {
+                                  final p1 = passCtrl.text.trim();
+                                  final p2 = passConfirmCtrl.text.trim();
+
+                                  if (p1.length < 6) {
+                                    setDlg(() => errorLocal =
+                                        'La contraseña debe tener mínimo 6 caracteres');
+                                    return;
+                                  }
+                                  if (p1 != p2) {
+                                    setDlg(() =>
+                                        errorLocal = 'Las contraseñas no coinciden');
+                                    return;
+                                  }
+
+                                  setDlg(() {
+                                    guardando = true;
+                                    errorLocal = null;
+                                  });
+
+                                  final auth = context.read<AuthProvider>();
+                                  final resultado = await auth
+                                      .establecerPasswordCuentaGoogle(p1);
+
+                                  if (resultado['success'] == true) {
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                  } else if (resultado['sesionExpirada'] ==
+                                      true) {
+                                    // La sesión de Google se cayó entre el
+                                    // login y este diálogo. Insistir aquí no
+                                    // lleva a ninguna parte: se cierra el
+                                    // diálogo y se maneja como lo que es.
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                    if (mounted) {
+                                      await manejarSesionExpirada(
+                                        context,
+                                        resultado,
+                                      );
+                                    }
+                                  } else {
+                                    setDlg(() {
+                                      guardando = false;
+                                      errorLocal = resultado['message'] ??
+                                          'No se pudo configurar la contraseña';
+                                    });
+                                  }
+                                },
+                          child: Container(
+                            height: 48,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppColors.accentViolet,
+                                  AppColors.accentCyan,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: guardando
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    'Guardar',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -738,170 +764,176 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 1.5,
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.accentCyan.withOpacity(0.12),
-                    border: Border.all(
-                      color: AppColors.accentCyan.withOpacity(0.35),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.link_rounded,
-                    color: AppColors.accentCyan,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Vincula tu cuenta de Google',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPearl,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Ya existe una cuenta creada con $email.\n'
-                  'Ingresa tu contraseña para poder entrar con Google también.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bgPrimary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: passwordCtrl,
-                    obscureText: obscure,
-                    autofocus: true,
-                    style: GoogleFonts.poppins(
-                      color: AppColors.textPearl,
-                      fontSize: 14,
-                    ),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      hintText: 'Contraseña',
-                      hintStyle: GoogleFonts.poppins(
-                        color: AppColors.textMuted,
-                        fontSize: 13,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.lock_outline_rounded,
-                        color: AppColors.accentCyan,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscure
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: AppColors.textMuted,
-                          size: 18,
-                        ),
-                        onPressed: () => setDlg(() => obscure = !obscure),
+          // El teclado aparece encima de este diálogo. Sin scroll, la
+          // `Column` conserva su alto mientras el `Dialog` recibe menos
+          // espacio, y Flutter pinta el rayado de overflow. Con scroll el
+          // contenido se desplaza en vez de desbordarse.
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.accentCyan.withOpacity(0.12),
+                      border: Border.all(
+                        color: AppColors.accentCyan.withOpacity(0.35),
+                        width: 1.5,
                       ),
                     ),
-                    onSubmitted: (_) {
-                      if (passwordCtrl.text.trim().isNotEmpty) {
-                        Navigator.pop(ctx, passwordCtrl.text.trim());
-                      }
-                    },
+                    child: const Icon(
+                      Icons.link_rounded,
+                      color: AppColors.accentCyan,
+                      size: 28,
+                    ),
                   ),
-                ),
-                if (errorLocal != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   Text(
-                    errorLocal!,
+                    'Vincula tu cuenta de Google',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                      color: Colors.redAccent,
-                      fontSize: 12,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPearl,
                     ),
                   ),
-                ],
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(ctx, null),
-                        child: Container(
-                          height: 48,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            'Cancelar',
-                            style: GoogleFonts.poppins(
-                              color: AppColors.textMuted,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Ya existe una cuenta creada con $email.\n'
+                    'Ingresa tu contraseña para poder entrar con Google también.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.bgPrimary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 1.5,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          final pass = passwordCtrl.text.trim();
-                          if (pass.isEmpty) {
-                            setDlg(() => errorLocal = 'Ingresa tu contraseña');
-                            return;
-                          }
-                          Navigator.pop(ctx, pass);
-                        },
-                        child: Container(
-                          height: 48,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                AppColors.accentViolet,
-                                AppColors.accentCyan,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            'Vincular',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    child: TextField(
+                      controller: passwordCtrl,
+                      obscureText: obscure,
+                      autofocus: true,
+                      style: GoogleFonts.poppins(
+                        color: AppColors.textPearl,
+                        fontSize: 14,
+                      ),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
                         ),
+                        hintText: 'Contraseña',
+                        hintStyle: GoogleFonts.poppins(
+                          color: AppColors.textMuted,
+                          fontSize: 13,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppColors.accentCyan,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscure
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: AppColors.textMuted,
+                            size: 18,
+                          ),
+                          onPressed: () => setDlg(() => obscure = !obscure),
+                        ),
+                      ),
+                      onSubmitted: (_) {
+                        if (passwordCtrl.text.trim().isNotEmpty) {
+                          Navigator.pop(ctx, passwordCtrl.text.trim());
+                        }
+                      },
+                    ),
+                  ),
+                  if (errorLocal != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorLocal!,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: Colors.redAccent,
+                        fontSize: 12,
                       ),
                     ),
                   ],
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(ctx, null),
+                          child: Container(
+                            height: 48,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              'Cancelar',
+                              style: GoogleFonts.poppins(
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            final pass = passwordCtrl.text.trim();
+                            if (pass.isEmpty) {
+                              setDlg(() => errorLocal = 'Ingresa tu contraseña');
+                              return;
+                            }
+                            Navigator.pop(ctx, pass);
+                          },
+                          child: Container(
+                            height: 48,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppColors.accentViolet,
+                                  AppColors.accentCyan,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              'Vincular',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -959,6 +991,11 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(
             builder: (_) => VerifyEmailScreen(
               email: resultado['email'] ?? gmail,
+              // Sin la contraseña, `_obtenerUsuarioParaReenvio()` no puede
+              // volver a autenticar —la sesión se cerró en `loginUsuario`—
+              // y el botón "Reenviar" contestaba siempre que no se podía.
+              // La pantalla de registro ya la pasaba; esta se quedó atrás.
+              contrasena: contrasena,
             ),
           ),
         );

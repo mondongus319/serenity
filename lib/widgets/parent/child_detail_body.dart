@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
 import 'limite_tiempo_card.dart';
 import 'password_nino_card.dart';
+import '../common/avatar_nino.dart';
 import 'ubicacion_card.dart';
 import 'uso_semanal_card.dart';
 
@@ -59,6 +60,7 @@ class ChildDetailBody extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _DetailCard(
+                          ninoId: ninoId,
                           nombreNino: nombreNino,
                           onYoutube: onYoutube,
                         ),
@@ -189,10 +191,13 @@ class _DetailHeader extends StatelessWidget {
 // CARD PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 class _DetailCard extends StatelessWidget {
+  /// Solo lo usa el avatar: esta tarjeta no lee el documento del niño.
+  final String ninoId;
   final String nombreNino;
   final VoidCallback onYoutube;
 
   const _DetailCard({
+    required this.ninoId,
     required this.nombreNino,
     required this.onYoutube,
   });
@@ -226,38 +231,13 @@ class _DetailCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Avatar con inicial ───────────────────────────────────────
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [AppColors.accentViolet, AppColors.accentCyan],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.accentViolet.withOpacity(0.3),
-                  blurRadius: 20,
-                  spreadRadius: 2,
-                ),
-                BoxShadow(
-                  color: AppColors.accentCyan.withOpacity(0.2),
-                  blurRadius: 28,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              nombreNino[0].toUpperCase(),
-              style: GoogleFonts.poppins(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
+          // El mismo avatar que ve su hijo. Se consulta por `ninoId`
+          // porque esta pantalla no carga el documento del niño: lo hacen
+          // sus tarjetas, cada una por su cuenta.
+          AvatarNino(
+            ninoId: ninoId,
+            nombre: nombreNino,
+            tamano: 96,
           ),
 
           const SizedBox(height: 16),

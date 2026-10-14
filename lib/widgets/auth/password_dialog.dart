@@ -50,6 +50,9 @@ class _PasswordSheetState extends State<_PasswordSheet> {
   bool _obscureText = true;
   bool _obscureConfirm = true;
 
+  /// El aviso de error, dentro de la hoja. `null` = no hay error.
+  String? _error;
+
   @override
   void dispose() {
     _passwordController.dispose();
@@ -57,37 +60,50 @@ class _PasswordSheetState extends State<_PasswordSheet> {
     super.dispose();
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // POR QUÉ EL AVISO DEJÓ DE SER UN SnackBar
+  //
+  // `ScaffoldMessenger.showSnackBar` pinta el aviso abajo del todo, **en el
+  // Scaffold de la pantalla que hay detrás**. Y esto es una hoja modal que
+  // cubre justamente esa zona.
+  //
+  // O sea que el mensaje salía —no era un fallo de lógica— pero quedaba
+  // tapado por la propia hoja, y encima con el teclado abierto. El usuario
+  // solo veía que el botón no hacía nada.
+  //
+  // Ahora el aviso vive DENTRO de la hoja, justo encima de los botones,
+  // donde está mirando quien acaba de tocar "Confirmar". Se borra solo en
+  // cuanto la persona vuelve a escribir: un error que sigue en pantalla
+  // mientras corriges lo que señaló deja de ser una ayuda y pasa a ser ruido.
+  // ═══════════════════════════════════════════════════════════════════════
+  void _fallar(String mensaje) {
+    setState(() => _error = mensaje);
+  }
+
+  void _limpiarError() {
+    if (_error != null) setState(() => _error = null);
+  }
+
   void _onConfirm() {
     final password = _passwordController.text.trim();
 
     if (password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('La contraseña no puede estar vacía'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _fallar('Escribe una contraseña para continuar.');
       return;
     }
 
     if (widget.isCreatingPassword) {
       final confirm = _confirmController.text.trim();
-      if (password != confirm) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Las contraseñas no coinciden'),
-            backgroundColor: Colors.red,
-          ),
-        );
+
+      // El largo se revisa ANTES de comparar. Si alguien escribe "12" dos
+      // veces, el problema real es que son dos dígitos, no que "no
+      // coinciden" —que además sería mentira—.
+      if (password.length < 4) {
+        _fallar('La contraseña necesita al menos 4 caracteres.');
         return;
       }
-      if (password.length < 4) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('La contraseña debe tener al menos 4 caracteres'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (password != confirm) {
+        _fallar('Las dos contraseñas no son iguales. Revísalas.');
         return;
       }
     }
@@ -97,9 +113,27 @@ class _PasswordSheetState extends State<_PasswordSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final media = MediaQuery.of(context);
+    final bottomInset = media.viewInsets.bottom;
 
-    return Container(
+    // ── LA HOJA NO PUEDE PASARSE DE LA PANTALLA ─────────────────────────
+    //
+    // Con el teclado abierto quedan unos 600 px útiles, y esta hoja mide
+    // más: logo, título, subtítulo, dos campos, el aviso de error y dos
+    // botones. Se desbordaba por 60 px, que es justo donde estaban los
+    // botones — o sea que el usuario veía el error y no podía confirmar.
+    //
+    // El aviso de error fue lo que colmó el vaso, pero el problema ya
+    // estaba ahí: bastaba un teléfono más bajo para reproducirlo.
+    //
+    // Dos piezas, y hacen falta las dos: un tope de altura para que la hoja
+    // nunca supere la pantalla, y un scroll para que el contenido que no
+    // quepa se pueda alcanzar deslizando.
+    final maxAlto = media.size.height - media.padding.top - 12;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxAlto),
+      child: Container(
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: const BorderRadius.only(
@@ -125,7 +159,8 @@ class _PasswordSheetState extends State<_PasswordSheet> {
         ],
       ),
       padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + bottomInset),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
@@ -218,6 +253,56 @@ class _PasswordSheetState extends State<_PasswordSheet> {
             ),
           ],
 
+          // ── EL AVISO, DONDE SE VE ───────────────────────────────────────
+          //
+          // `AnimatedSize` evita el salto seco: la hoja crece y encoge con el
+          // aviso en vez de dar un tirón que desplaza los botones bajo el
+          // dedo justo cuando la persona va a volver a tocarlos.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            child: _error == null
+                ? const SizedBox(width: double.infinity, height: 0)
+                : Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.redAccent.withOpacity(0.35),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          size: 17,
+                          color: Colors.redAccent,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12.5,
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.redAccent.shade100,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+
           const SizedBox(height: 28),
 
           Row(
@@ -306,6 +391,8 @@ class _PasswordSheetState extends State<_PasswordSheet> {
             ],
           ),
         ],
+        ),
+      ),
       ),
     );
   }
@@ -330,6 +417,10 @@ class _PasswordSheetState extends State<_PasswordSheet> {
         controller: controller,
         obscureText: obscure,
         autofocus: autofocus,
+        // El aviso se borra en cuanto la persona empieza a corregir. Dejarlo
+        // ahí mientras ya está arreglando lo que señaló solo estorba.
+        onChanged: (_) => _limpiarError(),
+        onSubmitted: (_) => _onConfirm(),
         style: GoogleFonts.poppins(
           color: AppColors.textPearl,
           fontSize: 15,

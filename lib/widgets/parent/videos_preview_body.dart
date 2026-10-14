@@ -74,14 +74,43 @@ class _VideosPreviewBodyState extends State<VideosPreviewBody> {
     super.dispose();
   }
 
+  // El orden se calcula UNA vez por lista, no en cada `build`.
+  //
+  // `_filtrados` corre en cada repintado —y esta pantalla repinta al cambiar
+  // de página y de pestaña—. Barajar 700 videos cada vez se nota en un
+  // teléfono modesto, y además es trabajo tirado: para los mismos datos el
+  // resultado es siempre idéntico, que es justo la gracia de la semilla.
+  VideosDelNino? _datosDelOrden;
+  List<Map<String, dynamic>>? _ordenCacheado;
+
+  List<Map<String, dynamic>> _ordenDe(VideosDelNino d) {
+    if (!identical(_datosDelOrden, d) || _ordenCacheado == null) {
+      _datosDelOrden = d;
+      _ordenCacheado = VideosNinoService.ordenDeReproduccion(d);
+    }
+    return _ordenCacheado!;
+  }
+
   List<Map<String, dynamic>> _filtrados(VideosDelNino d) {
+    // ── TODAS LAS PESTAÑAS SALEN DEL MISMO ORDEN ──────────────────────
+    //
+    // Los filtros por origen devolvían las listas tal como llegaban de
+    // Firestore. En el catálogo eso significa categoría por categoría:
+    // primero los 600 de música y después los 40 de deportes, que no es el
+    // orden en que su hijo se los va a encontrar.
+    //
+    // Filtrando sobre la lista ya ordenada, cada pestaña enseña los videos
+    // de ese origen **en el turno real** en que van a sonar. Ninguna
+    // pestaña puede contradecir a otra.
+    final orden = _ordenDe(d);
+
     switch (_filtro) {
       case _Origen.catalogo:
-        return d.catalogo;
+        return orden.where((v) => v['origen'] == 'catalogo').toList();
       case _Origen.canales:
-        return d.canalesPadre;
+        return orden.where((v) => v['origen'] == 'canal_padre').toList();
       case _Origen.youtubers:
-        return d.youtubers;
+        return orden.where((v) => v['origen'] == 'youtuber').toList();
       case _Origen.todos:
         // ── POR QUÉ NO ES `d.todos` ──────────────────────────────────
         //
@@ -96,15 +125,21 @@ class _VideosPreviewBodyState extends State<VideosPreviewBody> {
         // que no era lo mismo que veía su hijo. La vista previa mentía
         // sobre lo único que importa: qué se va a encontrar primero.
         //
-        // Ahora se usa la misma función que usa el niño. Lo que el padre
-        // no puede ver es el orden EXACTO, porque el niño revuelve dentro
-        // de cada origen en cada sesión; pero la proporción y el
-        // intercalado sí son los de verdad.
-        return VideosNinoService.mezclarConPrioridad(
-          catalogo: d.catalogo,
-          canalesPadre: d.canalesPadre,
-          youtubers: d.youtubers,
-        );
+        // Ahora es el orden EXACTO, no una aproximación.
+        //
+        // Antes esta pantalla intercalaba las listas tal como llegaban de
+        // Firestore, sin revolverlas. Dos consecuencias:
+        //
+        //   · El catálogo se consulta categoría por categoría, así que el
+        //     padre veía primero toda la música y después todo el deporte.
+        //     Su hijo no lo ve así.
+        //   · El niño sí revolvía, y sin semilla, de modo que el orden era
+        //     distinto en cada sesión y no había forma de reproducirlo.
+        //
+        // `ordenDeReproduccion` calcula el orden a partir del id del niño y
+        // la fecha, así que este teléfono y el del niño llegan al mismo
+        // resultado sin hablarse. Lo que se ve aquí es lo que él tiene hoy.
+        return orden;
     }
   }
 

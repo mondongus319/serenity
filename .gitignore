@@ -62,3 +62,5 @@ serviceAccountKey.json
 # Dependencias de Node (functions e importadores)
 node_modules/
 **/node_modules/
+
+graphify-out/

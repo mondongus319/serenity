@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+// Explícito y no vía cloud_firestore: `FirebaseException` vive aquí, y
+// depender de una reexportación ajena es como se rompen los builds al subir
+// una dependencia de versión.
+import 'package:firebase_core/firebase_core.dart';
 import 'child_home_screen.dart';
 import '../../servicces/child_state_service.dart';
 import '../../servicces/firestore_service.dart';
@@ -29,6 +33,11 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
   bool _isLoading = false;
   bool _codigoGenerado = false;
   StreamSubscription<DocumentSnapshot>? _vinculacionSub;
+
+  /// Reintentos gastados del listener de vinculación por fallos de red.
+  /// Se reinicia con cada código nuevo: el contador protege contra un bucle
+  /// de reconexión, no contra que el usuario lo intente otra vez.
+  int _reintentosEscucha = 0;
 
   Future<void> _mostrarDialogoMensaje({
     required IconData icono,
@@ -184,6 +193,7 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
           _codigoVinculacion = codigo;
           _codigoGenerado = true;
         });
+        _reintentosEscucha = 0;
         _iniciarEscuchaVinculacion(id, nombre);
       } else {
         if (mounted) {
@@ -225,7 +235,21 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
           _vinculacionSub = null;
 
           final padreIdStr = idPadre.toString();
-          final nombrePadre = await _obtenerNombrePadre(padreIdStr);
+
+          // El nombre viene YA COPIADO en el documento del niño: lo escribe
+          // `vincularNino` al vincular, con el SDK de administrador.
+          //
+          // Este teléfono puede estar autenticado con una cuenta distinta a
+          // la del padre, y en ese caso no tiene —ni debe tener— permiso
+          // para leer `padres/{id}`: ahí están el correo del padre, su fecha
+          // de nacimiento y el estado de su suscripción.
+          //
+          // La lectura directa se conserva como respaldo para los perfiles
+          // vinculados ANTES de este cambio, que no llevan `nombre_padre`.
+          final nombreCopiado = (data['nombre_padre'] ?? '').toString();
+          final nombrePadre = nombreCopiado.isNotEmpty
+              ? nombreCopiado
+              : await _obtenerNombrePadre(padreIdStr);
           final emailPadre = await _obtenerEmailPadre(padreIdStr);
 
           final emailFinal =
@@ -258,6 +282,26 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
           );
         }
       },
+      // ═══════════════════════════════════════════════════════════════════
+      // POR QUÉ ESTE MANEJADOR DISTINGUE LA CAUSA
+      //
+      // Antes, CUALQUIER fallo del stream decía "Conexión perdida" y tiraba
+      // el código recién generado. Dos problemas:
+      //
+      //   1. Casi siempre era mentira. Un PERMISSION_DENIED de las reglas no
+      //      es un problema de red, y mandar al usuario a "generar el código
+      //      nuevamente" no lo arregla: el segundo código falla igual.
+      //   2. Un parpadeo de red —que en un celular es lo más normal del
+      //      mundo— obligaba a rehacer todo el registro, cuando bastaba con
+      //      volver a escuchar.
+      //
+      // Ahora: los fallos de red reintentan solos y conservan el código; solo
+      // los de permisos cortan, porque esos no se arreglan esperando.
+      //
+      // El código de error va en el mensaje a propósito. Cuando quien prueba
+      // la app está lejos y no puede pasar un log, su captura de pantalla ES
+      // el log.
+      // ═══════════════════════════════════════════════════════════════════
       onError: (e) async {
         debugPrint('_vinculacionSub stream error: $e');
         _vinculacionSub?.cancel();
@@ -265,16 +309,38 @@ class _ChildRegistrationScreenState extends State<ChildRegistrationScreen> {
 
         if (!mounted) return;
 
+        final codigoError = e is FirebaseException ? e.code : 'desconocido';
+        final esPermisos = codigoError == 'permission-denied';
+
+        // Red: se reintenta una vez, en silencio, sin perder el código.
+        if (!esPermisos && _reintentosEscucha < 1) {
+          _reintentosEscucha++;
+          await Future.delayed(const Duration(seconds: 3));
+          if (!mounted) return;
+          _iniciarEscuchaVinculacion(ninoId, nombreNino);
+          return;
+        }
+
         setState(() {
           _codigoGenerado = false;
           _codigoVinculacion = null;
         });
 
         await _mostrarDialogoMensaje(
-          icono: Icons.wifi_off_rounded,
+          icono: esPermisos
+              ? Icons.lock_outline_rounded
+              : Icons.wifi_off_rounded,
           colorIcono: Colors.redAccent,
-          titulo: 'Conexión perdida',
-          mensaje: 'Se perdió la conexión. Por favor genera el código nuevamente.',
+          titulo: esPermisos
+              ? 'No se pudo confirmar la vinculación'
+              : 'Conexión perdida',
+          mensaje: esPermisos
+              ? 'Este dispositivo dejó de tener permiso para seguir el perfil.\n\n'
+                  'Suele pasar cuando el teléfono del niño tiene una cuenta '
+                  'distinta a la del padre que introduce el código.\n\n'
+                  '(error: $codigoError)'
+              : 'Se perdió la conexión. Por favor genera el código '
+                  'nuevamente.\n\n(error: $codigoError)',
         );
       },
       cancelOnError: true,

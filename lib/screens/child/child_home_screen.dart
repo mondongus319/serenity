@@ -1,5 +1,7 @@
 import 'dart:async';
 
+// Solo por el tipo `DocumentSnapshot` del vigilante del perfil.
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +17,8 @@ import 'child_youtube_screen.dart';
 import '../../../widgets/child/child_home_body.dart';
 import '../../widgets/child/limite_tiempo_guard.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/catalogo_avatares.dart';
+import '../../widgets/common/avatar_nino.dart';
 
 class ChildHomeScreen extends StatefulWidget {
   final String ninoId;
@@ -39,6 +43,47 @@ class ChildHomeScreen extends StatefulWidget {
 class _ChildHomeScreenState extends State<ChildHomeScreen> {
   final Stopwatch _stopwatch = Stopwatch();
   late final AppLifecycleListener _lifecycleListener;
+
+  /// Vigila el documento del perfil mientras el niño está dentro.
+  StreamSubscription<DocumentSnapshot>? _vigilantePerfil;
+
+  /// Para no expulsar dos veces si el stream emite varias veces seguidas.
+  bool _expulsando = false;
+
+  /// La foto de perfil elegida. La mantiene al día el vigía del perfil.
+  String? _avatarId;
+
+  /// Abre el selector y guarda la elección.
+  Future<void> _elegirAvatar() async {
+    final elegido = await SelectorAvatar.mostrar(
+      context: context,
+      nombreNino: widget.nombreNino,
+      avatarActual: _avatarId,
+    );
+    if (elegido == null || !mounted) return;
+
+    // Se pinta de inmediato y se guarda después. El niño ve el cambio al
+    // instante; si la escritura falla, el vigía del documento devuelve la
+    // foto anterior en cuanto llegue el siguiente evento, así que no queda
+    // mintiendo.
+    setState(() => _avatarId = elegido);
+
+    try {
+      await FirestoreService.cambiarAvatarNino(
+        ninoId: widget.ninoId,
+        avatarId: elegido,
+      );
+    } catch (e) {
+      debugPrint('cambiarAvatarNino: $e');
+      if (!mounted) return;
+      await _mostrarDialogoMensaje(
+        icono: Icons.wifi_off_rounded,
+        colorIcono: Colors.orangeAccent,
+        titulo: 'No se pudo guardar',
+        mensaje: 'Revisa tu conexión e inténtalo otra vez.',
+      );
+    }
+  }
 
   Future<void> _mostrarDialogoMensaje({
     required IconData icono,
@@ -106,6 +151,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     _iniciarReporteDeUso();
     _iniciarReporteDeUbicacion();
     _iniciarModoNino();
+    _vigilarPerfil();
     _lifecycleListener = AppLifecycleListener(
       onHide: _manejarSegundoPlano,
       onInactive: _manejarSegundoPlano,
@@ -118,6 +164,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   @override
   void dispose() {
     _stopwatch.stop();
+    _vigilantePerfil?.cancel();
     _timerUso?.cancel();
     _timerUbicacion?.cancel();
     // Se manda lo que falte SIN await: dispose() no puede esperar. Si la
@@ -131,6 +178,140 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   Future<void> _iniciarModoNino() async {
     await _mostrarOnboardingSiNecesario();
     await KioskService.bloquear();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // EL VIGILANTE DEL PERFIL — Y POR QUÉ ES UN PROBLEMA DE SEGURIDAD, NO UN
+  // DETALLE DE COMODIDAD
+  //
+  // Esta pantalla fija el teléfono en modo kiosco. La única salida es
+  // `_cerrarSesion()`, que valida la contraseña **leyendo el documento del
+  // niño**.
+  //
+  // Si el padre elimina el perfil mientras el niño está dentro, ese documento
+  // deja de existir —o deja de ser legible para esta cuenta—. Entonces
+  // `validarPasswordNino` devuelve false pase lo que pase, la app dice
+  // "Contraseña incorrecta" aunque la contraseña sea la correcta, y **el niño
+  // queda encerrado en la aplicación**. Con la pantalla fijada, sin forma de
+  // salir, en el teléfono de un menor.
+  //
+  // Eso no es un bug de interfaz: es dejar a un niño atrapado en un
+  // dispositivo. Se ataca por los dos lados.
+  //
+  //   1. AQUÍ: se escucha el documento y, en cuanto deja de ser válido, se
+  //      sale solo, se quita el kiosco y se explica qué pasó.
+  //   2. En `_cerrarSesion()`: si el perfil ya no está, se sale SIN pedir
+  //      contraseña. No hay nada que proteger en un perfil que no existe.
+  // ═══════════════════════════════════════════════════════════════════════
+  void _vigilarPerfil() {
+    _vigilantePerfil = FirestoreService.streamNino(widget.ninoId).listen(
+      (snap) {
+        if (!snap.exists) {
+          _expulsar(
+            'Este perfil ya no existe',
+            'Tus papás lo eliminaron desde su teléfono.',
+          );
+          return;
+        }
+
+        final d = snap.data() as Map<String, dynamic>? ?? {};
+
+        // El avatar se toma de aquí y no con otra consulta: este vigía ya
+        // está escuchando el documento entero. Si el padre lo cambiara desde
+        // su teléfono, la foto cambiaría sola en el del niño.
+        final avatar = CatalogoAvatares.idDe(d);
+        if (avatar != _avatarId && mounted) {
+          setState(() => _avatarId = avatar);
+        }
+
+        if (d['eliminado'] == true) {
+          _expulsar(
+            'Este perfil ya no existe',
+            'Tus papás lo eliminaron desde su teléfono.',
+          );
+          return;
+        }
+
+        // Desvinculado: el perfil sigue ahí con todo su contenido, pero ya no
+        // pertenece a nadie hasta que lo vuelvan a conectar con su código.
+        if (d['id_padre'] == null || d['activo'] != true) {
+          _expulsar(
+            'Este perfil se desconectó',
+            'No se borró nada. Pídele a tus papás que lo vuelvan a conectar.',
+          );
+        }
+      },
+      onError: (e) {
+        // Un PERMISSION_DENIED aquí significa que este teléfono ya no es el
+        // dueño del perfil: lo eliminaron o lo desvincularon. Cualquier otro
+        // error —red, casi siempre— NO expulsa: el niño se quedaría sin su
+        // sesión por un parpadeo de wifi.
+        final texto = e.toString().toLowerCase();
+        if (texto.contains('permission-denied') ||
+            texto.contains('permission_denied')) {
+          _expulsar(
+            'Este perfil ya no está disponible',
+            'Pídele a tus papás que lo revisen desde su teléfono.',
+          );
+        } else {
+          debugPrint('vigilantePerfil error: $e');
+        }
+      },
+    );
+  }
+
+  /// Saca al niño del modo kiosco y de la sesión, sin pedirle nada.
+  Future<void> _expulsar(String titulo, String mensaje) async {
+    if (_expulsando) return;
+    _expulsando = true;
+
+    _vigilantePerfil?.cancel();
+    _timerUso?.cancel();
+    _timerUbicacion?.cancel();
+
+    // El kiosco se quita PRIMERO. Si algo de lo que viene después falla, lo
+    // importante —que el teléfono deje de estar fijado— ya ocurrió.
+    try {
+      await _desactivarKiosk();
+    } catch (e) {
+      debugPrint('desactivarKiosk al expulsar: $e');
+    }
+
+    // Se intenta guardar el tiempo, pero sin dejar que un fallo detenga la
+    // salida: el perfil puede que ya no acepte escrituras.
+    try {
+      await _guardarTiempo();
+    } catch (e) {
+      debugPrint('guardarTiempo al expulsar: $e');
+    }
+    try {
+      await ChildStateService.clearNinoRegistrado();
+    } catch (e) {
+      debugPrint('clearNinoRegistrado al expulsar: $e');
+    }
+
+    if (!mounted) return;
+
+    // El diálogo va ANTES de navegar: `pushReplacement` desmonta esta
+    // pantalla y con ella su context, y el mensaje no llegaría a verse.
+    await _mostrarDialogoMensaje(
+      icono: Icons.info_outline_rounded,
+      colorIcono: Colors.orangeAccent,
+      titulo: titulo,
+      mensaje: mensaje,
+    );
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChildrenListScreen(
+          padreId: widget.padreId,
+          nombrePadre: widget.nombrePadre,
+          parentEmail: widget.parentEmail,
+        ),
+      ),
+    );
   }
 
   Future<void> _mostrarOnboardingSiNecesario() async {
@@ -407,7 +588,56 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     }
   }
 
+  /// ¿El perfil sigue siendo un perfil válido de este teléfono?
+  ///
+  /// Devuelve `null` si no se pudo averiguar (red), que NO es lo mismo que
+  /// "ya no está". Esa diferencia es todo: si un fallo de red contara como
+  /// "no está", bastaría con poner el teléfono en modo avión para saltarse la
+  /// contraseña de salida.
+  Future<bool?> _perfilSigueVivo() async {
+    try {
+      final datos = await FirestoreService.obtenerNino(widget.ninoId)
+          .timeout(const Duration(seconds: 8));
+
+      if (datos == null) return false;
+      if (datos['eliminado'] == true) return false;
+      if (datos['id_padre'] == null) return false;
+      return true;
+    } catch (e) {
+      final texto = e.toString().toLowerCase();
+      // Un permiso denegado sí es una respuesta: este teléfono ya no es el
+      // dueño de ese perfil.
+      if (texto.contains('permission-denied') ||
+          texto.contains('permission_denied')) {
+        return false;
+      }
+      debugPrint('perfilSigueVivo: $e');
+      return null; // no se sabe
+    }
+  }
+
   Future<void> _cerrarSesion() async {
+    // ── LA SALIDA DE EMERGENCIA VA PRIMERO ────────────────────────────────
+    //
+    // Antes de pedir nada se comprueba si el perfil todavía existe. Si el
+    // padre lo eliminó mientras el niño estaba dentro, la contraseña ya no se
+    // puede validar contra nada y el niño quedaría encerrado en el modo
+    // kiosco para siempre, repitiendo "Contraseña incorrecta" con la
+    // contraseña correcta.
+    //
+    // Ante la duda se sale. Un niño atrapado en un teléfono es peor que una
+    // salida de más.
+    final vivo = await _perfilSigueVivo();
+    if (vivo == false) {
+      await _expulsar(
+        'Este perfil ya no está',
+        'Tus papás lo eliminaron o lo desconectaron. Te sacamos de aquí sin '
+            'pedirte la contraseña.',
+      );
+      return;
+    }
+    if (!mounted) return;
+
     final password = await PasswordDialog.show(
       context: context,
       title: 'Confirmar salida',
@@ -429,15 +659,46 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     );
 
     bool valido = false;
+    Object? fallo;
     try {
       valido = await FirestoreService.validarPasswordNino(
           widget.ninoId, password);
     } catch (e) {
+      fallo = e;
       debugPrint('validarPasswordNino error: $e');
     }
 
     if (!mounted) return;
     Navigator.pop(context); // cierra loading
+
+    // ── NO SE LE MIENTE AL NIÑO ───────────────────────────────────────────
+    //
+    // Antes, CUALQUIER fallo aquí decía "Contraseña incorrecta". Con la
+    // pantalla fijada y sin otra salida, eso convierte un problema de red —o
+    // un perfil recién borrado— en un niño encerrado que además cree que
+    // escribió mal su propia contraseña.
+    //
+    // Ahora se distingue: permiso denegado significa que el perfil dejó de
+    // ser suyo, y entonces se sale; un fallo de red se nombra como lo que es.
+    if (fallo != null) {
+      final texto = fallo.toString().toLowerCase();
+      if (texto.contains('permission-denied') ||
+          texto.contains('permission_denied')) {
+        await _expulsar(
+          'Este perfil ya no está disponible',
+          'Te sacamos de aquí sin pedirte la contraseña.',
+        );
+        return;
+      }
+      await _mostrarDialogoMensaje(
+        icono: Icons.wifi_off_rounded,
+        colorIcono: Colors.orangeAccent,
+        titulo: 'No pudimos verificar',
+        mensaje: 'Revisa tu conexión e inténtalo otra vez.\n\n'
+            'No es que la contraseña esté mal.',
+      );
+      return;
+    }
 
     if (!valido) {
       await _mostrarDialogoMensaje(
@@ -516,6 +777,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           nombreNino: widget.nombreNino,
           onCerrarSesion: _cerrarSesion,
           onYoutube: _irAYoutube,
+          avatarId: _avatarId,
+          onCambiarAvatar: _elegirAvatar,
         ),
       ),
     );

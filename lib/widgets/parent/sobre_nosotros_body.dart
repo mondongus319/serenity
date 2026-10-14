@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/contacto.dart';
 import '../common/serenity_header.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,15 +74,25 @@ class SobreNosotrosBody extends StatelessWidget {
 
                     const SizedBox(height: 14),
 
+                    // ── MISIÓN Y VISIÓN ────────────────────────────────────
+                    //
+                    // Texto oficial entregado por la dirección del proyecto
+                    // (septiembre de 2026). No se reescribe ni se resume: es
+                    // la redacción institucional. Solo se corrigieron tildes
+                    // y espacios dobles del original.
                     _DarkInfoCard(
                       icon: Icons.track_changes_rounded,
                       titulo: 'Nuestra Misión',
                       contenido:
-                          'Brindar a los padres herramientas simples y efectivas '
-                          'para acompañar a sus hijos en el uso responsable de '
-                          'internet y redes sociales, garantizando un entorno '
-                          'digital seguro, educativo y adaptado a cada etapa '
-                          'del desarrollo infantil.',
+                          'Acompañar a las familias e instituciones en general, '
+                          'por medio de una aplicación software que guíe en el '
+                          'consumo digital de los niños y adolescentes, '
+                          'conduciéndolos a contenido de tipo edutainment que '
+                          'fomente su conocimiento, curiosidad y hábitos '
+                          'saludables, y fortalezca su desarrollo cognitivo, '
+                          'emocional y social, contribuyendo a la construcción '
+                          'de mentes más conocedoras, curiosas, objetivas, '
+                          'creativas y preparadas para el futuro.',
                       accentColor: AppColors.accentViolet,
                     ),
 
@@ -91,11 +102,13 @@ class SobreNosotrosBody extends StatelessWidget {
                       icon: Icons.star_outline_rounded,
                       titulo: 'Nuestra Visión',
                       contenido:
-                          'Ser la plataforma líder en América Latina para la '
-                          'supervisión y acompañamiento digital familiar, '
-                          'construyendo una generación de niños y jóvenes '
-                          'que usen la tecnología de manera consciente, '
-                          'creativa y segura.',
+                          'Consolidarse como la plataforma líder global en '
+                          'acompañamiento digital infantil y juvenil, '
+                          'reconocida por su capacidad de transformar los '
+                          'hábitos de consumo audiovisual de los niños y '
+                          'adolescentes, garantizando confianza, seguridad y '
+                          'formación de nuevas generaciones más conscientes, '
+                          'inteligentes y preparadas para los retos del mañana.',
                       accentColor: AppColors.accentCyan,
                     ),
 
@@ -105,13 +118,23 @@ class SobreNosotrosBody extends StatelessWidget {
 
                     const SizedBox(height: 14),
 
+                    // ⚠️ El correo YA NO se escribe a mano aquí.
+                    //
+                    // Decía `soporte@serenityapp.com`, una dirección que no
+                    // existe. Quien escribiera ahí no habría recibido
+                    // respuesta nunca, y la política de privacidad promete
+                    // atender consultas en diez días hábiles.
+                    //
+                    // Ahora sale de `Contacto.correoSoporte`, la misma
+                    // constante que usan los términos, para que no puedan
+                    // volver a decir cosas distintas.
                     _DarkInfoCard(
                       icon: Icons.mail_outline_rounded,
                       titulo: 'Contacto',
                       contenido:
                           '¿Tienes preguntas o sugerencias?\n'
                           'Escríbenos a:\n'
-                          'soporte@serenityapp.com\n\n'
+                          '${Contacto.correoSoporte}\n\n'
                           'Estamos aquí para ayudarte a construir '
                           'un entorno digital más seguro para tu familia.',
                       accentColor: AppColors.accentViolet,

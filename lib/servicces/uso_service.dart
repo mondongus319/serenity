@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────────
 /// CUÁNTO USA LA APP CADA NIÑO, DÍA POR DÍA
@@ -191,9 +192,22 @@ class UsoService {
 
     final ahora = momento ?? DateTime.now();
 
+    // ⚠️ `uid_nino` NO es lo mismo que `id_nino`.
+    //
+    //   id_nino  → el id del DOCUMENTO del perfil en `ninos`.
+    //   uid_nino → el uid de FIREBASE AUTH de este teléfono.
+    //
+    // Hace falta el segundo porque es lo único que las reglas pueden
+    // comparar contra `request.auth.uid`. Mientras el teléfono del niño usó
+    // la sesión del padre bastaba con `id_padre`; con cuentas separadas ese
+    // uid ya no es el de quien escribe, y sin esto el niño no podría
+    // registrar su propio tiempo de uso.
+    final uidDispositivo = FirebaseAuth.instance.currentUser?.uid;
+
     await _db.collection('uso_diario').doc(_docId(ninoId, ahora)).set({
       'id_nino': ninoId,
       'id_padre': padreId,
+      if (uidDispositivo != null) 'uid_nino': uidDispositivo,
       'mes': claveMes(ahora),
       // `merge: true` fusiona los mapas anidados en vez de reemplazarlos, así
       // que este increment toca un solo día y deja los otros 30 intactos.

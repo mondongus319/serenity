@@ -117,3 +117,7 @@ flutter:
     - assets/images/animales/
     - assets/images/icons/
     - assets/images/animales_con_acciones/
+    # Las fotos de perfil que puede elegir el niño. Son PNG circulares de
+    # 384 px con el fondo transparente; las seis juntas pesan 94 KB porque
+    # van con paleta reducida — son dibujos planos y no pierden nada.
+    - assets/images/avatares/

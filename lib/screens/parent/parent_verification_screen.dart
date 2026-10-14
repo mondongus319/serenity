@@ -104,6 +104,171 @@ class _ParentVerificationScreenState
     );
   }
 
+  /// Pide los 4 dígitos y no ofrece cancelar.
+  ///
+  /// El botón se habilita solo cuando hay exactamente 4 dígitos; no hay
+  /// "Omitir" porque un candado opcional lo pondría casi nadie. Si el padre
+  /// cierra la app, el perfil se queda sin clave y la app lo permite: es
+  /// mejor una cuenta sin candado que una cuenta que no se pueda borrar.
+  /// Devuelve `true` solo si la clave quedó guardada.
+  Future<bool> _pedirClaveEliminacion(String ninoId) async {
+    final controller = TextEditingController();
+    bool guardando = false;
+    bool guardada = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, refrescar) {
+          final valida = RegExp(r'^\d{4}$').hasMatch(controller.text);
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1A1A3E),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            icon: const Icon(
+              Icons.pin_outlined,
+              color: Color(0xFF06B6D4),
+              size: 48,
+            ),
+            title: const Text(
+              'Clave de eliminación',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            // ── EL CONTENIDO TIENE QUE PODER DESPLAZARSE ──────────────
+            //
+            // Con el teclado numérico abierto, el diálogo se queda con la
+            // mitad de la altura y esta columna se desbordaba por 34 px: el
+            // texto de abajo y el botón "Guardar" quedaban cortados, y en
+            // release se recortan sin avisar.
+            //
+            // `AlertDialog` NO desplaza su `content` por su cuenta. Cualquier
+            // diálogo con un campo de texto necesita esto.
+            content: SingleChildScrollView(
+              child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Elige 4 dígitos. Se te pedirán si alguien intenta eliminar '
+                  'la cuenta de correo desde el teléfono de tu hijo.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'No se la des a tu hijo. Es distinta de la contraseña con la '
+                  'que él entra a su perfil.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  textAlign: TextAlign.center,
+                  onChanged: (_) => refrescar(() {}),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    letterSpacing: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: '0000',
+                    hintStyle: const TextStyle(
+                      color: Colors.white24,
+                      letterSpacing: 10,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF12122E),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Podrás verla y cambiarla desde el perfil de tu hijo.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
+            ),
+            ),
+            actionsAlignment: MainAxisAlignment.center,
+            actions: [
+              ElevatedButton(
+                onPressed: (!valida || guardando)
+                    ? null
+                    : () async {
+                        refrescar(() => guardando = true);
+                        try {
+                          await FirestoreService.definirClaveEliminacion(
+                            padreId: widget.userId,
+                            ninoId: ninoId,
+                            clave: controller.text,
+                          );
+                          guardada = true;
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        } catch (_) {
+                          refrescar(() => guardando = false);
+                          // Se queda abierto con la clave escrita: es más
+                          // amable que cerrarlo y hacerle empezar de nuevo.
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF06B6D4),
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.white12,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 12,
+                  ),
+                ),
+                child: guardando
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Guardar',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return guardada;
+  }
+
   void _abrirEscaner() {
     showModalBottomSheet(
       context: context,
@@ -229,7 +394,29 @@ class _ParentVerificationScreenState
     );
   }
 
+  /// Evita que la vinculación se dispare dos veces.
+  ///
+  /// El escáner llama a `_verificarCodigo()` desde `onDetect`, y ese callback
+  /// se dispara en CADA fotograma en que el código sigue a la vista. Sin este
+  /// cerrojo salían dos llamadas casi simultáneas: la primera vinculaba bien,
+  /// la segunda encontraba el código ya usado y respondía "Código inválido",
+  /// y el diálogo de error tapaba —o se comía— el de la clave de eliminación.
+  ///
+  /// `_isLoading` no servía: entre que la primera llamada lo pone en true y
+  /// que el segundo `onDetect` lo lee pasa un fotograma entero.
+  bool _vinculando = false;
+
   void _verificarCodigo() async {
+    if (_vinculando) return;
+    _vinculando = true;
+    try {
+      await _vincular();
+    } finally {
+      _vinculando = false;
+    }
+  }
+
+  Future<void> _vincular() async {
     final codigo = _codigoController.text.trim();
     if (codigo.isEmpty) {
       await _mostrarDialogoMensaje(
@@ -253,11 +440,43 @@ class _ParentVerificationScreenState
       setState(() => _isLoading = false);
 
       if (resultado['success'] == true) {
+        // ── LA CLAVE DE ELIMINACIÓN SE DEFINE AQUÍ ───────────────────────
+        //
+        // Este es el único momento en que el padre está, con el teléfono en
+        // la mano, pensando en ESTE hijo. Si se dejara para la pantalla de
+        // configuración del perfil, casi nadie la pondría, y el candado que
+        // impide que el niño borre la cuenta de su teléfono no existiría.
+        //
+        // Va DESPUÉS de vincular y no antes porque hasta ahora no había un
+        // `ninoId` al que asociarla: el código podía ser inválido, estar
+        // repetido o chocar con el tope del plan.
+        //
+        // Si el padre cierra la app justo aquí, el perfil queda vinculado sin
+        // clave y eliminar la cuenta pide solo la confirmación de siempre. Es
+        // deliberado: quedarse sin ninguna forma de borrar la cuenta sería
+        // peor —y es lo que Google Play no permite—. La tarjeta del perfil
+        // deja ponerla después.
+        final ninoId = (resultado['id'] ?? '').toString();
+        bool claveGuardada = false;
+        if (ninoId.isNotEmpty) {
+          claveGuardada = await _pedirClaveEliminacion(ninoId);
+        }
+
+        if (!mounted) return;
         await _mostrarDialogoMensaje(
           icono: Icons.check_circle_outline_rounded,
           colorIcono: Colors.green,
           titulo: 'Vinculación exitosa',
-          mensaje: '¡Niño vinculado exitosamente!',
+          // Si por lo que sea no se llegó a definir la clave —la app se
+          // cerró, o la respuesta no traía el id del perfil— el padre tiene
+          // que enterarse AQUÍ. Un candado que nadie sabe que falta es peor
+          // que no tenerlo: se cree protegido y no lo está.
+          mensaje: claveGuardada
+              ? '¡Niño vinculado exitosamente!'
+              : '¡Niño vinculado exitosamente!\n\n'
+                  'Falta definir la clave de eliminación. Entra al perfil de '
+                  'tu hijo y ponla: sin ella, desde su teléfono se puede '
+                  'eliminar la cuenta de correo sin pedirte nada.',
         );
         if (!mounted) return;
         Navigator.pop(context);

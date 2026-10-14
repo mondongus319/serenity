@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'verify_email_screen.dart';
 import 'login_screen.dart';
 import '../../../widgets/auth/register_body.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/contacto.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -91,6 +93,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  /// Abre un documento legal en el navegador.
+  ///
+  /// Si el dispositivo no puede abrirlo, no se traga el error en silencio:
+  /// se muestra el enlace para que el usuario pueda copiarlo. Un botón que
+  /// no hace nada le deja creyendo que el documento no existe.
+  Future<void> _abrirEnlace(String url) async {
+    final uri = Uri.parse(url);
+    final abrio = await launchUrl(uri, mode: LaunchMode.externalApplication)
+        .catchError((_) => false);
+
+    if (abrio || !mounted) return;
+
+    await _mostrarDialogoMensaje(
+      icono: Icons.link_off_rounded,
+      colorIcono: Colors.orangeAccent,
+      titulo: 'No se pudo abrir el enlace',
+      mensaje: 'Puedes consultarlo desde tu navegador en:\n\n$url',
+    );
+  }
+
   Future<void> mostrarDialogoTerminos() async {
     final aceptado = await showDialog<bool>(
       context: context,
@@ -147,7 +169,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Términos y Condiciones',
+                          'Términos y Privacidad',
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -172,7 +194,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Para continuar con el registro, debes leer y aceptar nuestros términos.',
+                    'Para continuar con el registro debes leer y aceptar los '
+                    'Términos y Condiciones y la Política de Privacidad.',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: AppColors.textMuted,
@@ -180,7 +203,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 12),
                   Container(
-                    height: 260,
+                    // Alto relativo a la pantalla, no fijo: el diálogo creció
+                    // con los dos botones de documentos, y en pantallas
+                    // pequeñas un alto fijo desbordaba la columna.
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.34,
+                    ),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: AppColors.bgPrimary,
@@ -192,38 +220,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     child: SingleChildScrollView(
                       child: Text(
-                        'TÉRMINOS Y CONDICIONES DE USO - SERENITY\n\n'
-                        'Última actualización: Febrero 2026\n\n'
-                        '1. ACEPTACIÓN DE LOS TÉRMINOS\n'
-                        'Al registrarte en Serenity, aceptas estar legalmente vinculado por estos Términos y Condiciones. Si no aceptas estos términos, no podrás utilizar la aplicación.\n\n'
-                        '2. USO DE LA APLICACIÓN\n'
-                        '2.1. Serenity es una aplicación diseñada para el control parental y gestión familiar.\n'
-                        '2.2. Debes ser mayor de 18 años o tener el consentimiento de un padre/tutor legal.\n'
-                        '2.3. Eres responsable de mantener la confidencialidad de tu cuenta.\n\n'
-                        '3. PRIVACIDAD Y DATOS\n'
-                        '3.1. Recopilamos y procesamos datos personales de acuerdo con nuestra Política de Privacidad.\n'
-                        '3.2. Los datos de menores están protegidos según la legislación vigente de protección de datos infantiles.\n'
-                        '3.3. No compartiremos tu información con terceros sin tu consentimiento.\n\n'
-                        '4. RESPONSABILIDADES DEL USUARIO\n'
-                        '4.1. Proporcionar información veraz y actualizada.\n'
-                        '4.2. No utilizar la aplicación para actividades ilegales.\n'
-                        '4.3. Respetar los derechos de otros usuarios.\n'
-                        '4.4. Notificar cualquier uso no autorizado de tu cuenta.\n\n'
-                        '5. CONTENIDO Y CONDUCTA\n'
-                        '5.1. No está permitido contenido ofensivo, discriminatorio o ilegal.\n'
-                        '5.2. Serenity se reserva el derecho de eliminar contenido inapropiado.\n\n'
-                        '6. LIMITACIÓN DE RESPONSABILIDAD\n'
-                        '6.1. Serenity se proporciona “tal cual” sin garantías de ningún tipo.\n'
-                        '6.2. No somos responsables por daños derivados del uso de la aplicación.\n\n'
-                        '7. MODIFICACIONES\n'
-                        '7.1. Nos reservamos el derecho de modificar estos términos en cualquier momento.\n'
-                        '7.2. Los cambios se notificarán a través de la aplicación.\n\n'
-                        '8. TERMINACIÓN\n'
-                        '8.1. Puedes eliminar tu cuenta en cualquier momento.\n'
-                        '8.2. Nos reservamos el derecho de suspender cuentas que violen estos términos.\n\n'
-                        '9. CONTACTO\n'
-                        'Consultas: soporte@serenity.com\n\n'
-                        'Al hacer clic en Aceptar, confirmas que has leído, entendido y aceptas estos Términos y Condiciones.',
+                        // ─────────────────────────────────────────────────
+                        // RESUMEN de los Términos publicados en
+                        // ${Contacto.urlTerminos}
+                        //
+                        // La numeración coincide con la del documento
+                        // completo, para que quien quiera leer una cláusula
+                        // entera la encuentre con el mismo número. Este
+                        // resumen NO sustituye al documento: los botones de
+                        // abajo abren la versión íntegra, y eso es lo que
+                        // el usuario acepta.
+                        //
+                        // Si cambian los Términos publicados, hay que
+                        // revisar este resumen. Un resumen que contradiga
+                        // al documento es peor que no tenerlo.
+                        // ─────────────────────────────────────────────────
+                        'TÉRMINOS Y CONDICIONES DE USO — SERENITY\n'
+                        'Resumen. El texto completo se abre con los botones de abajo.\n\n'
+                        'Última actualización: ${Contacto.fechaDocumentos}\n\n'
+                        '1. QUIÉN PRESTA EL SERVICIO\n'
+                        'Serenity es operada por ${Contacto.titular}, persona natural, en Colombia. Contacto: ${Contacto.correoSoporte}\n\n'
+                        '3 y 4. QUÉ ES Y QUÉ NO ES SERENITY\n'
+                        'Serenity es una herramienta de acompañamiento parental: organiza y filtra contenido audiovisual para menores y le da al adulto responsable control sobre lo que ven y por cuánto tiempo.\n'
+                        'Serenity NO es una plataforma de streaming y no produce ni aloja el contenido: este se reproduce con el reproductor oficial de YouTube. El filtrado es una ayuda, no un sistema infalible.\n\n'
+                        '5 y 6. QUIÉN PUEDE REGISTRARSE\n'
+                        'Debes ser mayor de edad y entregar información veraz. Eres responsable de tu contraseña y de los dispositivos donde dejes la sesión abierta.\n\n'
+                        '7. PERFILES DE MENORES\n'
+                        'Solo tú, como adulto responsable, creas y configuras los perfiles de los menores. Al hacerlo declaras que ejerces la patria potestad o la representación legal del menor y que puedes autorizar el tratamiento de sus datos.\n'
+                        'El teléfono del menor puede usar tu misma sesión o entrar con una cuenta de correo propia. Esa decisión es tuya, y al vincular el perfil autorizas el tratamiento del nombre, el correo y la imagen de esa cuenta, que se usan solo para identificar el dispositivo.\n'
+                        'El menor no contrata planes, no paga nada y no administra la cuenta: categorías, contraseñas y límites de tiempo son solo tuyos. La App no tiene funciones sociales: no puede comunicarse con nadie ni ser contactado.\n'
+                        'La supervisión y el acompañamiento del menor siguen siendo tuyos.\n\n'
+                        '8. PLANES Y SUSCRIPCIONES\n'
+                        'Hay un Plan Gratuito y un Plan Premium (mensual o anual). El cobro lo procesa exclusivamente Google Play: Serenity no ve ni guarda datos de tu tarjeta.\n'
+                        'Las suscripciones se renuevan automáticamente salvo que canceles antes de que termine el período. Cancelas desde la sección de suscripciones de Google Play; conservas el Premium hasta que termine el período ya pagado.\n'
+                        'Si el Premium termina, no se borra ningún perfil ni dato: la cuenta vuelve al Plan Gratuito y todo queda accesible al reactivarlo.\n\n'
+                        '9. RETRACTO Y RECLAMOS\n'
+                        'Tienes derecho de retracto dentro de los cinco (5) días hábiles siguientes a la contratación (art. 47, Ley 1480 de 2011). Puedes pedirlo por Google Play o escribiendo a ${Contacto.correoSoporte}\n'
+                        'Como el cobro lo procesa Google, la devolución del dinero la ejecuta Google. Serenity tramita y acompaña la solicitud.\n'
+                        'Cualquier queja o reclamo puede dirigirse al mismo correo, sin perjuicio de tu derecho a acudir a la Superintendencia de Industria y Comercio.\n\n'
+                        '10. UBICACIÓN DEL MENOR\n'
+                        'La App registra la ubicación del dispositivo del menor para que tú puedas conocerla. Se guarda la última posición conocida; no hay rastreo continuo ni en segundo plano.\n'
+                        'Serenity no es un servicio de emergencia, de seguridad ni de rastreo, y no debes confiar solo en esta función para la protección física del menor.\n'
+                        'Te obligas a informar al menor sobre el uso de esta función, de forma adecuada a su edad.\n\n'
+                        '11. MODO SUPERVISADO\n'
+                        'Puedes activar una función que mantiene la App en primer plano mientras el menor usa su perfil. Tú decides en qué dispositivos y circunstancias la activas, valorando que no impida al menor pedir ayuda si la necesita.\n\n'
+                        '12 y 13. LO QUE NO SE PUEDE HACER\n'
+                        'No se permite usar la App para fines ilegales, intentar vulnerarla, descompilarla, revenderla ni suplantar a otra persona. La App, su algoritmo y su diseño son propiedad del Titular; recibes una licencia limitada, personal y no comercial.\n\n'
+                        '15. TUS DATOS\n'
+                        'El tratamiento de datos se rige por la Política de Privacidad, que hace parte integral de estos Términos y cumple la Ley 1581 de 2012 y el Decreto 1377 de 2013.\n'
+                        'Puedes conocer, actualizar, rectificar y suprimir tus datos, y revocar la autorización, en cualquier momento.\n\n'
+                        '16. LÍMITES DE RESPONSABILIDAD\n'
+                        'Serenity no garantiza que el servicio sea ininterrumpido o libre de errores, ni responde por fallas de plataformas de terceros. El algoritmo es una herramienta de apoyo, no un sistema infalible.\n\n'
+                        '17 y 18. CAMBIOS Y TERMINACIÓN\n'
+                        'Los Términos pueden actualizarse; los cambios relevantes se avisan dentro de la App. Puedes eliminar tu cuenta cuando quieras, desde la App o en ${Contacto.urlEliminarCuenta}\n\n'
+                        '21. LEY APLICABLE\n'
+                        'Estos Términos se rigen por la ley colombiana.\n\n'
+                        '22. CONTACTO\n'
+                        '${Contacto.correoSoporte}\n\n'
+                        '— — —\n'
+                        'Al pulsar Aceptar declaras que leíste y aceptas los Términos y Condiciones completos, y que autorizas el tratamiento de tus datos personales y los del menor conforme a la Política de Privacidad. Ambos documentos se abren con los botones de abajo.',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           height: 1.6,
@@ -232,7 +287,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 14),
+                  // Lo que el usuario acepta es el documento completo, no el
+                  // resumen de arriba. Si no puede abrirlo desde aquí, la
+                  // aceptación es de algo que nunca tuvo a la vista.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _BotonDocumento(
+                          icono: Icons.article_outlined,
+                          etiqueta: 'Términos completos',
+                          onTap: () => _abrirEnlace(Contacto.urlTerminos),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _BotonDocumento(
+                          icono: Icons.privacy_tip_outlined,
+                          etiqueta: 'Política de Privacidad',
+                          onTap: () => _abrirEnlace(Contacto.urlPrivacidad),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
@@ -328,7 +406,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         icono: Icons.gpp_maybe_outlined,
         colorIcono: Colors.redAccent,
         titulo: 'Términos requeridos',
-        mensaje: 'Debes aceptar los términos para registrarte.',
+        mensaje: 'Para crear una cuenta debes aceptar los Términos y '
+            'Condiciones y la Política de Privacidad.',
         barrierDismissible: false,
       );
       if (!mounted) return;
@@ -604,6 +683,68 @@ class _RegisterScreenState extends State<RegisterScreen> {
         onBack: () => Navigator.pop(context),
         onRegistrar: registrarUsuario,
         onTapFecha: seleccionarFecha,
+      ),
+    );
+  }
+}
+
+/// Botón compacto que abre uno de los documentos legales publicados.
+///
+/// Va discreto a propósito: no debe competir con Aceptar/Rechazar, pero sí
+/// tiene que verse lo bastante como para que quien quiera leer el documento
+/// completo sepa que puede hacerlo antes de aceptar.
+class _BotonDocumento extends StatelessWidget {
+  const _BotonDocumento({
+    required this.icono,
+    required this.etiqueta,
+    required this.onTap,
+  });
+
+  final IconData icono;
+  final String etiqueta;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: AppColors.accentCyan.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppColors.accentCyan.withOpacity(0.28),
+            width: 1,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icono, color: AppColors.accentCyan, size: 14),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                etiqueta,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  color: AppColors.accentCyan,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.open_in_new_rounded,
+              color: AppColors.accentCyan.withOpacity(0.7),
+              size: 12,
+            ),
+          ],
+        ),
       ),
     );
   }

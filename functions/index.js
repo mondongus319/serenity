@@ -1533,9 +1533,127 @@ function planVigente(datosPadre) {
   return hasta.toDate() > new Date();
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// QUÉ HIJOS ENTRAN EN EL PLAN — SE CALCULA AQUÍ, NO EN EL TELÉFONO
+//
+// La app marcaba el corte comparando la lista de hijos del padre contra su
+// tope. Eso funcionaba mientras el teléfono del niño usaba la sesión del
+// padre: preguntaba por los hijos de ese uid y los encontraba.
+//
+// Con cuentas separadas se cae por dos lados a la vez:
+//
+//   1. El uid de la sesión en el teléfono del niño NO es el del padre, así
+//      que la consulta `id_padre == miUid()` devuelve vacío y TODOS los
+//      perfiles salen bloqueados. Ese era el síntoma: "el plan actual no
+//      incluye este perfil" en un niño perfectamente vinculado.
+//   2. Aunque se le pasara el uid correcto, el niño no puede leer
+//      `padres/{id}` ni listar los otros hijos del padre. Las reglas se lo
+//      impiden, y deben seguir impidiéndolo: ahí están el correo del padre y
+//      el estado de su suscripción.
+//
+// Por eso la respuesta se escribe en el propio documento del niño, que es el
+// único que él sí tiene derecho a leer. La calcula el servidor, que ve todo,
+// y las reglas prohíben al cliente tocar ese campo — si no, bastaría con un
+// APK modificado para desbloquearse solo.
+//
+// El orden del corte es el de vinculación: si un padre con 3 hijos pierde el
+// Premium, conserva el primero que vinculó. Nunca se borra nada; los otros
+// vuelven solos al reactivar.
+// ═══════════════════════════════════════════════════════════════════════════
+async function recalcularAccesoHijos(padreId) {
+  const padreSnap = await db.collection("padres").doc(padreId).get();
+  const tope = planVigente(padreSnap.data())
+    ? MAX_HIJOS_PREMIUM
+    : MAX_HIJOS_GRATIS;
+
+  const snap = await db
+    .collection("ninos")
+    .where("id_padre", "==", padreId)
+    .get();
+
+  const vivos = snap.docs
+    .filter((d) => d.data().activo === true && d.data().eliminado !== true)
+    .sort((a, b) => {
+      // Por fecha de vinculación. Los que no la tienen van al final, no al
+      // principio: un documento viejo sin ese campo no debe desplazar a un
+      // hijo que sí se vinculó primero.
+      const fa = a.data().fecha_vinculacion?.toMillis?.() ?? Infinity;
+      const fb = b.data().fecha_vinculacion?.toMillis?.() ?? Infinity;
+      return fa - fb;
+    });
+
+  const lote = db.batch();
+  let cambios = 0;
+
+  vivos.forEach((doc, i) => {
+    const dentro = i < tope;
+    if (doc.data().dentro_del_plan === dentro) return; // ya estaba bien
+    lote.update(doc.ref, { dentro_del_plan: dentro });
+    cambios++;
+  });
+
+  if (cambios > 0) await lote.commit();
+
+  console.log(
+    `Serenity [plan]: ${padreId} → tope ${tope}, ${vivos.length} hijos, ` +
+      `${cambios} actualizados.`
+  );
+  return cambios;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// "INTERNAL" NO ES UN DIAGNÓSTICO, ES LA AUSENCIA DE UNO
+//
+// Cuando algo dentro de una `onCall` lanza un error que no es `HttpsError`,
+// Firebase se lo guarda y al teléfono le manda `internal` / "INTERNAL". Es lo
+// correcto de cara a la seguridad —no filtra rutas ni consultas— pero para
+// quien está probando la app es un muro: el mensaje no dice si fue un índice
+// que falta, una consulta denegada, un campo inesperado o un fallo de red.
+//
+// Es el mismo error de diseño que ya costó tres hipótesis falsas con el
+// "Conexión perdida" del tester: un mensaje que no nombra la causa obliga a
+// adivinar, y adivinar sale caro.
+//
+// Este envoltorio hace dos cosas:
+//
+//   · Deja el stack completo en los logs (`firebase functions:log`).
+//   · Devuelve un mensaje que nombra el PASO que falló y el código de error.
+//     Así una captura de pantalla vuelve a servir como log, que es lo único
+//     que hay cuando quien prueba está lejos.
+//
+// Los `HttpsError` que la función lanza a propósito pasan intactos: esos ya
+// tienen un mensaje escrito para el usuario.
+// ═══════════════════════════════════════════════════════════════════════════
 exports.vincularNino = onCall(
   { timeoutSeconds: 30, memory: "256MiB" },
   async (request) => {
+    try {
+      return await vincularNinoImpl(request);
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+
+      console.error(
+        `Serenity [vincular] FALLÓ en el paso "${err.pasoSerenity ?? "?"}": ` +
+          `${err.code ?? "sin código"} — ${err.message}\n${err.stack}`
+      );
+
+      throw new HttpsError(
+        "internal",
+        `No se pudo vincular (paso: ${err.pasoSerenity ?? "?"}). ` +
+          `${err.code ?? ""} ${err.message}`.trim()
+      );
+    }
+  }
+);
+
+async function vincularNinoImpl(request) {
+  // Se va actualizando antes de cada await. Si algo revienta, el nombre del
+  // paso viaja pegado al error hasta el envoltorio de arriba.
+  let paso = "inicio";
+  const marcar = (p) => { paso = p; };
+  try {
+    return await (async () => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
     }
@@ -1547,7 +1665,47 @@ exports.vincularNino = onCall(
       throw new HttpsError("invalid-argument", "Falta el código.");
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // ── 0. UNA CUENTA DE DISPOSITIVO DE MENOR NO VINCULA A NADIE ───────
+    //
+    // La regla del producto: cuando un correo queda vinculado como el
+    // teléfono de un niño, **se queda así**. No puede volver a ser el lado
+    // padre de nada.
+    //
+    // Hasta ahora eso solo se cumplía escondiendo botones. Esconder no es
+    // impedir: la app del niño podría llamar a esta función igual —es una
+    // callable, solo pide sesión— y la cuenta marcada acabaría siendo padre
+    // de un perfil, con acceso al panel de gestión.
+    //
+    // Aquí sí se impide. Y se comprueba ANTES de buscar el código, para no
+    // gastar consultas en algo que se va a rechazar.
+    //
+    // ⚠️ Esto NO afecta al caso de una sola cuenta para toda la familia. Ahí
+    // el papá crea el perfil en su propio teléfono y `vincularNino` nunca
+    // llega a marcarlo, porque la marca solo se pone cuando quien creó el
+    // perfil es una cuenta DISTINTA de la que lo vincula. Su correo conserva
+    // los dos papeles, que es justo lo que debe pasar.
+    //
+    // La salida, si alguien se equivocó de teléfono: eliminar esa cuenta
+    // desde la propia app. Al registrarse de nuevo —incluso con el mismo
+    // Gmail— Firebase entrega un uid nuevo, sin marca, y esa cuenta vuelve a
+    // poder ser padre.
+    // ═══════════════════════════════════════════════════════════════════
+    marcar("revisar si quien llama es un dispositivo de menor");
+    const quienLlama = await db.collection("padres").doc(padreId).get();
+    if (quienLlama.exists && quienLlama.data()?.es_dispositivo_nino === true) {
+      return {
+        success: false,
+        esDispositivoDeNino: true,
+        message:
+          "Esta cuenta está configurada como el dispositivo de un menor, " +
+          "así que no puede vincular perfiles. Usa la cuenta del padre o " +
+          "madre.",
+      };
+    }
+
     // ── 1. Buscar el niño entre los que NO tienen dueño ───────────────────
+    marcar("buscar codigo");
     const q = await db
       .collection("ninos")
       .where("id_padre", "==", null)
@@ -1574,11 +1732,15 @@ exports.vincularNino = onCall(
     const docNino = q.docs[0];
 
     // ── 2. El plan del padre ──────────────────────────────────────────────
-    const padreSnap = await db.collection("padres").doc(padreId).get();
+    //
+    // Se reutiliza la lectura del paso 0 en vez de pedir el mismo documento
+    // otra vez. Es la misma cuenta y no ha pasado nada entre medias.
+    const padreSnap = quienLlama;
     const esPremium = planVigente(padreSnap.data());
     const tope = esPremium ? MAX_HIJOS_PREMIUM : MAX_HIJOS_GRATIS;
 
     // ── 3. Cuántos hijos tiene ya ─────────────────────────────────────────
+    marcar("contar hijos");
     const actuales = await db
       .collection("ninos")
       .where("id_padre", "==", padreId)
@@ -1600,19 +1762,109 @@ exports.vincularNino = onCall(
     }
 
     // ── 4. Vincular ───────────────────────────────────────────────────────
+    //
+    // `nombre_padre` se copia aquí a propósito, y no lo lee el teléfono del
+    // niño por su cuenta.
+    //
+    // Desde que el dispositivo del niño puede tener una cuenta distinta a la
+    // del padre, ya no puede leer `padres/{id}`: esa regla exige
+    // `padreId == miUid()`. La alternativa habría sido abrirla, pero en ese
+    // documento están el correo del padre, su fecha de nacimiento y el
+    // estado de su suscripción. Nada de eso le hace falta a un teléfono
+    // infantil para escribir "Hola, te vinculaste con Ana".
+    //
+    // Esta función corre con el SDK de administrador, así que puede leer el
+    // nombre y dejarlo copiado en el único documento que el niño sí tiene
+    // derecho a ver: el suyo.
+    let nombrePadre = "";
+    try {
+      nombrePadre = (padreSnap.data()?.primer_nombre ?? "").toString();
+    } catch (_) {
+      // Si no se puede leer, la app cae a "Papá". No es motivo para que
+      // falle una vinculación que por lo demás está bien.
+    }
+
+    marcar("escribir vinculacion");
     await docNino.ref.update({
       activo: true,
       id_padre: padreId,
+      nombre_padre: nombrePadre,
+      // Acaba de pasar la comprobación del tope de arriba, así que entra en
+      // el plan por definición. Se escribe ya para que el teléfono del niño
+      // pueda abrirlo sin esperar a ningún recálculo.
+      dentro_del_plan: true,
       fecha_vinculacion: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    // Recalcula el resto por si acaso: barato, y deja el estado consistente
+    // aunque algo hubiera quedado mal marcado antes.
+    try {
+      await recalcularAccesoHijos(padreId);
+    } catch (err) {
+      console.error(`Serenity [plan]: fallo el recálculo: ${err.message}`);
+    }
+
+    // ── LA CUENTA DEL DISPOSITIVO DEL MENOR ──────────────────────────────
+    //
+    // Toda cuenta que se registra crea un documento en `padres`: la app no
+    // pregunta al registrarse si esa persona va a ser padre o va a ser el
+    // teléfono de un hijo, porque en ese momento nadie lo sabe.
+    //
+    // **Este es el primer instante en que SÍ se sabe.** Si el perfil que
+    // acaba de vincularse fue creado por una cuenta distinta a la que lo
+    // vincula, esa otra cuenta es el dispositivo de un menor.
+    //
+    // Dos cosas se hacen aquí, y ninguna es cosmética:
+    //
+    //   · Se marca la cuenta. Sin la marca, el documento de un menor es
+    //     indistinguible del de un padre: ensucia las estadísticas y deja
+    //     sin forma de tratarlo distinto más adelante.
+    //   · Se le BORRA la fecha de nacimiento. El registro manual la pide
+    //     antes de saber quién es; en cuanto se sabe que la cuenta es de un
+    //     menor, ese dato deja de tener finalidad y se suprime. Es lo que
+    //     exige el principio de minimización, y lo que ahora dice la
+    //     Política de Privacidad publicada.
+    //
+    // Con Google nunca hubo fecha —`crearPadre` la recibe vacía—, así que
+    // esto solo actúa sobre cuentas registradas a mano.
+    //
+    // Corre con el SDK de administrador: las reglas prohíben al cliente
+    // escribir `es_dispositivo_nino`, para que un APK modificado no pueda
+    // quitarse la marca.
+    const uidDelNino = docNino.data().uid_nino;
+    if (uidDelNino && uidDelNino !== padreId) {
+      try {
+        await db.collection("padres").doc(uidDelNino).set(
+          {
+            es_dispositivo_nino: true,
+            fecha_nacimiento: admin.firestore.FieldValue.delete(),
+          },
+          { merge: true }
+        );
+      } catch (err) {
+        // No puede tumbar una vinculación que por lo demás salió bien.
+        console.error(
+          `Serenity [menor]: no se pudo marcar ${uidDelNino}: ${err.message}`
+        );
+      }
+    }
 
     return {
       success: true,
       id: docNino.id,
       nombre: docNino.data().nombre ?? "",
     };
+    })();
+  } catch (err) {
+    // El nombre del paso viaja pegado al error. Sin esto, el envoltorio de
+    // arriba solo podría decir "algo falló", que es justo el problema que
+    // este cambio existe para resolver.
+    if (!(err instanceof HttpsError) && err && !err.pasoSerenity) {
+      err.pasoSerenity = paso;
+    }
+    throw err;
   }
-);
+}
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1911,5 +2163,436 @@ exports.notificacionesPlay = onMessagePublished(
     console.log(
       `notificacionesPlay: ${padreId} → ${resultado.estado}, activo=${resultado.activo}`
     );
+  }
+);
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIMPIAR SESIONES AL ELIMINAR UNA CUENTA
+//
+// POR QUÉ ESTO VIVE EN EL SERVIDOR Y NO EN LA APP
+//
+// La colección `sesiones` guarda el `device_token` de cada dispositivo. La
+// página pública de eliminación de cuenta promete que ese token se borra.
+//
+// La app NO puede cumplir esa promesa por sí sola, por dos razones que se
+// suman:
+//
+//   1. Las reglas tienen `allow read: if false` para `sesiones` — se cerraron
+//      porque cualquier usuario registrado podía listar la colección y
+//      bajarse los tokens de los demás. Sin poder leerla, el cliente no sabe
+//      qué documentos suyos existen.
+//
+//   2. Un padre puede tener sesión abierta en varios dispositivos (las Cloud
+//      Functions leen hasta 5). Desde el teléfono que ejecuta la eliminación
+//      solo se conoce el `device_id` de ESE teléfono; los demás quedarían.
+//
+// Este trigger entra con el SDK de administrador, que no pasa por las reglas,
+// y borra todas las sesiones del padre de una vez. Además no depende de que
+// el cliente se acuerde de llamarlo: se dispara solo cuando el documento del
+// padre pasa a `eliminado: true`, que es exactamente lo que hace
+// `FirestoreService.eliminarCuentaPadre`.
+//
+// ⚠️ SOLO en la transición a `eliminado: true`. `desactivarPadre()` escribe
+// únicamente `activo: false` y no debe disparar nada: desactivar no es
+// eliminar, y una cuenta desactivada tiene que seguir recibiendo avisos.
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// EL PLAN CAMBIÓ → RECALCULAR QUÉ HIJOS ENTRAN
+//
+// Se dispara cuando cambia el estado del Premium de un padre: al comprar, al
+// renovar, al cancelar y al vencer. Es lo que hace que un hijo bloqueado
+// vuelva a estar disponible solo, sin que nadie tenga que tocar nada.
+//
+// Va aquí y no en el cliente porque el teléfono del niño no puede leer el
+// documento del padre — ver la nota larga en `recalcularAccesoHijos()`.
+//
+// Se compara campo por campo en vez de recalcular en cada escritura: el
+// documento del padre se actualiza también al cambiar el nombre o la foto, y
+// no tiene sentido recorrer todos los hijos por eso.
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// LIBERAR LOS PERFILES DE UN DISPOSITIVO QUE SE VA
+//
+// Se llama justo antes de eliminar la cuenta del teléfono de un niño.
+//
+// ── POR QUÉ HACE FALTA ───────────────────────────────────────────────────
+//
+// `uid_nino` es inmutable a propósito: si se pudiera reescribir, cualquiera
+// se adjudicaría el perfil de otro niño y le leería la ubicación. Pero esa
+// misma inmutabilidad tiene un efecto que hay que resolver: si la cuenta del
+// dispositivo desaparece, el perfil queda apuntando a un uid muerto y **ya
+// ningún teléfono puede volver a abrirlo**. Ni el original, ni uno nuevo.
+//
+// La alternativa era decirle al padre que borrara el perfil y creara otro,
+// perdiendo categorías, contraseña e historial de uso de su hijo. Por el
+// error de haber cerrado una sesión.
+//
+// Aquí se devuelve el perfil al estado "esperando vinculación": conserva
+// TODO su contenido y recibe un código nuevo. El padre lo revincula con ese
+// código y el perfil vuelve a aparecer en SU teléfono, entero.
+//
+// ── LO QUE ESTO TODAVÍA NO RESUELVE ──────────────────────────────────────
+//
+// Al revincularlo, `uid_nino` sigue en null: `vincularNino` solo escribe
+// `id_padre`. O sea que el perfil recuperado se abre desde el teléfono del
+// PADRE, pero no desde una cuenta nueva del niño —ni siquiera si vuelve a
+// registrarse con el mismo Gmail, porque Firebase le da un uid distinto—.
+//
+// Para cerrar ese caso falta un camino de adopción: que el dispositivo del
+// niño pueda reclamar un perfil libre con su código, en vez de crear uno
+// nuevo. No se hizo aquí a propósito —es otra pantalla y otra función— y
+// mientras tanto la salida es crear un perfil nuevo en el teléfono del
+// niño. Que no se lea este comentario como que el caso ya está cubierto.
+//
+// ── POR QUÉ EN EL SERVIDOR ───────────────────────────────────────────────
+//
+// Las reglas prohíben al cliente tocar `uid_nino`, `id_padre` y
+// `dentro_del_plan`. Esta función corre con el SDK de administrador, que no
+// pasa por ellas, y solo libera perfiles cuyo `uid_nino` sea el uid de quien
+// llama: nadie puede liberar los de otro.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ALFABETO_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function generarCodigoVinculacion() {
+  let codigo = "";
+  for (let i = 0; i < 6; i++) {
+    codigo += ALFABETO_CODIGO[Math.floor(Math.random() * ALFABETO_CODIGO.length)];
+  }
+  return codigo;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LA CLAVE DE ELIMINACIÓN LA VALIDA EL SERVIDOR, Y NO PUEDE SER DE OTRA FORMA
+//
+// La clave son 4 dígitos que pone el padre al vincular. Su único trabajo es
+// que un niño no borre la cuenta de su teléfono por curiosidad o por enojo.
+//
+// ── DÓNDE VIVE ───────────────────────────────────────────────────────────
+//
+// En `padres/{id_padre}.claves_eliminacion[{ninoId}]`. Ese documento es el
+// único sitio del modelo que el teléfono del niño **no puede leer**: la
+// regla de `padres` exige `padreId == miUid()`. En el documento del niño no
+// serviría: el niño lee su propio perfil completo, así que la vería.
+//
+// ── POR QUÉ NO SE VALIDA EN LA APP ───────────────────────────────────────
+//
+// Porque son 4 dígitos. Si el teléfono tuviera que comparar, tendría que
+// poder leer la clave —o un hash de ella—, y 10.000 combinaciones se prueban
+// en un segundo con un APK modificado. Aquí el teléfono no recibe nada con lo
+// que comparar: manda lo que el usuario escribió y el servidor dice sí o no.
+//
+// ── EL CONTADOR DE INTENTOS VA EN EL DOCUMENTO DEL PADRE ─────────────────
+//
+// Y no en el del niño, que parecería lo natural. El niño SÍ puede escribir su
+// propio `padres/{suUid}` —es su documento—, así que un contador ahí lo
+// borraría él mismo y no serviría de nada. En el del padre no puede ni leer.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MAX_INTENTOS_CLAVE = 5;
+const BLOQUEO_CLAVE_MS = 15 * 60 * 1000;
+
+exports.liberarPerfilesDelDispositivo = onCall(
+  { timeoutSeconds: 60, memory: "256MiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    }
+    const uid = request.auth.uid;
+    const claveDada = (request.data?.clave ?? "").toString().trim();
+
+    // ── MODO "SOLO VERIFICAR" ─────────────────────────────────────────────
+    //
+    // Comprueba la clave y no escribe ningún perfil. Existe para que la app
+    // pueda preguntar ANTES de reautenticar: liberar los perfiles tiene que
+    // pasar con la sesión viva, o sea después de reautenticar, y si la clave
+    // se validara solo ahí habría que elegir entre dos males —hacerle abrir
+    // el selector de cuentas de Google para después decirle que la clave
+    // estaba mal, o liberar antes y dejar los perfiles sueltos si la
+    // reautenticación falla—.
+    //
+    // ⚠️ El contador de intentos SÍ corre en este modo. Si no, este mismo
+    // parámetro sería un oráculo para probar las 10.000 combinaciones sin
+    // consecuencia, y el bloqueo no valdría nada.
+    const soloVerificar = request.data?.soloVerificar === true;
+
+    const snap = await db
+      .collection("ninos")
+      .where("uid_nino", "==", uid)
+      .get();
+
+    const liberados = [];
+    const porPadre = new Map();
+
+    // ── PRIMERA PASADA: QUÉ SE LIBERARÍA, SIN ESCRIBIR NADA ────────────────
+    //
+    // Separar decidir de escribir es lo que permite validar la clave contra
+    // TODOS los perfiles antes de tocar el primero. Si se validara dentro del
+    // mismo bucle que escribe, un teléfono con dos perfiles de familias
+    // distintas podría quedar a medias: el primero liberado y el segundo
+    // rechazado, sin forma de deshacerlo.
+    const candidatos = [];
+    for (const doc of snap.docs) {
+      const d = doc.data();
+
+      // Un perfil ya eliminado no se resucita.
+      if (d.eliminado === true) continue;
+
+      // ⚠️ NO SE LIBERAN LOS PERFILES DE LOS QUE QUIEN LLAMA ES EL PADRE.
+      //
+      // Cuando padre e hijo comparten la misma cuenta —el caso original y
+      // todavía el más común— `crearNino()` escribe en `uid_nino` el uid del
+      // padre. Ese perfil sale en esta consulta, pero no es un perfil ajeno
+      // alojado aquí: es un hijo propio.
+      //
+      // Sin este `continue`, un padre que eliminara su cuenta por este camino
+      // liberaría a sus propios hijos (`id_padre` → null) y el borrado que
+      // viene después —que busca `id_padre == uid`— ya no los encontraría:
+      // quedarían huérfanos con nombre, fecha de nacimiento, contraseña y
+      // últimas coordenadas, sin ninguna cuenta capaz de alcanzarlos. Es
+      // exactamente el daño que la página de eliminación promete que no
+      // ocurre. Los hijos propios los borra `eliminarCuentaPadre()`.
+      if (d.id_padre === uid) continue;
+
+      candidatos.push({ doc, d });
+    }
+
+    // ── VALIDAR LA CLAVE ──────────────────────────────────────────────────
+    const cachePadres = new Map();
+    const leerPadre = async (padreId) => {
+      if (!cachePadres.has(padreId)) {
+        const p = await db.collection("padres").doc(padreId).get();
+        cachePadres.set(padreId, p.exists ? p.data() : {});
+      }
+      return cachePadres.get(padreId);
+    };
+
+    const padresConClave = new Set();
+    for (const { doc, d } of candidatos) {
+      // Un perfil sin vincular no tiene padre que haya puesto clave.
+      if (!d.id_padre) continue;
+
+      const datosPadre = await leerPadre(d.id_padre);
+      const claves = datosPadre.claves_eliminacion ?? {};
+      const esperada = claves[doc.id];
+
+      // Perfiles vinculados ANTES de que existiera la clave. Se deja pasar a
+      // propósito: exigir una clave que nadie pudo definir dejaría esas
+      // cuentas sin ninguna forma de borrarse dentro de la app, que es
+      // justo lo que Google Play no permite.
+      if (esperada == null || esperada.toString() === "") continue;
+
+      padresConClave.add(d.id_padre);
+
+      const control = (datosPadre.intentos_clave ?? {})[uid] ?? {};
+      const bloqueadoHasta = Number(control.bloqueado_hasta ?? 0);
+      if (bloqueadoHasta > Date.now()) {
+        const minutos = Math.ceil((bloqueadoHasta - Date.now()) / 60000);
+        return {
+          success: false,
+          claveIncorrecta: true,
+          bloqueado: true,
+          message:
+            `Demasiados intentos. Vuelve a probar en ${minutos} minuto(s) ` +
+            `o pídele la clave a tus papás.`,
+        };
+      }
+
+      if (claveDada !== esperada.toString()) {
+        const intentos = Number(control.intentos ?? 0) + 1;
+        const bloquear = intentos >= MAX_INTENTOS_CLAVE;
+
+        try {
+          await db.collection("padres").doc(d.id_padre).set(
+            {
+              intentos_clave: {
+                [uid]: {
+                  intentos: bloquear ? 0 : intentos,
+                  bloqueado_hasta: bloquear ? Date.now() + BLOQUEO_CLAVE_MS : 0,
+                },
+              },
+            },
+            { merge: true }
+          );
+        } catch (err) {
+          // Que no se pueda anotar el intento no puede convertir un rechazo
+          // en una aceptación.
+          console.error(`Serenity [clave]: no se anotó el intento: ${err.message}`);
+        }
+
+        return {
+          success: false,
+          claveIncorrecta: true,
+          bloqueado: bloquear,
+          message: bloquear
+            ? "Demasiados intentos. Espera 15 minutos y pídele la clave a tus papás."
+            : `Clave incorrecta. Te quedan ${MAX_INTENTOS_CLAVE - intentos} intento(s).`,
+        };
+      }
+    }
+
+    // La clave era correcta: se limpia el contador de quien acertó.
+    for (const padreId of padresConClave) {
+      try {
+        await db.collection("padres").doc(padreId).set(
+          { intentos_clave: { [uid]: { intentos: 0, bloqueado_hasta: 0 } } },
+          { merge: true }
+        );
+      } catch (_) {
+        // Irrelevante si falla: el contador solo estorba, no protege de más.
+      }
+    }
+
+    if (soloVerificar) {
+      return {
+        success: true,
+        verificada: true,
+        // Cuántos perfiles se liberarían. La app lo usa para avisar con
+        // exactitud en vez de hablar en plural por si acaso.
+        cuantos: candidatos.length,
+      };
+    }
+
+    // ── SEGUNDA PASADA: AHORA SÍ SE ESCRIBE ───────────────────────────────
+    for (const { doc, d } of candidatos) {
+      const codigo = generarCodigoVinculacion();
+      if (d.id_padre) {
+        if (!porPadre.has(d.id_padre)) porPadre.set(d.id_padre, []);
+        porPadre.get(d.id_padre).push({ nombre: d.nombre ?? "", codigo });
+      }
+
+      await doc.ref.update({
+        // Vuelve a "esperando código". Lo que NO se toca: nombre, fecha de
+        // nacimiento, rango de edad, contraseña, categorías, youtubers.
+        // Todo eso es el contenido del perfil y se conserva entero.
+        id_padre: null,
+        uid_nino: null,
+        activo: false,
+        codigo_vinculacion: codigo,
+        fecha_vinculacion: null,
+        sesion_activa: false,
+        nombre_padre: "",
+        dentro_del_plan: admin.firestore.FieldValue.delete(),
+        // La ubicación sí se borra: pertenecía a un dispositivo que ya no
+        // está vinculado, y conservarla sería guardar el último paradero de
+        // un menor sin ninguna finalidad.
+        latitud: null,
+        longitud: null,
+        precision_metros: null,
+        fecha_ultima_ubicacion: null,
+      });
+
+      liberados.push({ nombre: d.nombre ?? "", codigo });
+    }
+
+    // El padre pierde un hijo activo, así que puede que otro que estaba
+    // bloqueado por el tope vuelva a entrar en el plan.
+    //
+    // Se recorre `porPadre` y no una lista plana de uids a propósito: a cada
+    // padre hay que nombrarle SUS hijos y darle SUS códigos. Con un solo
+    // `liberados` compartido, un teléfono que alojara perfiles de dos
+    // familias —hermanos con padres separados, por ejemplo— le mandaría a
+    // cada uno el nombre y el código del hijo del otro.
+    for (const [padreId, suyos] of porPadre) {
+      try {
+        await recalcularAccesoHijos(padreId);
+      } catch (err) {
+        console.error(`Serenity [liberar]: recálculo falló: ${err.message}`);
+      }
+
+      // Avisar al padre es importante: su hijo va a dejar de poder entrar y
+      // sin este mensaje no sabría por qué ni qué hacer.
+      const nombres = suyos.map((l) => l.nombre).filter(Boolean).join(", ");
+      const codigos = suyos.map((l) => l.codigo).join(", ");
+      try {
+        await notificarAlPadre({
+          padreId,
+          titulo: "Un perfil quedó sin vincular",
+          cuerpo:
+            `Se eliminó la cuenta del dispositivo de ${nombres || "un perfil"}. ` +
+            `No se perdió nada: vuelve a vincularlo con el código ${codigos}.`,
+          datos: { tipo: "perfil_liberado", codigos },
+        });
+      } catch (err) {
+        console.error(`Serenity [liberar]: aviso falló: ${err.message}`);
+      }
+    }
+
+    console.log(
+      `Serenity [liberar]: ${uid} liberó ${liberados.length} perfil(es).`
+    );
+    return { success: true, liberados };
+  }
+);
+
+
+exports.recalcularPlanAlCambiar = onDocumentUpdated(
+  "padres/{padreId}",
+  async (event) => {
+    const antes = event.data.before.data() ?? {};
+    const despues = event.data.after.data() ?? {};
+
+    const vencimiento = (d) => d.premium_hasta?.toMillis?.() ?? null;
+    const cambioElPlan =
+      antes.premium !== despues.premium ||
+      vencimiento(antes) !== vencimiento(despues);
+
+    if (!cambioElPlan) return null;
+
+    try {
+      await recalcularAccesoHijos(event.params.padreId);
+    } catch (err) {
+      console.error(`Serenity [plan]: fallo el recálculo: ${err.message}`);
+    }
+    return null;
+  }
+);
+
+
+exports.limpiarSesionesAlEliminar = onDocumentUpdated(
+  "padres/{padreId}",
+  async (event) => {
+    const antes   = event.data.before.data();
+    const despues = event.data.after.data();
+
+    // Solo el flanco de subida. Si ya estaba eliminado, cualquier otra
+    // escritura sobre el documento no debe volver a ejecutar esto.
+    if (antes.eliminado === true) return null;
+    if (despues.eliminado !== true) return null;
+
+    const padreId = event.params.padreId;
+
+    try {
+      const snap = await db
+        .collection("sesiones")
+        .where("id_usuario", "==", padreId)
+        .get();
+
+      if (snap.empty) {
+        console.log(`limpiarSesionesAlEliminar: ${padreId} sin sesiones`);
+        return null;
+      }
+
+      // En lotes de 400: el límite duro de un batch de Firestore es 500, y
+      // dejar margen evita que un padre con muchos dispositivos lo reviente.
+      const docs = snap.docs;
+      for (let i = 0; i < docs.length; i += 400) {
+        const batch = db.batch();
+        docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+
+      console.log(
+        `limpiarSesionesAlEliminar: ${padreId} → ${docs.length} sesión(es) borradas`
+      );
+    } catch (e) {
+      // No se relanza: el vaciado de los datos personales ya ocurrió y es lo
+      // irrenunciable. Un fallo aquí deja tokens huérfanos que nadie consulta
+      // —la cuenta ya no existe— y queda registrado para revisarlo.
+      console.error(`limpiarSesionesAlEliminar (${padreId}):`, e);
+    }
+
+    return null;
   }
 );

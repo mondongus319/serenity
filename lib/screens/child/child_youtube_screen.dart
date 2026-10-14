@@ -117,11 +117,7 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
       // Los tres orígenes van por separado: los canales que agregó el padre
       // tienen cuota propia en el orden de reproducción, no se revuelven con
       // el catálogo. Es una función de pago y tiene que notarse.
-      final delCatalogo = List<Map<String, dynamic>>.from(datos.catalogo);
-      final delPadre = List<Map<String, dynamic>>.from(datos.canalesPadre);
-      final deYoutubers = List<Map<String, dynamic>>.from(datos.youtubers);
-
-      if (delCatalogo.isEmpty && delPadre.isEmpty && deYoutubers.isEmpty) {
+      if (datos.vacio) {
         setError(
           'Aún no hay videos disponibles para tus categorías. Vuelve más tarde.',
         );
@@ -129,11 +125,19 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
         return;
       }
 
-      // Se revuelve dentro de cada origen para que el orden cambie en cada
-      // sesión, pero las proporciones entre orígenes se mantienen.
-      delCatalogo.shuffle();
-      delPadre.shuffle();
-      deYoutubers.shuffle();
+      // ── EL ORDEN YA NO SE ARMA AQUÍ ─────────────────────────────────
+      //
+      // Antes esta pantalla hacía `shuffle()` sobre cada origen y luego
+      // intercalaba. El problema no era la mezcla —esa está bien— sino que
+      // el `shuffle()` no llevaba semilla: cada sesión daba un orden nuevo,
+      // así que no existía "la lista del niño" que enseñarle al padre. Su
+      // vista previa solo podía aproximar la proporción, nunca el orden.
+      //
+      // `ordenDeReproduccion` hace exactamente lo mismo que se hacía aquí
+      // —misma mezcla, misma prioridad para los canales del padre— pero con
+      // una semilla derivada del niño y la fecha. El teléfono del padre
+      // calcula el mismo orden sin necesidad de que nadie se lo mande.
+      final todos = VideosNinoService.ordenDeReproduccion(datos);
 
       // ── EL BUSCADOR TIENE QUE VER LO MISMO QUE EL REPRODUCTOR ───────
       //
@@ -141,13 +145,10 @@ class _ChildYoutubeScreenState extends State<ChildYoutubeScreen> {
       // youtubers. O sea que un niño podía estar viendo un video de un
       // youtuber, escribir su nombre en el buscador y no encontrar nada.
       // Peor: son justo los que él mismo eligió, los que más va a buscar.
-      final catalogo = [...delCatalogo, ...delPadre, ...deYoutubers];
-
-      final todos = VideosNinoService.mezclarConPrioridad(
-        catalogo: delCatalogo,
-        canalesPadre: delPadre,
-        youtubers: deYoutubers,
-      );
+      //
+      // Se arma desde `todos` para que buscador y reproductor tengan
+      // literalmente el mismo contenido, sin poder desincronizarse.
+      final catalogo = List<Map<String, dynamic>>.from(todos);
 
       if (todos.isEmpty) {
         setError(

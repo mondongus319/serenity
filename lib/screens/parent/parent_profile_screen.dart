@@ -8,6 +8,7 @@ import '../../providers/parent_provider.dart';
 import 'cambiar_correo_screen.dart';
 import '../../../../widgets/parent/parent_profile_body.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/sesion.dart';
 
 class ParentProfileScreen extends StatefulWidget {
   final String parentEmail;
@@ -625,6 +626,12 @@ class _ParentProfileScreenState extends State<ParentProfileScreen>
 
     if (!mounted) return;
     Navigator.pop(context);
+
+    // Si la sesión ya no existe, no tiene sentido decirle "no se pudo
+    // eliminar" y dejarlo en una pantalla de perfil que ya no puede cargar
+    // nada: se cierra sesión y se le devuelve al login.
+    if (await manejarSesionExpirada(context, res)) return;
+    if (!mounted) return;
 
     if (res['success'] == true) {
       parent.reset();

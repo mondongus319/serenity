@@ -1,8 +1,17 @@
 import 'dart:math';
 import 'dart:convert';
+// Solo por `debugPrint`, que en release no imprime nada. Se prefiere a
+// `print` porque este archivo corre en todas las pantallas y `print` sin
+// recortar puede perder líneas en logcat.
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+// Solo para conocer el uid de quien está eliminando: `uso_diario` únicamente
+// se puede consultar filtrando por `id_padre`, y ese filtro tiene que ser el
+// uid real o las reglas rechazan la consulta.
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:crypto/crypto.dart';
+import '../utils/catalogo_avatares.dart';
 import '../utils/catalogo_categorias.dart';
 import '../utils/mensajes_error.dart';
 import 'premium_service.dart';
@@ -160,39 +169,77 @@ class FirestoreService {
   }
 
 
-  /// Elimina la cuenta del padre de forma suave:
-  /// - Conserva nombres y datos de trazabilidad
-  /// - Limpia gmail y photo_url para liberar el correo
-  /// - Marca como eliminado con fecha
-  /// - Pone todos sus niños en activo: false (sin desvincularlos)
+  /// Elimina la cuenta del padre y, con ella, la de todos sus hijos.
+  ///
+  /// ─────────────────────────────────────────────────────────────────────
+  /// ANTES NO ELIMINABA NADA: SOLO LO ESCONDÍA
+  ///
+  /// La versión anterior marcaba `eliminado: true`, limpiaba `gmail` y
+  /// `photo_url`, y ponía los niños en `activo: false`. Se quedaban dentro:
+  ///
+  ///   · del padre  → nombres, apellidos y fecha de nacimiento;
+  ///   · de CADA hijo → nombre, fecha de nacimiento, la contraseña en texto
+  ///     plano y las últimas coordenadas GPS.
+  ///
+  /// O sea: el usuario pedía borrar su cuenta, la app le decía que sí, y los
+  /// datos de sus hijos seguían en la base de datos indefinidamente. Los
+  /// requisitos de eliminación de cuentas de Google Play exigen borrado real,
+  /// y la Ley 1581 de 2012 reconoce el derecho de supresión.
+  ///
+  /// Ahora se vacía el contenido personal de los tres sitios —padre, hijos e
+  /// historial de uso— y se conservan solo los esqueletos, que no identifican
+  /// a nadie y evitan referencias colgando.
+  ///
+  /// Lo que NO se toca son los campos del plan (`premium*`). No es un olvido:
+  /// las reglas de Firestore prohíben al cliente escribirlos —cualquier
+  /// intento haría fallar la operación entera— y además son el rastro
+  /// contable de una compra, que hay obligación de conservar. No identifican
+  /// a la persona una vez borrado el resto.
+  ///
+  /// ⚠️ ESTA FUNCIÓN DEBE CORRER **ANTES** DE BORRAR LA CUENTA DE AUTH.
+  ///
+  /// Todo lo de aquí depende de que `request.auth` siga vivo: las reglas de
+  /// `padres`, `ninos` y `uso_diario` exigen `conCuenta() && ... == miUid()`.
+  /// Si `user.delete()` corriera primero, Firestore rechazaría cada escritura
+  /// y los datos quedarían huérfanos para siempre.
+  ///
+  /// El orden correcto vive en `ParentProvider.eliminarCuenta`, con el porqué
+  /// explicado ahí. Estaba invertido y se corrigió.
+  /// ─────────────────────────────────────────────────────────────────────
   static Future<void> eliminarCuentaPadre(String uid) async {
-    final batch = _db.batch();
-
-
-    // 1. Actualizar documento del padre
-    final padreRef = _db.collection('padres').doc(uid);
-    batch.update(padreRef, {
-      'activo': false,
-      'eliminado': true,
-      'gmail': null,
-      'photo_url': null,
-      'fecha_eliminacion': FieldValue.serverTimestamp(),
-    });
-
-
-    // 2. Poner todos los niños vinculados como inactivos
     final ninosSnap = await _db
         .collection('ninos')
         .where('id_padre', isEqualTo: uid)
         .get();
 
+    final batch = _db.batch();
 
+    // 1. Vaciar los datos personales del padre.
+    batch.update(_db.collection('padres').doc(uid), {
+      'primer_nombre': null,
+      'segundo_nombre': null,
+      'primer_apellido': null,
+      'segundo_apellido': null,
+      'fecha_nacimiento': null,
+      'gmail': null,
+      'photo_url': null,
+      'activo': false,
+      'eliminado': true,
+      'fecha_eliminacion': FieldValue.serverTimestamp(),
+    });
+
+    // 2. Vaciar el perfil de cada hijo, con el mismo criterio que
+    //    `eliminarNino`. Antes solo se ponían en `activo: false`.
     for (final doc in ninosSnap.docs) {
-      batch.update(doc.reference, {'activo': false});
+      batch.update(doc.reference, _camposVaciadosDelNino());
     }
 
-
     await batch.commit();
+
+    // 3. Borrar el historial de uso de todos los hijos. Va después del
+    //    commit y no dentro: es otra colección y no debe poder tumbar el
+    //    vaciado, que es la parte irrenunciable.
+    await _borrarUsoDiarioDeNinos(ninosSnap.docs.map((d) => d.id).toSet());
   }
 
 
@@ -237,9 +284,36 @@ class FirestoreService {
 
     final rangoEdad = calcularRangoEdad(fechaNacimiento);
 
+    // ═════════════════════════════════════════════════════════════════════
+    // EL SEGUNDO DUEÑO DEL PERFIL
+    //
+    // `uid_nino` es el uid de la sesión que está creando el perfil: la del
+    // dispositivo del niño. Se guarda aquí porque es el único momento en que
+    // se sabe con certeza — quien crea el perfil ES el teléfono que lo va a
+    // usar.
+    //
+    // Sin este campo, el teléfono del niño solo funcionaba si estaba
+    // autenticado con la cuenta del padre. En cuanto el padre vinculaba
+    // desde otra cuenta, `id_padre` pasaba a ser un uid ajeno y las reglas
+    // le cerraban la puerta al propio niño, justo en mitad de la
+    // vinculación.
+    //
+    // Las reglas NO dejan cambiarlo después. Si aquí llegara vacío el perfil
+    // nacería inservible, así que se corta antes de escribir nada.
+    // ═════════════════════════════════════════════════════════════════════
+    final uidDispositivo = _uidActual();
+    if (uidDispositivo == null) {
+      return {
+        'success': false,
+        'sesionExpirada': true,
+        'message':
+            'Tu sesión se cerró. Vuelve a iniciar sesión para registrar el perfil.',
+      };
+    }
 
     final doc = await _db.collection('ninos').add({
       'nombre': nombre,
+      'uid_nino': uidDispositivo,
       'fecha_nacimiento': fechaNacimiento,
       'rango_edad': rangoEdad,
       'codigo_vinculacion': codigo,
@@ -315,6 +389,29 @@ class FirestoreService {
   /// Escribe las dos formas a la vez. Si solo se actualizara el hash, la
   /// copia legible seguiría mostrando la contraseña vieja y el padre acabaría
   /// convencido de que la app le miente.
+  /// Guarda la foto de perfil que eligió el niño.
+  ///
+  /// Se escribe desde el teléfono del niño: `avatar` está en la lista blanca
+  /// de `soloCamposDelNino()` de las reglas. El padre también puede, por la
+  /// vía normal de `esElPadre()`.
+  ///
+  /// [avatarId] se valida contra el catálogo antes de escribir. Un id que no
+  /// existe no rompe nada —se vería la inicial— pero dejarlo entrar
+  /// significaría guardar basura en el documento para siempre.
+  static Future<void> cambiarAvatarNino({
+    required String ninoId,
+    required String avatarId,
+  }) async {
+    if (CatalogoAvatares.porId(avatarId) == null) {
+      throw ArgumentError('Avatar desconocido: $avatarId');
+    }
+
+    await _db.collection('ninos').doc(ninoId).set({
+      'avatar': avatarId,
+    }, SetOptions(merge: true));
+  }
+
+
   static Future<void> cambiarPasswordNino({
     required String ninoId,
     required String nuevaPassword,
@@ -332,24 +429,174 @@ class FirestoreService {
   }
 
 
-  /// Marca el perfil de un niño como eliminado.
+  // ═══════════════════════════════════════════════════════════════════════
+  // CLAVE DE ELIMINACIÓN — los 4 dígitos que pone el padre
+  //
+  // No se parece a la contraseña del perfil, aunque las dos sean números que
+  // el padre elige. La diferencia está en QUIÉN debe saberlas:
+  //
+  //   · La contraseña del perfil la sabe el niño: es la que usa para entrar.
+  //   · La clave de eliminación **no debe saberla el niño**. Es lo único que
+  //     impide que borre la cuenta de su teléfono por curiosidad o por enojo.
+  //
+  // Y de ahí sale el lugar donde se guarda. La del perfil vive en el
+  // documento del niño, que el niño lee entero. Esta vive en el documento
+  // del PADRE, el único que las reglas le cierran al niño
+  // (`allow read: padreId == miUid()`).
+  //
+  // Guardar aquí un hash en vez del texto no serviría: son 4 dígitos, y el
+  // padre necesita poder VERLA cuando se le olvide. La protección no es que
+  // sea ilegible, es que el niño no alcanza el documento.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// La clave que el padre puso para [ninoId], o `null` si no hay ninguna.
   ///
-  /// **Borrado suave a propósito.** El documento NO se borra: quedan el
-  /// historial en `tiempo_uso`, las sesiones y todo lo demás apuntando a un
-  /// id que sigue existiendo. Un `delete()` real dejaría esas referencias
-  /// colgando y haría imposible auditar qué pasó.
+  /// [datosPadre] es el documento `padres/{padreId}` ya leído: así la tarjeta
+  /// que la muestra no hace una lectura extra por cada repintado.
+  static String? claveEliminacionDe(
+    Map<String, dynamic>? datosPadre,
+    String ninoId,
+  ) {
+    final mapa = datosPadre?['claves_eliminacion'];
+    if (mapa is! Map) return null;
+    final v = mapa[ninoId];
+    if (v == null) return null;
+    final texto = v.toString();
+    return texto.isEmpty ? null : texto;
+  }
+
+  /// Define —o cambia— la clave de eliminación de un perfil.
+  ///
+  /// Hace DOS escrituras, y las dos hacen falta:
+  ///
+  ///   1. La clave en `padres/{padreId}`, donde el niño no la ve.
+  ///   2. Una bandera `requiere_clave_eliminacion` en el perfil del niño.
+  ///
+  /// La segunda existe porque el teléfono del niño necesita saber si tiene
+  /// que pedir la clave, y no puede leer el documento del padre para
+  /// averiguarlo. Es un booleano: no filtra la clave ni nada parecido.
+  ///
+  /// La bandera es solo una PISTA PARA LA INTERFAZ. Quien decide de verdad es
+  /// el servidor al liberar los perfiles: un APK modificado que se salte la
+  /// bandera y llame sin clave recibe el mismo rechazo.
+  static Future<void> definirClaveEliminacion({
+    required String padreId,
+    required String ninoId,
+    required String clave,
+  }) async {
+    final limpia = clave.trim();
+    if (!RegExp(r'^\d{4}$').hasMatch(limpia)) {
+      throw ArgumentError('La clave debe ser de 4 dígitos');
+    }
+
+    await _db.collection('padres').doc(padreId).set({
+      'claves_eliminacion': {ninoId: limpia},
+    }, SetOptions(merge: true));
+
+    // Va después: si la primera falla, la bandera no queda pidiendo una clave
+    // que no existe —lo que dejaría al niño sin poder borrar nada—.
+    await _db.collection('ninos').doc(ninoId).set({
+      'requiere_clave_eliminacion': true,
+    }, SetOptions(merge: true));
+  }
+
+  /// ¿Este perfil exige clave para eliminar la cuenta del dispositivo?
+  static bool exigeClaveEliminacion(Map<String, dynamic>? datosNino) {
+    return datosNino?['requiere_clave_eliminacion'] == true;
+  }
+
+
+  /// Campos personales del perfil de un niño, puestos a `null` al eliminarlo.
+  ///
+  /// ─────────────────────────────────────────────────────────────────────
+  /// POR QUÉ SE VACÍAN Y NO BASTA CON LA MARCA `eliminado`
+  ///
+  /// Antes, eliminar un perfil solo escribía `eliminado: true`. El documento
+  /// seguía intacto: nombre, fecha de nacimiento, **la contraseña en texto
+  /// plano** y **las últimas coordenadas GPS del menor** se quedaban ahí para
+  /// siempre. Desaparecía de la pantalla, no de la base de datos.
+  ///
+  /// Eso incumple dos cosas a la vez: los requisitos de eliminación de
+  /// cuentas de Google Play, que exigen que los datos se borren de verdad, y
+  /// el derecho de supresión de la Ley 1581 de 2012.
+  ///
+  /// El documento SÍ se conserva —vacío— a propósito: `uso_diario` y las
+  /// sesiones apuntan a este id, y un `delete()` real dejaría esas
+  /// referencias colgando. Lo que se va es el contenido personal; lo que
+  /// queda es un esqueleto que no identifica a nadie.
+  /// ─────────────────────────────────────────────────────────────────────
+  static Map<String, dynamic> _camposVaciadosDelNino() => {
+        'nombre': null,
+        'fecha_nacimiento': null,
+        'rango_edad': null,
+        'password_hash': null,
+        'password_visible': null,
+        'codigo_vinculacion': null,
+        'latitud': null,
+        'longitud': null,
+        'precision_metros': null,
+        'fecha_ultima_ubicacion': null,
+        'categorias_permitidas': <String>[],
+        'youtubers_seleccionados': <String>[],
+        'eliminado': true,
+        'activo': false,
+        'sesion_activa': false,
+        'fecha_eliminacion': FieldValue.serverTimestamp(),
+      };
+
+  /// Elimina el perfil de un niño: vacía sus datos personales y borra su
+  /// historial de uso.
   ///
   /// `activo: false` además desconecta el dispositivo del niño: el splash
   /// revisa ese campo al arrancar y, si no está activo, limpia la sesión
   /// guardada y lo devuelve a la pantalla de selección.
   static Future<void> eliminarNino(String ninoId) async {
-    await _db.collection('ninos').doc(ninoId).set({
-      'eliminado': true,
-      'activo': false,
-      'sesion_activa': false,
-      'fecha_eliminacion': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _db
+        .collection('ninos')
+        .doc(ninoId)
+        .set(_camposVaciadosDelNino(), SetOptions(merge: true));
+
+    await _borrarUsoDiarioDeNinos({ninoId});
   }
+
+  /// Borra los documentos de `uso_diario` de uno o varios niños.
+  ///
+  /// Son `uso_diario/{ninoId}_{yyyy-MM}`, uno por mes. No se pueden pedir por
+  /// rango de id: la regla exige demostrar `id_padre == miUid()`, y una
+  /// consulta por id de documento no lo demuestra, así que Firestore la
+  /// rechazaría entera. Por eso se consulta por `id_padre` —que sí es
+  /// demostrable— y el filtro por niño se hace en memoria.
+  ///
+  /// Nunca lanza: si esto falla, el perfil ya quedó vacío, que es lo que de
+  /// verdad importa. Tumbar la eliminación por no haber podido borrar unos
+  /// contadores dejaría al usuario sin poder eliminar nada.
+  static Future<void> _borrarUsoDiarioDeNinos(Set<String> ninoIds) async {
+    if (ninoIds.isEmpty) return;
+    final uid = _uidActual();
+    if (uid == null) return;
+
+    try {
+      final snap = await _db
+          .collection('uso_diario')
+          .where('id_padre', isEqualTo: uid)
+          .get();
+
+      final batch = _db.batch();
+      var hay = false;
+      for (final doc in snap.docs) {
+        final id = doc.id;
+        if (ninoIds.any((n) => id.startsWith('${n}_'))) {
+          batch.delete(doc.reference);
+          hay = true;
+        }
+      }
+      if (hay) await batch.commit();
+    } catch (_) {
+      // Silencio deliberado: ver el comentario de arriba.
+    }
+  }
+
+  static String? _uidActual() => FirebaseAuth.instance.currentUser?.uid;
 
   /// true si el documento corresponde a un perfil eliminado.
   static bool _estaEliminado(Map<String, dynamic> data) =>
@@ -390,6 +637,111 @@ class FirestoreService {
     });
 
     return lista;
+  }
+
+  /// Los perfiles de niño que viven EN ESTE DISPOSITIVO.
+  ///
+  /// ─────────────────────────────────────────────────────────────────────
+  /// POR QUÉ NO BASTA `ninosOrdenados`
+  ///
+  /// Esa consulta filtra por `id_padre`, que es el uid del PADRE. Servía
+  /// mientras el teléfono del niño usaba la sesión del padre: preguntaba por
+  /// sus propios hijos y los encontraba.
+  ///
+  /// Con cuentas separadas eso devuelve cero. El teléfono del niño está
+  /// autenticado con otra cuenta, y ningún perfil tiene `id_padre` igual a
+  /// ese uid. La pantalla de perfiles saldría vacía aunque el niño esté
+  /// perfectamente vinculado.
+  ///
+  /// Esta consulta pregunta por el otro dueño: `uid_nino`, el uid que quedó
+  /// grabado al crear el perfil desde este mismo teléfono.
+  /// ─────────────────────────────────────────────────────────────────────
+  ///
+  /// Devuelve también los que aún no tienen padre: un perfil recién creado
+  /// que sigue esperando el código es suyo igual.
+  static Future<List<Map<String, dynamic>>> ninosDeEsteDispositivo() async {
+    final uid = _uidActual();
+    if (uid == null) return [];
+
+    final q = await _db
+        .collection('ninos')
+        .where('uid_nino', isEqualTo: uid)
+        .get();
+
+    return q.docs
+        .map((d) => {'id': d.id, ...d.data()})
+        .where((n) => !_estaEliminado(n))
+        .toList();
+  }
+
+  /// Todos los perfiles que este dispositivo puede abrir en modo niño.
+  ///
+  /// Une las dos vías a propósito:
+  ///
+  ///   · `uid_nino == miUid()`  → perfiles creados EN este teléfono.
+  ///   · `id_padre == miUid()`  → perfiles de los que soy el padre.
+  ///
+  /// La segunda no es redundante. Cubre el caso de siempre —una familia con
+  /// una sola cuenta, donde el papá le pasa su propio teléfono al niño— y
+  /// además **todos los perfiles creados antes de que existiera `uid_nino`**,
+  /// que no tienen ese campo y desaparecerían de la lista si solo se usara la
+  /// primera consulta.
+  ///
+  /// Son dos consultas y no un `Filter.or` porque un OR entre dos campos
+  /// distintos obliga a crear un índice compuesto, y porque así cada una
+  /// sigue siendo demostrablemente segura para las reglas por separado.
+  ///
+  /// ═══════════════════════════════════════════════════════════════════════
+  /// CADA CONSULTA FALLA POR SEPARADO, Y ESO ES EL PUNTO
+  ///
+  /// Antes esto era un `Future.wait` pelado. `Future.wait` se rompe en
+  /// cuanto CUALQUIERA de sus futuros falla, aunque el otro ya hubiera
+  /// devuelto datos buenos. Sumado al `catch (_) {}` del provider, el
+  /// resultado era una lista vacía y un niño que veía "No hay niños
+  /// vinculados" con su perfil intacto en Firestore.
+  ///
+  /// Y fallaba de verdad: si a esta función le llega el uid del PADRE
+  /// estando autenticado como el niño, `ninosOrdenados` consulta
+  /// `id_padre == uidDelPadre` mientras las reglas exigen
+  /// `id_padre == miUid()`. Firestore valida el `list` contra los FILTROS de
+  /// la consulta, no contra lo que devolvería, así que eso es
+  /// PERMISSION_DENIED — y se llevaba por delante la consulta por
+  /// `uid_nino`, que sí tenía permiso y sí traía el perfil.
+  ///
+  /// Con cada una envuelta, la pantalla muestra lo que se pueda mostrar. El
+  /// error se imprime en vez de tragárselo: una lista a medias sin rastro en
+  /// el log es exactamente lo que costó encontrar este fallo.
+  /// ═══════════════════════════════════════════════════════════════════════
+  static Future<List<Map<String, dynamic>>> ninosAbriblesEnEsteDispositivo(
+      String uid) async {
+    Future<List<Map<String, dynamic>>> sinRomper(
+      String etiqueta,
+      Future<List<Map<String, dynamic>>> Function() consulta,
+    ) async {
+      try {
+        return await consulta();
+      } catch (e) {
+        debugPrint('ninosAbriblesEnEsteDispositivo [$etiqueta]: $e');
+        return <Map<String, dynamic>>[];
+      }
+    }
+
+    final resultados = await Future.wait([
+      sinRomper('uid_nino', ninosDeEsteDispositivo),
+      sinRomper('id_padre', () => ninosOrdenados(uid)),
+    ]);
+
+    // Un mismo perfil puede salir en las dos listas (familia de una sola
+    // cuenta: el uid es padre y dispositivo a la vez). El Map deduplica por
+    // id sin perder el orden de llegada.
+    final porId = <String, Map<String, dynamic>>{};
+    for (final lista in resultados) {
+      for (final nino in lista) {
+        porId[nino['id'] as String] = nino;
+      }
+    }
+
+    return porId.values.toList();
   }
 
   /// Cuántos hijos puede tener este padre según su plan.
@@ -454,6 +806,52 @@ class FirestoreService {
   }
 
 
+  /// Devuelve al estado "esperando código" todos los perfiles creados desde
+  /// ESTE dispositivo, conservando su contenido.
+  ///
+  /// Se llama justo antes de eliminar la cuenta del teléfono de un niño.
+  /// Sin esto el perfil quedaría apuntando a un uid muerto y ningún teléfono
+  /// podría volver a abrirlo —`uid_nino` es inmutable— así que la familia
+  /// perdería categorías, contraseña e historial por haber cerrado una
+  /// cuenta.
+  ///
+  /// Devuelve `liberados`: una lista de `{nombre, codigo}` con el código
+  /// nuevo de cada perfil, para poder mostrárselo a quien lo va a revincular.
+  ///
+  /// [clave] son los 4 dígitos que el padre definió al vincular. Se manda
+  /// tal cual y **el servidor decide**: aquí no hay con qué comparar, y es a
+  /// propósito. Ver el comentario de la Cloud Function.
+  ///
+  /// Con [soloVerificar] en `true` no libera nada: solo dice si la clave es
+  /// correcta. Sirve para preguntar antes de reautenticar.
+  static Future<Map<String, dynamic>> liberarPerfilesDelDispositivo({
+    String clave = '',
+    bool soloVerificar = false,
+  }) async {
+    try {
+      final resultado = await FirebaseFunctions.instance
+          .httpsCallable('liberarPerfilesDelDispositivo')
+          .call<Map<String, dynamic>>({
+        'clave': clave,
+        'soloVerificar': soloVerificar,
+      });
+
+      return Map<String, dynamic>.from(resultado.data);
+    } on FirebaseFunctionsException catch (e) {
+      return {
+        'success': false,
+        'message': MensajesError.para(e,
+            respaldo: 'No se pudieron liberar los perfiles.'),
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'No se pudieron liberar los perfiles. Revisa tu conexión.',
+      };
+    }
+  }
+
+
   static Future<List<Map<String, dynamic>>> listarNinosPadre(
       String padreId) async {
     final q = await _db
@@ -467,6 +865,15 @@ class FirestoreService {
         .where((n) => !_estaEliminado(n))
         .toList();
   }
+
+
+  /// El documento del padre, en vivo.
+  ///
+  /// Solo funciona para tu PROPIO uid: la regla de `padres` exige
+  /// `padreId == miUid()`. Pedirlo con el uid de otra cuenta no devuelve
+  /// vacío, devuelve PERMISSION_DENIED.
+  static Stream<DocumentSnapshot> streamPadre(String padreId) =>
+      _db.collection('padres').doc(padreId).snapshots();
 
 
   static Stream<DocumentSnapshot> streamNino(String ninoId) =>
@@ -990,14 +1397,47 @@ class FirestoreService {
 
 
   /// Todos los canales que el padre agregó para UN niño.
+  /// Los canales que el padre agregó a mano para [ninoId].
+  ///
+  /// ═══════════════════════════════════════════════════════════════════════
+  /// EL FILTRO CAMBIA SEGÚN QUIÉN PREGUNTA, Y NO ES UN CAPRICHO
+  ///
+  /// **En una consulta, Firestore no evalúa las reglas documento por
+  /// documento: las evalúa contra los FILTROS de la consulta.** Tiene que
+  /// poder demostrar, antes de leer nada, que el resultado solo puede
+  /// contener documentos permitidos.
+  ///
+  /// La regla de `canales` permite leer a dos dueños:
+  ///
+  ///     resource.data.id_padre == miUid()  ||  resource.data.uid_nino == miUid()
+  ///
+  /// Una consulta que filtra por `id_padre` demuestra la primera mitad. Pero
+  /// el teléfono del niño, con su propia cuenta, no es ese uid: filtrando por
+  /// `id_padre` no demuestra ninguna de las dos, y Firestore rechaza la
+  /// consulta **entera** — aunque cada documento cumpliera al mirarlo.
+  ///
+  /// Y como una consulta denegada falla completa, el síntoma no era "faltan
+  /// unos canales": era que al niño no le cargaba NINGÚN video.
+  ///
+  /// Por eso cada lado pregunta por el campo que le corresponde. No abre
+  /// nada: los dos filtros son exactamente las dos mitades de la regla.
+  /// ═══════════════════════════════════════════════════════════════════════
   static Future<List<Map<String, dynamic>>> obtenerTodosCanalesCustom(
       String padreId, String ninoId) async {
-    final q = await _db
+    final uid = _uidActual();
+
+    var consulta = _db
         .collection('canales')
-        .where('id_padre', isEqualTo: padreId)
         .where('id_nino', isEqualTo: ninoId)
-        .where('activo', isEqualTo: true)
-        .get();
+        .where('activo', isEqualTo: true);
+
+    // Si quien pregunta no es el padre, solo puede ser el dispositivo del
+    // niño: es el único otro uid que la regla admite.
+    consulta = (uid != null && uid != padreId)
+        ? consulta.where('uid_nino', isEqualTo: uid)
+        : consulta.where('id_padre', isEqualTo: padreId);
+
+    final q = await consulta.get();
     return q.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
@@ -1023,10 +1463,36 @@ class FirestoreService {
     required String channelUrl,
     required String nombreCanal,
   }) async {
+    // ═════════════════════════════════════════════════════════════════════
+    // EL CANAL TAMBIÉN NECESITA SABER DE QUÉ DISPOSITIVO ES
+    //
+    // Lo escribe el PADRE, pero quien lo LEE es el teléfono del niño, al
+    // cargar sus videos. Mientras los dos compartían cuenta bastaba con
+    // `id_padre`; con cuentas separadas el uid del lector ya no es ese, y la
+    // regla `id_padre == miUid()` denegaba la consulta entera. El síntoma no
+    // era "faltan unos canales": era que no cargaba NINGÚN video, porque en
+    // Firestore una consulta denegada falla completa.
+    //
+    // El uid del niño no lo sabe el padre de memoria: se lee del perfil, que
+    // es justo donde quedó grabado al crearlo.
+    //
+    // Si el perfil no lo tiene —creado antes de este cambio— el campo se
+    // omite. Ese canal seguirá siendo invisible para un niño con cuenta
+    // aparte hasta que se rellene con el backfill; no se inventa un valor.
+    String? uidNino;
+    try {
+      final perfil = await obtenerNino(ninoId);
+      final valor = perfil?['uid_nino'];
+      if (valor is String && valor.isNotEmpty) uidNino = valor;
+    } catch (_) {
+      // Un fallo leyendo el perfil no puede impedir agregar el canal.
+    }
+
     await _db.collection('canales').add({
       'id_padre': padreId,
       // Sin esto el canal aparecía en todos los hijos del padre.
       'id_nino': ninoId,
+      if (uidNino != null) 'uid_nino': uidNino,
       'id_categoria': catId,
       'channel_url': channelUrl,
       'nombre_canal': nombreCanal,

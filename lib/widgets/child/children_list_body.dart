@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/formato_fecha.dart';
 import '../common/serenity_header.dart';
+import '../common/avatar_nino.dart';
 
 class ChildrenListBody extends StatelessWidget {
   final String nombrePadre;
@@ -13,6 +14,17 @@ class ChildrenListBody extends StatelessWidget {
   final VoidCallback onAgregarNino;
   final void Function(Map<String, dynamic>) onSeleccionarNino;
 
+  /// Eliminar la cuenta de correo con la que está abierta la app.
+  ///
+  /// Es NULA cuando esta cuenta es la de un padre con hijos: ese camino ya
+  /// existe en su perfil y repetirlo aquí solo añade un botón peligroso.
+  ///
+  /// No es opcional por comodidad. Google Play exige que toda app que
+  /// permita crear una cuenta ofrezca dentro de la app cómo eliminarla, y
+  /// desde que la tarjeta "Padres" se oculta en los teléfonos de los niños,
+  /// esta pantalla es el único lugar donde esa cuenta puede hacerlo.
+  final VoidCallback? onEliminarCuenta;
+
   const ChildrenListBody({
     super.key,
     required this.nombrePadre,
@@ -22,6 +34,7 @@ class ChildrenListBody extends StatelessWidget {
     required this.onCambiarRol,
     required this.onAgregarNino,
     required this.onSeleccionarNino,
+    this.onEliminarCuenta,
   });
 
   @override
@@ -42,7 +55,11 @@ class ChildrenListBody extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 16),
-              _Header(onBack: onBack, onCambiarRol: onCambiarRol),
+              _Header(
+                onBack: onBack,
+                onCambiarRol: onCambiarRol,
+                onEliminarCuenta: onEliminarCuenta,
+              ),
               const SizedBox(height: 28),
               Expanded(
                 child: Padding(
@@ -68,8 +85,13 @@ class ChildrenListBody extends StatelessWidget {
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onCambiarRol;
+  final VoidCallback? onEliminarCuenta;
 
-  const _Header({required this.onBack, required this.onCambiarRol});
+  const _Header({
+    required this.onBack,
+    required this.onCambiarRol,
+    this.onEliminarCuenta,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -78,9 +100,130 @@ class _Header extends StatelessWidget {
         icon: Icons.arrow_back_ios_new_rounded,
         onTap: onBack,
       ),
-      derecha: _IconBtn(
-        icon: Icons.switch_account_outlined,
-        onTap: onCambiarRol,
+      // ═══════════════════════════════════════════════════════════════════
+      // EL MISMO SITIO, DOS COMPORTAMIENTOS
+      //
+      // `SerenityHeader` reserva 44 px fijos a cada lado y la comparten cinco
+      // pantallas. Meter un segundo botón obligaría a cambiarlas todas, así
+      // que cuando hay algo más que ofrecer, este botón se vuelve un menú.
+      //
+      // Solo pasa en el teléfono del niño (`onEliminarCuenta != null`). En el
+      // del padre sigue siendo un toque directo: no se le añade fricción a
+      // quien no la necesita.
+      //
+      // Y eliminar la cuenta pasa de ser un enlace suelto al final de la
+      // pantalla a estar dentro de un menú: sigue siendo fácil de encontrar
+      // para un adulto que lo busca —Google Play lo exige— pero deja de estar
+      // donde el dedo de un niño lo encuentra sin buscarlo.
+      // ═══════════════════════════════════════════════════════════════════
+      derecha: onEliminarCuenta == null
+          ? _IconBtn(
+              icon: Icons.switch_account_outlined,
+              onTap: onCambiarRol,
+            )
+          : _MenuBtn(
+              onCambiarRol: onCambiarRol,
+              onEliminarCuenta: onEliminarCuenta!,
+            ),
+    );
+  }
+}
+
+class _MenuBtn extends StatelessWidget {
+  final VoidCallback onCambiarRol;
+  final VoidCallback onEliminarCuenta;
+
+  const _MenuBtn({
+    required this.onCambiarRol,
+    required this.onEliminarCuenta,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<int>(
+      // Sin relleno propio: el círculo de abajo ya ocupa los 44 px del hueco.
+      padding: EdgeInsets.zero,
+      tooltip: 'Opciones',
+      color: AppColors.bgCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: AppColors.accentCyan.withOpacity(0.25),
+          width: 1,
+        ),
+      ),
+      onSelected: (valor) {
+        if (valor == 0) onCambiarRol();
+        if (valor == 1) onEliminarCuenta();
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 0,
+          child: Row(
+            children: [
+              Icon(
+                Icons.switch_account_outlined,
+                size: 18,
+                color: AppColors.accentCyan,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Cambiar de perfil',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPearl,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(height: 1),
+        PopupMenuItem(
+          value: 1,
+          child: Row(
+            children: [
+              const Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+                color: Colors.redAccent,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Eliminar esta cuenta',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.redAccent,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.bgCard,
+          border: Border.all(
+            color: AppColors.accentCyan.withOpacity(0.4),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accentCyan.withOpacity(0.15),
+              blurRadius: 12,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.more_vert_rounded,
+          color: AppColors.accentCyan,
+          size: 19,
+        ),
       ),
     );
   }
@@ -280,6 +423,7 @@ class ListCard extends StatelessWidget {
           nombre: (nino['nombre'] ?? '').toString(),
           fechaNacimiento: (nino['fecha_nacimiento'] ?? '').toString(),
           activo: nino['id_padre'] != null,
+          avatarId: nino['avatar'] as String?,
           onTap: () => onSeleccionarNino(nino),
         );
       },
@@ -377,6 +521,7 @@ class ChildTile extends StatelessWidget {
   final String nombre;
   final String fechaNacimiento;
   final bool activo;
+  final String? avatarId;
   final VoidCallback onTap;
 
   const ChildTile({
@@ -384,6 +529,7 @@ class ChildTile extends StatelessWidget {
     required this.nombre,
     required this.fechaNacimiento,
     required this.activo,
+    this.avatarId,
     required this.onTap,
   });
 
@@ -404,33 +550,10 @@ class ChildTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.accentViolet, AppColors.accentCyan],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.accentViolet.withOpacity(0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
+            AvatarNino(
+              avatarId: avatarId,
+              nombre: nombre,
+              tamano: 46,
             ),
             const SizedBox(width: 14),
             Expanded(

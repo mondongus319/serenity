@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../utils/app_colors.dart';
+import '../common/avatar_nino.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET PURAMENTE VISUAL — sin lógica de negocio
@@ -9,12 +10,17 @@ class ChildHomeBody extends StatelessWidget {
   final String nombreNino;
   final VoidCallback onCerrarSesion;
   final VoidCallback onYoutube;
+  /// La foto elegida, y qué hacer cuando el niño toca para cambiarla.
+  final String? avatarId;
+  final VoidCallback? onCambiarAvatar;
 
   const ChildHomeBody({
     super.key,
     required this.nombreNino,
     required this.onCerrarSesion,
     required this.onYoutube,
+    this.avatarId,
+    this.onCambiarAvatar,
   });
 
   @override
@@ -48,6 +54,8 @@ class ChildHomeBody extends StatelessWidget {
                     child: _ChildCard(
                       nombreNino: nombreNino,
                       onYoutube: onYoutube,
+                      avatarId: avatarId,
+                      onCambiarAvatar: onCambiarAvatar,
                     ),
                   ),
                 ),
@@ -137,10 +145,14 @@ class _ChildHeader extends StatelessWidget {
 class _ChildCard extends StatelessWidget {
   final String nombreNino;
   final VoidCallback onYoutube;
+  final String? avatarId;
+  final VoidCallback? onCambiarAvatar;
 
   const _ChildCard({
     required this.nombreNino,
     required this.onYoutube,
+    this.avatarId,
+    this.onCambiarAvatar,
   });
 
   @override
@@ -172,7 +184,16 @@ class _ChildCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Avatar con inicial ───────────────────────────────────────
-          _ChildAvatar(nombre: nombreNino),
+          // El único sitio donde la foto se puede cambiar: su propia
+          // pantalla. El lápiz es lo que hace que un niño descubra que se
+          // puede tocar — sin él, nadie adivina que un avatar es un botón.
+          AvatarNino(
+            avatarId: avatarId,
+            nombre: nombreNino,
+            tamano: 88,
+            editable: onCambiarAvatar != null,
+            onTap: onCambiarAvatar,
+          ),
 
           const SizedBox(height: 16),
 
@@ -248,50 +269,9 @@ class _ChildCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AVATAR CON INICIAL
-// ─────────────────────────────────────────────────────────────────────────────
-class _ChildAvatar extends StatelessWidget {
-  final String nombre;
-  const _ChildAvatar({required this.nombre});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 88,
-      height: 88,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [AppColors.accentViolet, AppColors.accentCyan],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accentViolet.withOpacity(0.3),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: AppColors.accentCyan.withOpacity(0.2),
-            blurRadius: 28,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        nombre.isNotEmpty ? nombre[0].toUpperCase() : 'N',
-        style: GoogleFonts.poppins(
-          fontSize: 36,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-}
+// `_ChildAvatar` se fue: lo reemplazó `AvatarNino`, el mismo widget que usan
+// la lista del padre, el detalle del hijo y la lista de perfiles. Era la
+// cuarta copia del mismo círculo con la inicial.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BOTÓN DE APP — público para reutilización

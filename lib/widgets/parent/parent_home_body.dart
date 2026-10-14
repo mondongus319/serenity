@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../utils/app_colors.dart';
+import '../common/avatar_nino.dart';
 import '../../utils/formato_fecha.dart';
 import '../common/serenity_header.dart';
 
@@ -335,6 +336,7 @@ class ChildrenCard extends StatelessWidget {
                             // existen en la base de datos, por lo que la fecha
                             // de nacimiento salía siempre vacía.
                             nombre: (nino['nombre'] ?? '').toString(),
+                            avatarId: (nino['avatar'] as String?),
                             fechaNacimiento:
                                 (nino['fecha_nacimiento'] ?? '').toString(),
                             activo: nino['id_padre'] != null,
@@ -471,6 +473,8 @@ class DarkChildTile extends StatelessWidget {
   final String nombre;
   final String fechaNacimiento;
   final bool activo;
+  /// La foto que eligió el niño. El padre ve la misma que él.
+  final String? avatarId;
   final VoidCallback onTap;
   final VoidCallback onEliminar;
 
@@ -480,6 +484,7 @@ class DarkChildTile extends StatelessWidget {
     required this.nombre,
     required this.fechaNacimiento,
     required this.activo,
+    this.avatarId,
     required this.onTap,
     required this.onEliminar,
   });
@@ -508,33 +513,10 @@ class DarkChildTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.accentViolet, AppColors.accentCyan],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.accentViolet.withOpacity(0.28),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
+            AvatarNino(
+              avatarId: avatarId,
+              nombre: nombre,
+              tamano: 42,
             ),
             const SizedBox(width: 14),
             Expanded(

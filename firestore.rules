@@ -79,7 +79,16 @@ service cloud.firestore {
     function camposDelPlan() {
       return ['premium', 'premium_hasta', 'premium_origen',
               'premium_estado_play', 'premium_product_id',
-              'premium_actualizado_en'];
+              'premium_actualizado_en',
+              // No es un campo del plan, pero se protege igual y por el
+              // mismo motivo: lo escribe SOLO el servidor.
+              //
+              // `es_dispositivo_nino` marca las cuentas que son el teléfono
+              // de un menor. Lo pone `vincularNino` cuando detecta que el
+              // perfil lo creó una cuenta distinta a la que lo vincula, y de
+              // ahí cuelga el trato especial que esa cuenta debe recibir.
+              // Si el cliente pudiera quitársela, la marca no valdría nada.
+              'es_dispositivo_nino'];
     }
 
     function noTocaElPlan() {
@@ -125,24 +134,131 @@ service cloud.firestore {
     // Separándolas, para leer un niño sin dueño hay que conocer de antemano
     // su id de documento —20 caracteres aleatorios que genera Firestore— y
     // ya no se puede enumerar la colección.
+    // ═══════════════════════════════════════════════════════════════════
+    // DOS DUEÑOS, NO UNO
+    //
+    // Antes un perfil de niño tenía un solo dueño: `id_padre`. Eso daba por
+    // supuesto que el teléfono del niño estaba autenticado con la cuenta del
+    // padre, porque era la única forma de que `id_padre == miUid()` fuera
+    // cierto allí.
+    //
+    // Cuando eso no se cumplía, el fallo era desconcertante: el perfil se
+    // creaba bien y el listener de vinculación arrancaba bien —mientras
+    // `id_padre` es null cualquiera con cuenta puede leerlo— y moría con
+    // PERMISSION_DENIED en el instante EXACTO en que el padre metía el
+    // código, porque justo ahí `id_padre` dejaba de ser null y pasaba a ser
+    // un uid ajeno. La app decía "Conexión perdida".
+    //
+    // Ahora el documento guarda también `uid_nino`: el uid de la sesión que
+    // creó el perfil, o sea la del dispositivo del niño. Un perfil pertenece
+    // a los dos, con permisos MUY distintos:
+    //
+    //   id_padre  → manda. Configura categorías, contraseña, límites.
+    //   uid_nino  → solo reporta. Su ubicación y su tiempo de uso.
+    //
+    // ⚠️ `uid_nino` se fija al crear y NO se puede cambiar nunca más. Si se
+    //    pudiera reescribir, cualquiera se adjudicaría el perfil de otro
+    //    niño y le leería la ubicación.
+    //
+    // Compatibilidad: los perfiles creados antes de esto no tienen el campo.
+    // Por eso se lee con `.get('uid_nino', null)` y no con acceso directo:
+    // en las reglas de Firestore, leer un campo que no existe no da false,
+    // da ERROR DE EVALUACIÓN, y el error se traduce en denegar. Sin el
+    // `.get()`, esta regla le habría cerrado la app a todos los usuarios
+    // anteriores al cambio.
+    // ═══════════════════════════════════════════════════════════════════
     match /ninos/{ninoId} {
 
-      // Un documento suelto: el tuyo, o el que está esperando vinculación.
+      function esElPadre() {
+        return resource.data.get('id_padre', null) == miUid();
+      }
+
+      function esElDispositivoDelNino() {
+        return resource.data.get('uid_nino', null) == miUid();
+      }
+
+      // Lo que el dispositivo del niño tiene permitido escribir: lo que
+      // reporta sobre sí mismo, y nada más. No puede tocar las categorías
+      // permitidas, ni la contraseña, ni el límite de tiempo, ni mucho menos
+      // `id_padre` o `uid_nino`.
+      //
+      // Esto además APRIETA lo que había antes: cuando el teléfono del niño
+      // usaba la sesión del padre, tenía permiso para reescribir el perfil
+      // entero, incluidas las categorías que su papá le había restringido.
+      function soloCamposDelNino() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly([
+                   'latitud',
+                   'longitud',
+                   'precision_metros',
+                   'fecha_ultima_ubicacion',
+                   'consumido_segundos',
+                   'sesion_activa',
+                   'limite_fecha',
+                   'ultimo_latido',
+                   'aviso_5min_enviado',
+                   'aviso_fin_enviado',
+                   // La foto de perfil la elige el NIÑO, así que tiene que
+                   // poder escribirla él. Es el único campo de esta lista
+                   // que no es telemetría.
+                   //
+                   // No abre nada: guarda un id corto de un catálogo cerrado
+                   // que vive dentro de la app, no una imagen ni una URL. Lo
+                   // peor que puede escribir un APK modificado es un id que
+                   // no existe, y entonces se ve la inicial de siempre.
+                   'avatar'
+                 ]);
+      }
+
+      // Un documento suelto: el tuyo, el del niño de este teléfono, o el que
+      // todavía espera vinculación.
       allow get: if conCuenta() && (
-                   resource.data.id_padre == miUid() ||
-                   resource.data.id_padre == null
+                   esElPadre() ||
+                   esElDispositivoDelNino() ||
+                   resource.data.get('id_padre', null) == null
                  );
 
-      // Consultas: SOLO los tuyos. Las tres consultas reales de la app
-      // (`ninosOrdenados`, `ninosPermitidos` y la del perfil) ya filtran por
-      // `where('id_padre', isEqualTo: padreId)`, así que Firestore puede
-      // demostrarlas seguras y siguen funcionando igual.
-      allow list: if conCuenta() && resource.data.id_padre == miUid();
+      // Consultas. El `||` no abre nada: las reglas se evalúan contra CADA
+      // documento devuelto, así que una consulta solo puede traer perfiles
+      // en los que quien pregunta es el padre o es el dispositivo del niño.
+      // Cualquier otro documento que cayera en el resultado tumbaría la
+      // consulta entera.
+      allow list: if conCuenta() && (
+                    esElPadre() ||
+                    esElDispositivoDelNino()
+                  );
 
-      // Un perfil nace sin dueño y desactivado.
+      // Un perfil nace sin dueño, desactivado, y marcado con el uid del
+      // dispositivo que lo está creando.
+      //
+      // ⏳ LA SEGUNDA RAMA ES TEMPORAL, Y SIN ELLA SE ROMPE LA APP VIEJA.
+      //
+      // Las reglas se despliegan de golpe; los APK se actualizan cuando cada
+      // usuario quiere. Un teléfono con la versión anterior llama a
+      // `crearNino()` sin `uid_nino`, así que exigirlo a secas le impediría
+      // registrar un niño — a todo el que no haya actualizado todavía, y sin
+      // ningún aviso que le diga por qué.
+      //
+      // No abre nada: un perfil creado sin `uid_nino` se comporta como antes
+      // —solo lo alcanza el padre que lo vincule— porque `esElDispositivoDelNino()`
+      // nunca será cierto para él.
+      //
+      // CUÁNDO QUITARLA: cuando la versión mínima en Play Console ya incluya
+      // este cambio, o cuando `auditoria-datos.js` reporte cero perfiles sin
+      // `uid_nino` creados después de la fecha de publicación.
+      // ⚠️ TODO CON `.get()`, NUNCA CON ACCESO DIRECTO.
+      //
+      // `request.resource.data.id_padre` sobre una escritura que no trae ese
+      // campo no devuelve false: LANZA un error de evaluación. El resultado
+      // final es el mismo —denegar— pero el error tapa el motivo real y hace
+      // imposible leer por qué falló algo en los registros.
       allow create: if conCuenta()
-                    && request.resource.data.id_padre == null
-                    && request.resource.data.activo == false;
+                    && request.resource.data.get('id_padre', null) == null
+                    && request.resource.data.get('activo', true) == false
+                    && (
+                      request.resource.data.get('uid_nino', null) == miUid() ||
+                      request.resource.data.get('uid_nino', null) == null
+                    );
 
       // Solo el dueño.
       //
@@ -152,7 +268,34 @@ service cloud.firestore {
       // `vincularNino`, que entra con el SDK de administrador —no pasa por
       // estas reglas— y de paso verifica el tope de hijos del plan, cosa que
       // el cliente no podía hacer de forma confiable.
-      allow update: if conCuenta() && resource.data.id_padre == miUid();
+      // ── EL PADRE: manda sobre el perfil ──────────────────────────────
+      //
+      // Lo único que tampoco puede es reescribir a quién pertenece ni si el
+      // perfil entra en el plan. Sin esas condiciones, un padre podría
+      // apuntar `uid_nino` a otro dispositivo, cederse un perfil ajeno, o
+      // —lo más goloso— ponerse `dentro_del_plan: true` en todos sus hijos
+      // desde un APK modificado y saltarse el Premium entero.
+      //
+      // `dentro_del_plan` lo escribe SOLO el servidor, en
+      // `recalcularAccesoHijos()`, que corre con el SDK de administrador y
+      // no pasa por estas reglas.
+      //
+      // El `resource != null` de delante no sobra: una escritura con
+      // `set(merge: true)` hace que el motor evalúe TAMBIÉN la rama de
+      // update, y ahí `resource` puede venir nulo. Sin la guarda, esta regla
+      // lanza en vez de responder.
+      allow update: if conCuenta()
+                    && resource != null
+                    && esElPadre()
+                    && request.resource.data.get('id_padre', null) == resource.data.get('id_padre', null)
+                    && request.resource.data.get('uid_nino', null) == resource.data.get('uid_nino', null)
+                    && request.resource.data.get('dentro_del_plan', null) == resource.data.get('dentro_del_plan', null);
+
+      // ── EL DISPOSITIVO DEL NIÑO: solo reporta lo suyo ────────────────
+      allow update: if conCuenta()
+                    && resource != null
+                    && esElDispositivoDelNino()
+                    && soloCamposDelNino();
 
       // Nunca se borra: se marca `eliminado: true`. Así no quedan colgando
       // las referencias del historial de uso ni de las sesiones.
@@ -160,12 +303,34 @@ service cloud.firestore {
     }
 
     // ── CANALES QUE AGREGA EL PADRE ──────────────────────────────────────
+    //
+    // ⚠️ LOS ESCRIBE EL PADRE PERO LOS LEE EL NIÑO.
+    //
+    // Es el mismo reparto que en `uso_diario`, y se olvidó al separar las
+    // cuentas. La regla exigía `id_padre == miUid()` también para leer, así
+    // que el teléfono del niño —con su propia cuenta— se topaba con un
+    // PERMISSION_DENIED al cargar sus videos.
+    //
+    // Y no fallaba a medias: en Firestore una consulta denegada **falla
+    // entera**, así que no era "faltan los canales que agregó papá", era que
+    // no cargaba ningún video. Un fallo en una colección secundaria tumbaba
+    // la pantalla principal del niño.
+    //
+    // Por eso el documento guarda ahora también `uid_nino`, copiado del
+    // perfil al agregar el canal. Escribir y borrar siguen siendo solo del
+    // padre: el niño no se agrega canales a sí mismo.
     match /canales/{canalId} {
-      allow read: if conCuenta() && resource.data.id_padre == miUid();
+      allow read: if conCuenta() && (
+                    resource.data.get('id_padre', null) == miUid() ||
+                    resource.data.get('uid_nino', null) == miUid()
+                  );
+
       allow create: if conCuenta()
-                    && request.resource.data.id_padre == miUid();
+                    && request.resource.data.get('id_padre', null) == miUid();
+
       allow update, delete: if conCuenta()
-                            && resource.data.id_padre == miUid();
+                            && resource != null
+                            && resource.data.get('id_padre', null) == miUid();
     }
 
     // ── CATÁLOGO ─────────────────────────────────────────────────────────
@@ -242,27 +407,84 @@ service cloud.firestore {
     // regla tendría que hacer un get() al documento del niño para saber de
     // quién es, y eso cuesta una lectura extra por cada documento leído.
     //
-    // El dispositivo del niño escribe con la sesión del padre (al modo niño
-    // se entra después de que el padre inicia sesión), así que `miUid()`
-    // sirve tanto para leer como para escribir.
+    // ⚠️ AQUÍ ESCRIBE EL NIÑO Y LEE EL PADRE — Y YA NO SON EL MISMO UID.
+    //
+    // Antes lo eran: al modo niño se entraba después de que el padre iniciara
+    // sesión, así que `miUid()` servía para las dos cosas. Con cuentas
+    // separadas el dispositivo del niño tiene su propio uid, y una regla que
+    // solo mirara `id_padre` le cerraría la escritura de su propio uso.
+    //
+    // Por eso el documento guarda los DOS uids. Es la misma decisión que ya
+    // estaba tomada para `id_padre`: duplicar el dato dentro del documento
+    // sale más barato que hacer un get() al perfil del niño en cada lectura.
+    //
+    // El reparto es asimétrico a propósito:
+    //
+    //   id_padre  → lee (reporte semanal) y borra (eliminación de cuenta)
+    //   uid_nino  → solo escribe su propio uso. NO lee el historial: un
+    //               teléfono infantil no tiene por qué poder descargar el
+    //               registro de meses anteriores.
     match /uso_diario/{docId} {
       // `resource == null` cubre el mes que todavía no existe: sin eso, leer
       // un mes sin uso devolvería PERMISSION_DENIED en vez de "no está".
       allow read: if conCuenta() && (
                     resource == null ||
-                    resource.data.id_padre == miUid()
+                    resource.data.get('id_padre', null) == miUid()
                   );
 
-      allow create: if conCuenta()
-                    && request.resource.data.id_padre == miUid();
+      allow create: if conCuenta() && (
+                      request.resource.data.get('id_padre', null) == miUid() ||
+                      request.resource.data.get('uid_nino', null) == miUid()
+                    );
 
-      // No se puede cambiar de dueño en una actualización.
+      // No se puede cambiar de dueño en una actualización: los dos uids
+      // tienen que seguir siendo los mismos después de escribir.
+      //
+      // ⚠️ CON UNA EXCEPCIÓN, Y ES NECESARIA. Los documentos de uso escritos
+      // antes de este cambio no tienen `uid_nino`. Cuando el teléfono del
+      // niño vuelva a reportar sobre el mes en curso, va a escribirlo por
+      // primera vez: eso es null → miUid(), que sin esta excepción sería
+      // "cambiar de dueño" y quedaría denegado. El niño no podría seguir
+      // registrando su tiempo en el mes que ya tenía empezado.
+      //
+      // Solo se permite estrenar el campo con el uid PROPIO, y solo a quien
+      // YA es dueño del documento por la otra vía. Apuntarlo a un tercero
+      // sigue prohibido, y una vez puesto ya no se puede mover.
+      //
+      // Lo que NO se hace aquí: permitir la escritura solo porque el campo
+      // esté vacío. Sería un hueco — cualquiera con cuenta podría adivinar
+      // un id `{ninoId}_{yyyy-MM}` y escribir en el historial de otro niño.
       allow update: if conCuenta()
-                    && resource.data.id_padre == miUid()
-                    && request.resource.data.id_padre == miUid();
+                    && resource != null
+                    && (
+                      resource.data.get('id_padre', null) == miUid() ||
+                      resource.data.get('uid_nino', null) == miUid()
+                    )
+                    && request.resource.data.get('id_padre', null) == resource.data.get('id_padre', null)
+                    && (
+                      request.resource.data.get('uid_nino', null) == resource.data.get('uid_nino', null) ||
+                      (
+                        resource.data.get('uid_nino', null) == null &&
+                        request.resource.data.get('uid_nino', null) == miUid()
+                      )
+                    );
 
-      // El historial de uso no se borra desde la app.
-      allow delete: if false;
+      // Solo se borra al eliminar el perfil del niño o la cuenta entera, y
+      // solo lo tuyo.
+      //
+      // Antes estaba en `false`, con el criterio de que un historial no se
+      // borra. El criterio cambió por una razón concreta: los requisitos de
+      // eliminación de cuentas de Google Play exigen que los datos se
+      // supriman de verdad cuando el usuario lo pide, y la página pública de
+      // eliminación promete que este historial desaparece. Una regla que lo
+      // impidiera convertiría esa promesa en mentira.
+      //
+      // No abre nada: hay que ser el PADRE. El dispositivo del niño puede
+      // escribir su uso pero no borrarlo — si no, bastaría con abrir la app
+      // del niño para hacer desaparecer las horas de ayer.
+      allow delete: if conCuenta()
+                    && resource != null
+                    && resource.data.get('id_padre', null) == miUid();
     }
 
     // ── COMPRAS DE GOOGLE PLAY ───────────────────────────────────────────

@@ -9,6 +9,17 @@ class RoleSelectionBody extends StatelessWidget {
   final Future<void> Function() onTapNinos;
   final AnimationController animationController;
 
+  /// false en un teléfono que ya es el dispositivo de un niño de OTRA cuenta.
+  ///
+  /// Sin esto, el teléfono del hijo enseña "Padres" y al tocarlo entra a un
+  /// panel de gestión vacío: no hay ningún perfil cuyo `id_padre` sea esta
+  /// cuenta. No es un agujero de seguridad —las reglas no le dejarían ver
+  /// nada ajeno— pero es una puerta que no lleva a ninguna parte y que en el
+  /// teléfono de un menor no pinta nada.
+  /// `null` mientras no se sabe si esta cuenta es un padre o el teléfono de
+  /// un niño. Ver `_decidirSiMostrarPadres()` en la pantalla.
+  final bool? mostrarOpcionPadres;
+
   static const String _iconPadre = 'assets/images/icons/padre.png';
   static const String _iconNino = 'assets/images/icons/nino.png';
 
@@ -19,6 +30,7 @@ class RoleSelectionBody extends StatelessWidget {
     required this.onTapPadres,
     required this.onTapNinos,
     required this.animationController,
+    this.mostrarOpcionPadres,
   });
 
   @override
@@ -65,6 +77,7 @@ class RoleSelectionBody extends StatelessWidget {
                   animationController: animationController,
                   onTapPadres: onTapPadres,
                   onTapNinos: onTapNinos,
+                  mostrarOpcionPadres: mostrarOpcionPadres,
                   iconPadre: _iconPadre,
                   iconNino: _iconNino,
                 ),
@@ -125,6 +138,7 @@ class _MainCard extends StatelessWidget {
   final AnimationController animationController;
   final Future<void> Function() onTapPadres;
   final Future<void> Function() onTapNinos;
+  final bool? mostrarOpcionPadres;
   final String iconPadre;
   final String iconNino;
 
@@ -134,6 +148,7 @@ class _MainCard extends StatelessWidget {
     required this.animationController,
     required this.onTapPadres,
     required this.onTapNinos,
+    required this.mostrarOpcionPadres,
     required this.iconPadre,
     required this.iconNino,
   });
@@ -192,27 +207,56 @@ class _MainCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               child: Column(
                 children: [
-                  _RoleButton(
-                    title: 'Padres',
-                    subtitle: 'Gestiona los perfiles',
-                    assetPath: iconPadre,
-                    fallbackEmoji: '👨',
-                    scaleAnimation: scaleAnimation,
-                    animationController: animationController,
-                    onTap: onTapPadres,
-                    isPrimary: true,
-                  ),
-                  const SizedBox(height: 14),
-                  _RoleButton(
-                    title: 'Niños',
-                    subtitle: 'Accede a tu cuenta',
-                    assetPath: iconNino,
-                    fallbackEmoji: '🧒',
-                    scaleAnimation: scaleAnimation,
-                    animationController: animationController,
-                    onTap: onTapNinos,
-                    isPrimary: false,
-                  ),
+                  // ── MIENTRAS NO SE SABE, NO SE DIBUJA NINGUNA TARJETA ────
+                  //
+                  // Antes se daba por hecho que sí había que mostrar
+                  // "Padres", y en el teléfono del niño la tarjeta aparecía y
+                  // se borraba sola un par de segundos después, cuando las
+                  // dos consultas terminaban.
+                  //
+                  // Un botón que se desvanece delante del usuario parece una
+                  // app rota, y encima invita a volver a entrar para ver si
+                  // esta vez alcanza a tocarlo. La decisión se recuerda por
+                  // cuenta, así que esta espera solo se ve la primera vez.
+                  if (mostrarOpcionPadres == null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 34),
+                      child: SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: AppColors.accentCyan,
+                        ),
+                      ),
+                    )
+                  else ...[
+                    if (mostrarOpcionPadres == true) ...[
+                      _RoleButton(
+                        title: 'Padres',
+                        subtitle: 'Gestiona los perfiles',
+                        assetPath: iconPadre,
+                        fallbackEmoji: '👨',
+                        scaleAnimation: scaleAnimation,
+                        animationController: animationController,
+                        onTap: onTapPadres,
+                        isPrimary: true,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    _RoleButton(
+                      title: 'Niños',
+                      subtitle: 'Accede a tu cuenta',
+                      assetPath: iconNino,
+                      fallbackEmoji: '🧒',
+                      scaleAnimation: scaleAnimation,
+                      animationController: animationController,
+                      onTap: onTapNinos,
+                      // Cuando es la única opción deja de ser la secundaria:
+                      // una pantalla con un solo botón apagado parece rota.
+                      isPrimary: mostrarOpcionPadres != true,
+                    ),
+                  ],
                 ],
               ),
             ),

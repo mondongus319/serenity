@@ -27,6 +27,70 @@ class AuthService {
   static String _mensajeDeError(FirebaseAuthException e) =>
       MensajesError.para(e);
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // SESIÓN CAÍDA
+  //
+  // Varias operaciones de aquí necesitan `currentUser`. Cuando es null no es
+  // un error más: la sesión dejó de existir y ningún reintento la va a
+  // revivir. Le pasa a un usuario real si el token caduca, si cambia su
+  // contraseña desde otro teléfono, o si su cuenta se eliminó desde otro
+  // lado.
+  //
+  // Antes esto devolvía "No hay usuario autenticado" y la pantalla lo
+  // mostraba como cualquier otro fallo: un mensaje técnico, en una pantalla
+  // donde ya nada funcionaba y sin ninguna salida. Al usuario solo le
+  // quedaba matar la app.
+  //
+  // La bandera `sesionExpirada` existe para que la interfaz distinga este
+  // caso y haga lo único que sirve: cerrar sesión y mandar al login. La
+  // consume `manejarSesionExpirada()`, en `lib/utils/sesion.dart`.
+  // ═══════════════════════════════════════════════════════════════════════
+  static Map<String, dynamic> _sinSesion() => {
+        'success': false,
+        'sesionExpirada': true,
+        'message':
+            'Tu sesión se cerró. Vuelve a iniciar sesión para continuar.',
+      };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ¿PODEMOS FIARNOS DE ESTE CORREO?
+  //
+  // Vive aquí, en un solo sitio, porque la misma pregunta se hace en TRES
+  // pantallas distintas y se respondía mal en las tres:
+  //
+  //   · `loginUsuario()`          → mandaba a verificar una cuenta de Google
+  //   · `SplashScreen`            → al arrancar, no reconocía la sesión
+  //   · `VerifyEmailScreen`       → se quedaba esperando una verificación
+  //                                 que nunca iba a llegar
+  //
+  // Todas preguntaban `user.emailVerified` a secas. Esa bandera no dice si
+  // el correo es de verdad del usuario: dice si Firebase mandó SU correo de
+  // verificación y alguien pulsó el enlace. Quien entró con Google ya
+  // demostró que el correo es suyo —Google lo verificó antes de emitir el
+  // token—, y aun así la bandera puede llegar en false.
+  //
+  // El dato fiable es el proveedor, no la bandera.
+  //
+  // ⚠️ El fallo del Splash era el más raro de diagnosticar: Android REINICIA
+  // el proceso de la app cuando el usuario cambia un permiso en Ajustes. El
+  // usuario iba a conceder la ubicación, volvía, y la app arrancaba de cero,
+  // no reconocía su sesión y lo devolvía al login. Parecía un problema de
+  // permisos y era este.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Proveedores que verifican el correo por su cuenta antes de emitir el
+  /// token. Si algún día se añade Apple o Microsoft, se agregan aquí y las
+  /// tres pantallas se enteran solas.
+  static const Set<String> _proveedoresDeConfianza = {'google.com'};
+
+  /// true si podemos dar el correo de [user] por verificado.
+  static bool correoConfiable(User user) {
+    if (user.emailVerified) return true;
+    return user.providerData.any(
+      (p) => _proveedoresDeConfianza.contains(p.providerId),
+    );
+  }
+
   /// Reintenta [accion] cuando falla por red.
   ///
   /// Un fallo de red en un celular casi nunca es permanente: es el segundo
@@ -111,7 +175,21 @@ class AuthService {
       );
       final user = cred.user!;
 
-      if (!user.emailVerified) {
+      if (!correoConfiable(user)) {
+        // ⚠️ EL ENVÍO VA ANTES DEL signOut. Es el único instante de todo el
+        // flujo en que hay una sesión viva para hacerlo.
+        //
+        // Antes no se enviaba nada en ningún momento: se cerraba la sesión y
+        // se mandaba al usuario a VerifyEmailScreen, que sin sesión y sin la
+        // contraseña no podía enviar tampoco. La app decía "revisa tu bandeja
+        // de entrada" y no había salido ningún correo.
+        try {
+          await user.sendEmailVerification();
+        } catch (_) {
+          // Si falla (cuota, red), el usuario todavía tiene el botón de
+          // reenviar. No es motivo para dejarlo entrar sin verificar.
+        }
+
         await _auth.signOut();
         return {
           'success': false,
@@ -349,7 +427,7 @@ class AuthService {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        return {'success': false, 'message': 'No hay usuario autenticado'};
+        return _sinSesion();
       }
 
       final email = user.email;
@@ -482,7 +560,7 @@ class AuthService {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        return {'success': false, 'message': 'No hay usuario autenticado'};
+        return _sinSesion();
       }
 
       final googleUser = await _googleSignIn.signIn();
@@ -516,7 +594,7 @@ class AuthService {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        return {'success': false, 'message': 'No hay usuario autenticado'};
+        return _sinSesion();
       }
 
       final credential = EmailAuthProvider.credential(
@@ -553,7 +631,7 @@ class AuthService {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        return {'success': false, 'message': 'No hay usuario autenticado'};
+        return _sinSesion();
       }
 
       await user.delete();
